@@ -24,25 +24,31 @@ pub fn decrypt(key: &Key, header_cipher: &[u8]) -> Vec<u8> {
     decrypted1
 }
 
+#[allow(dead_code)]
+pub fn build_key() -> Key {
+    use sodiumoxide::crypto::pwhash;
+
+    let passwd = b"Correct Horse Battery Staple";
+    let salt = pwhash::gen_salt();
+
+    let mut raw_key = [0u8; 32];
+
+    pwhash::derive_key(&mut raw_key, passwd, &salt,
+                       pwhash::OPSLIMIT_INTERACTIVE,
+                       pwhash::MEMLIMIT_INTERACTIVE).unwrap();
+
+    Key(raw_key)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_encrypt_and_decrypt2() {
-        use sodiumoxide::crypto::pwhash;
-
-        let passwd = b"Correct Horse Battery Staple";
-        let salt = pwhash::gen_salt();
-
-        let mut raw_key = [0u8; 32];
-
-        pwhash::derive_key(&mut raw_key, passwd, &salt,
-                           pwhash::OPSLIMIT_INTERACTIVE,
-                           pwhash::MEMLIMIT_INTERACTIVE).unwrap();
+        let key: Key = build_key();
 
         let array: &[u8] = &[22 as u8];
-        let key: Key = Key(raw_key);
 
         let header_cipher = encrypt(&key, &array);
         let decipher = decrypt(&key, &header_cipher);
