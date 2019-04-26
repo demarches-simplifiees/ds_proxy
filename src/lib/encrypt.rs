@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 use sodiumoxide::crypto::secretstream::{Tag};
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Key, Header};
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;

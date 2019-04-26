@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
+
 use super::encrypt;
 use actix_multipart::{Multipart};
 use actix_web::client::Client;
