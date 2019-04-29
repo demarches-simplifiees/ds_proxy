@@ -22,7 +22,7 @@ pub fn build_key() -> Key {
     use sodiumoxide::crypto::pwhash;
 
     let passwd = b"Correct Horse Battery Staple";
-    let salt = pwhash::gen_salt();
+    let salt = sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt::from_slice(&[170, 111, 168, 154, 69, 120, 180, 73, 145, 157, 199, 205, 254, 227, 149, 8, 204, 185, 14, 56, 249, 178, 47, 47, 189, 158, 227, 250, 192, 13, 41, 76]).unwrap();
 
     let mut raw_key = [0u8; xchacha20poly1305::KEYBYTES];
 
