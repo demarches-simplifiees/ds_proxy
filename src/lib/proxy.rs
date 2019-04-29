@@ -21,7 +21,7 @@ fn forward(
 
     client.put(url)
         .header("User-Agent", "Actix-web")
-        .send_stream(payload)                             // <- Send http request
+        .send_stream(super::encrypt::encrypt_stream(payload))                             // <- Send http request
         .map_err(|e| {
             println!("==== erreur1 ====");
             println!("{:?}", e);
