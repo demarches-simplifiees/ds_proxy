@@ -5,6 +5,29 @@ use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Key, Header};
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use futures::stream;
 use futures::stream::Stream;
+use futures::future::Future;
+use actix_web::{Error};
+use bytes::Bytes;
+
+pub fn encrypt_stream<S, E>(stream: S) -> impl Stream<Item = Bytes, Error = E> + 'static
+where S: Stream<Item = Bytes, Error = E> + 'static,
+      E: Into<Error> + 'static,
+{
+    let key: Key = build_key();
+    let (mut enc_stream, header) = xchacha20poly1305::Stream::init_push(&key).unwrap();
+
+    let header_bytes = Bytes::from(header.as_ref());
+    let header_stream = stream::once::<Bytes, E>(Ok(header_bytes));
+
+    let encoder = stream
+        .map(move |slice: Bytes| {
+            let encoded = encrypt(&mut enc_stream, &slice);
+            Bytes::from(encoded)
+        });
+
+    header_stream.chain(encoder)
+}
+
 
 #[allow(dead_code)]
 pub fn encrypt(enc_stream: &mut xchacha20poly1305::Stream<xchacha20poly1305::Push>, clear: &[u8]) -> Vec<u8> {
@@ -36,6 +59,31 @@ pub fn build_key() -> Key {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_encrypt_stream() {
+        let key: Key = build_key();
+
+        let source  = [22 as u8];
+
+        let clear = Bytes::from(&source[..]);
+        let clear_stream = stream::once::<Bytes, ()>(Ok(clear));
+
+        let encrypted_stream = encrypt_stream(clear_stream);
+
+        let target_bytes: Bytes = encrypted_stream.concat2().wait().unwrap();
+
+        let decrypted_header = Header::from_slice(&target_bytes[0..xchacha20poly1305::HEADERBYTES]).unwrap();
+        let cipher = &target_bytes[xchacha20poly1305::HEADERBYTES..];
+
+        let mut result: Vec<u8>  = Vec::new();
+
+        let mut dec_stream = xchacha20poly1305::Stream::init_pull(&decrypted_header, &key).unwrap();
+
+        let result: Vec<u8> = decrypt(&mut dec_stream, cipher);
+
+        assert_eq!(source.to_vec(), result);
+    }
 
     #[test]
     fn test_encrypt_and_decrypt() {
