@@ -17,8 +17,8 @@ pub struct Decoder <'a, E> {
 }
 
 impl<'a, E> Decoder<'a, E> {
-    pub fn new(key: Key, s : &mut Stream<Item = Bytes, Error = E>) -> Decoder<E> {
-        Decoder { inner: s, inner_ended: false, decrypt_stream: None, buffer: BytesMut::with_capacity(4096), chunk_size: 4096, key: key }
+    pub fn new(key: Key, chunk_size: usize, s : &mut Stream<Item = Bytes, Error = E>) -> Decoder<E> {
+        Decoder { inner: s, inner_ended: false, decrypt_stream: None, buffer: BytesMut::with_capacity(chunk_size), chunk_size: chunk_size, key: key }
     }
 
     pub fn decrypt_buffer(&mut self) -> Poll<Option<Bytes>, E> {

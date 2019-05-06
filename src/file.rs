@@ -10,14 +10,17 @@ pub fn encrypt() {
     let fs = FsPool::default();
 
     // our source file
-    let read = fs.read("clear.txt", Default::default());
+    let mut read = fs.read("clear.txt", Default::default());
+
+    let key: Key = build_key();
+    let encoder = Encoder::new(key, 512, &mut read);
 
     // default writes options to create a new file
     let write = fs.write("encrypted.txt", Default::default());
 
     // block this thread!
     // the reading and writing however will happen off-thread
-    encrypt_stream(read).forward(write).wait()
+    encoder.forward(write).wait()
         .expect("IO error piping foo.txt to out.txt");
 }
 
@@ -28,7 +31,7 @@ pub fn decrypt() {
     let mut read = fs.read("encrypted.txt", Default::default());
 
     let key: Key = build_key();
-    let decoder = Decoder::new(key, &mut read);
+    let decoder = Decoder::new(key, 512, &mut read);
 
     // default writes options to create a new file
     let write = fs.write("decrypted.txt", Default::default());

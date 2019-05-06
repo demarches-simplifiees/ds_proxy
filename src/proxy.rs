@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use super::encrypt;
+use super::key::*;
+use super::encrypt::*;
 use actix_multipart::{Multipart};
 use actix_web::client::Client;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
@@ -12,16 +13,19 @@ use url::Url;
 
 fn forward(
     _req: HttpRequest,
-    payload: web::Payload,
+    mut payload: web::Payload,
     client: web::Data<Client>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
 
     let url = "https://storage.gra5.cloud.ovh.net/***";
 
+    let key = build_key();
+    let encoder = Encoder::new(key, &mut payload);
+
     client.put(url)
         .header("User-Agent", "Actix-web")
-        .send_stream(super::encrypt::encrypt_stream(payload))                             // <- Send http request
+        .send_stream(encoder)                             // <- Send http request
         .map_err(|e| {
             println!("==== erreur1 ====");
             println!("{:?}", e);
