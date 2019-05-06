@@ -10,10 +10,10 @@ pub fn encrypt() {
     let fs = FsPool::default();
 
     // our source file
-    let mut read = fs.read("clear.txt", Default::default());
+    let read = fs.read("clear.txt", Default::default());
 
     let key: Key = build_key();
-    let encoder = Encoder::new(key, 512, &mut read);
+    let encoder = Encoder::new(key, 512, Box::new(read));
 
     // default writes options to create a new file
     let write = fs.write("encrypted.txt", Default::default());

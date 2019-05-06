@@ -13,7 +13,7 @@ use url::Url;
 
 fn forward(
     _req: HttpRequest,
-    mut payload: web::Payload,
+    payload: web::Payload,
     client: web::Data<Client>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
@@ -21,7 +21,7 @@ fn forward(
     let url = "https://storage.gra5.cloud.ovh.net/***";
 
     let key = build_key();
-    let encoder = Encoder::new(key, &mut payload);
+    let encoder = Encoder::new(key, 512, Box::new(payload));
 
     client.put(url)
         .header("User-Agent", "Actix-web")

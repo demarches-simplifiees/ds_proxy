@@ -6,8 +6,8 @@ use futures::prelude::*;
 use bytes::{BytesMut};
 use sodiumoxide::crypto::secretstream::{Tag};
 
-pub struct Encoder <'a, E> {
-    inner: &'a mut Stream<Item = Bytes, Error = E>,
+pub struct Encoder <E> {
+    inner: Box<Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
     encrypt_stream: Option<xchacha20poly1305::Stream<xchacha20poly1305::Push>>,
     buffer: BytesMut,
@@ -16,8 +16,8 @@ pub struct Encoder <'a, E> {
     key: Key
 }
 
-impl<'a, E> Encoder<'a, E> {
-    pub fn new(key: Key, chunk_size: usize, s : &mut Stream<Item = Bytes, Error = E>) -> Encoder<E> {
+impl<E> Encoder<E> {
+    pub fn new(key: Key, chunk_size: usize, s : Box<Stream<Item = Bytes, Error = E>>) -> Encoder<E> {
         Encoder { inner: s, inner_ended: false, encrypt_stream: None, buffer: BytesMut::with_capacity(chunk_size), chunk_size: chunk_size, key: key }
     }
 
@@ -70,7 +70,7 @@ impl<'a, E> Encoder<'a, E> {
     }
 }
 
-impl <'a, E> Stream for Encoder <'a, E> {
+impl <E> Stream for Encoder <E> {
     type Item = Bytes;
     type Error = E;
 
