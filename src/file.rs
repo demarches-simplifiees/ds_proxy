@@ -28,10 +28,10 @@ pub fn decrypt() {
     let fs = FsPool::default();
 
     // our source file
-    let mut read = fs.read("encrypted.txt", Default::default());
+    let read = fs.read("encrypted.txt", Default::default());
 
     let key: Key = build_key();
-    let decoder = Decoder::new(key, 512, &mut read);
+    let decoder = Decoder::new(key, 512, Box::new(read));
 
     // default writes options to create a new file
     let write = fs.write("decrypted.txt", Default::default());

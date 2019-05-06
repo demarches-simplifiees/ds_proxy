@@ -6,8 +6,8 @@ use futures::prelude::*;
 use bytes::{BytesMut};
 
 
-pub struct Decoder <'a, E> {
-    inner: &'a mut Stream<Item = Bytes, Error = E>,
+pub struct Decoder <E> {
+    inner: Box<Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
     decrypt_stream: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
     buffer: BytesMut,
@@ -16,8 +16,8 @@ pub struct Decoder <'a, E> {
     key: Key
 }
 
-impl<'a, E> Decoder<'a, E> {
-    pub fn new(key: Key, chunk_size: usize, s : &mut Stream<Item = Bytes, Error = E>) -> Decoder<E> {
+impl<E> Decoder<E> {
+    pub fn new(key: Key, chunk_size: usize, s : Box<Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
         Decoder { inner: s, inner_ended: false, decrypt_stream: None, buffer: BytesMut::with_capacity(chunk_size), chunk_size: chunk_size, key: key }
     }
 
@@ -88,7 +88,7 @@ impl<'a, E> Decoder<'a, E> {
     }
 }
 
-impl <'a, E> Stream for Decoder <'a, E> {
+impl <E> Stream for Decoder <E> {
     type Item = Bytes;
     type Error = E;
 
