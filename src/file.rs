@@ -1,6 +1,8 @@
 use futures_fs::FsPool;
 use futures::stream::Stream;
 use futures::future::Future;
+use super::decoder::*;
+use super::key::*;
 use super::encrypt::*;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 
