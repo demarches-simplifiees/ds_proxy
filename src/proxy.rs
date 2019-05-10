@@ -3,7 +3,6 @@ use super::encrypt::*;
 use super::decoder::*;
 use actix_web::client::Client;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
-use clap::{value_t, Arg};
 use futures::Future;
 use actix_web::guard;
 
@@ -67,27 +66,7 @@ fn fetch(
 }
 
 
-pub fn main() -> std::io::Result<()> {
-    let matches = clap::App::new("HTTP Proxy")
-        .arg(
-            Arg::with_name("listen_addr")
-            .takes_value(true)
-            .value_name("LISTEN ADDR")
-            .index(1)
-            .required(true),
-            )
-        .arg(
-            Arg::with_name("listen_port")
-            .takes_value(true)
-            .value_name("LISTEN PORT")
-            .index(2)
-            .required(true),
-            )
-        .get_matches();
-
-    let listen_addr = matches.value_of("listen_addr").unwrap();
-    let listen_port = value_t!(matches, "listen_port", u16).unwrap_or_else(|e| e.exit());
-
+pub fn main(listen_addr: &str, listen_port: u16) -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .data(actix_web::client::Client::new())
@@ -95,7 +74,7 @@ pub fn main() -> std::io::Result<()> {
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .default_service(web::route().guard(guard::Put()).to_async(forward))
     })
-    .bind((listen_addr, listen_port))?
+    .bind((listen_addr.as_ref(), listen_port))?
         .system_exit()
         .run()
 }
