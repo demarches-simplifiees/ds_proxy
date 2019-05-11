@@ -34,7 +34,6 @@ fn main() {
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
 
-
     if args.cmd_proxy {
         let listen_adress = &args.arg_listen_adress.unwrap();
         let listen_port = args.arg_listen_port.unwrap();
