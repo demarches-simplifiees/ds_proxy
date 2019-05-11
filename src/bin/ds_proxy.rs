@@ -36,7 +36,10 @@ fn main() {
 
 
     if args.cmd_proxy {
-        encrypt::proxy::main(&args.arg_listen_adress.unwrap(), args.arg_listen_port.unwrap()).unwrap();
+        let listen_adress = &args.arg_listen_adress.unwrap();
+        let listen_port = args.arg_listen_port.unwrap();
+        let upstream_base_url = "https://storage.gra5.cloud.ovh.net".to_string();
+        encrypt::proxy::main(listen_adress, listen_port, upstream_base_url).unwrap();
     } else if args.cmd_encrypt {
         encrypt::file::encrypt(args.arg_input_file.unwrap(), args.arg_output_file.unwrap());
     } else if args.cmd_decrypt {

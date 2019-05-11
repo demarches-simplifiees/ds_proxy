@@ -6,19 +6,22 @@ use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServ
 use futures::Future;
 use actix_web::guard;
 
-const URL: &str = "https://storage.gra5.cloud.ovh.net/***";
-const GET_URL: &str = "https://storage.gra5.cloud.ovh.net/***";
+const URL: &str = "***";
+const GET_URL: &str = "***";
 
 fn forward(
     _req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
+    upstream_base_url: web::Data<String>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
     let key = build_key();
     let encoder = Encoder::new(key, 512, Box::new(payload));
 
-    client.put(URL)
+    let put_url = format!("{}{}", upstream_base_url.get_ref(), URL);
+
+    client.put(put_url)
         .header("User-Agent", "Actix-web")
         .send_stream(encoder)
         .map_err(|e| {
@@ -40,9 +43,12 @@ fn forward(
 fn fetch(
     _req: HttpRequest,
     client: web::Data<Client>,
+    upstream_base_url: web::Data<String>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
-    client.get(GET_URL)
+    let get_url = format!("{}{}", upstream_base_url.get_ref(), GET_URL);
+
+    client.get(get_url)
         .header("User-Agent", "Actix-web")
         .send()
         .map_err(|e| {
@@ -66,10 +72,11 @@ fn fetch(
 }
 
 
-pub fn main(listen_addr: &str, listen_port: u16) -> std::io::Result<()> {
+pub fn main(listen_addr: &str, listen_port: u16, upstream_base_url: String) -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .data(actix_web::client::Client::new())
+            .data(upstream_base_url.clone())
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .default_service(web::route().guard(guard::Put()).to_async(forward))
