@@ -4,14 +4,14 @@ use docopt::Docopt;
 use serde::Deserialize;
 
 const USAGE: &'static str = "
-DS Secret Tool.
+DS encryption proxy.
 
 Usage:
-  main encrypt <input-file> <output-file>
-  main decrypt <input-file> <output-file>
-  main proxy <listen-adress> <listen-port>
-  main (-h | --help)
-  main --version
+  ds_proxy encrypt <input-file> <output-file>
+  ds_proxy decrypt <input-file> <output-file>
+  ds_proxy proxy <listen-adress> <listen-port>
+  ds_proxy (-h | --help)
+  ds_proxy --version
 
 Options:
   -h --help     Show this screen.
