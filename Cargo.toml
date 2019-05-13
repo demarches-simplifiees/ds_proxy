@@ -9,7 +9,6 @@ sodiumoxide = "0.2.1"
 futures = "0.1.25"
 actix-rt = "0.2.2"
 actix-web = { version="1.0.0-beta.1", features=["ssl"] }
-failure = "0.1.3"
 url = "1.7.1"
 bytes = "0.4.12"
 futures-fs = "0.0.5"
