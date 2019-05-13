@@ -8,7 +8,6 @@ edition = "2018"
 sodiumoxide = "0.2.1"
 futures = "0.1.25"
 actix-web = { version="1.0.0-beta.1", features=["ssl"] }
-url = "1.7.1"
 bytes = "0.4.12"
 futures-fs = "0.0.5"
 docopt = "1"
