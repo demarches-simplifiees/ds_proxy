@@ -6,11 +6,8 @@ use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServ
 use futures::Future;
 use actix_web::guard;
 
-const URL: &str = "***";
-const GET_URL: &str = "***";
-
 fn forward(
-    _req: HttpRequest,
+    req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
     upstream_base_url: web::Data<String>,
@@ -19,7 +16,7 @@ fn forward(
     let key = build_key();
     let encoder = Encoder::new(key, 512, Box::new(payload));
 
-    let put_url = format!("{}{}", upstream_base_url.get_ref(), URL);
+    let put_url = format!("{}{}", upstream_base_url.get_ref(), req.uri());
 
     client.put(put_url)
         .header("User-Agent", "Actix-web")
@@ -41,12 +38,12 @@ fn forward(
 }
 
 fn fetch(
-    _req: HttpRequest,
+    req: HttpRequest,
     client: web::Data<Client>,
     upstream_base_url: web::Data<String>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
-    let get_url = format!("{}{}", upstream_base_url.get_ref(), GET_URL);
+    let get_url = format!("{}{}", upstream_base_url.get_ref(), req.uri());
 
     client.get(get_url)
         .header("User-Agent", "Actix-web")
