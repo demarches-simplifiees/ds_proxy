@@ -74,13 +74,14 @@ mod tests {
 
         let chunck_size = 2;
 
-        let source  = [22 as u8, 23 as u8, 24 as u8];
+        use bytes::Bytes;
+        let source  =  Bytes::from(&[22 as u8, 23 as u8, 24 as u8][..]);
 
         let stream = stream::iter_ok::<_, ()>(source.iter());
 
-        let header_bytes: Vec<u8> = header[0..].to_vec();
+        let header_bytes = Bytes::from(header.as_ref());
 
-        let header_stream = stream::once::<Vec<u8>, ()>(Ok(header_bytes));
+        let header_stream = stream::once::<Bytes, ()>(Ok(header_bytes));
 
 
         use futures::future::Future;
@@ -89,12 +90,12 @@ mod tests {
             .map(|slice: &u8| *slice)
             .chunks(chunck_size)
             .and_then(|slice: Vec<u8>| {
-                Ok(encrypt(&mut enc_stream, &slice))
+                Ok(Bytes::from(encrypt(&mut enc_stream, &slice)))
             });
 
         let result_stream = header_stream.chain(encoder);
 
-        let target_bytes: Vec<u8> = result_stream.concat2().wait().unwrap();
+        let target_bytes: Bytes = result_stream.concat2().wait().unwrap();
 
         let decrypted_header = Header::from_slice(&target_bytes[0..xchacha20poly1305::HEADERBYTES]).unwrap();
 
