@@ -24,10 +24,37 @@ fn forward(
         forwarded_req
     };
 
+
+    use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Key};
+    use sodiumoxide::crypto::secretstream::xchacha20poly1305;
+    use futures::stream;
+    use futures::stream::Stream;
+
+    let key: Key = encrypt::build_key();
+
+    let (mut enc_stream, header) = xchacha20poly1305::Stream::init_push(&key).unwrap();
+
+    // let chunck_size = 2;
+
+    use bytes::Bytes;
+    let header_bytes = Bytes::from(header.as_ref());
+
+    let header_stream = stream::once::<Bytes, Error>(Ok(header_bytes));
+
+    use futures::future::Future;
+
+    let encoder = payload
+        .map(move |slice: Bytes| {
+            Bytes::from(encrypt::encrypt(&mut enc_stream, slice.as_ref()))
+        })
+        .map_err(Error::from);
+
+    let result_stream = header_stream.chain(encoder);
+
     forwarded_req
-        .send_stream(payload)
+        .send_stream(result_stream)
         .map_err(Error::from)
-        .map(|res| {
+        .map(|res:  actix_web::client::ClientResponse<_>| {
             let mut client_resp = HttpResponse::build(res.status());
             for (header_name, header_value) in
                 res.headers().iter().filter(|(h, _)| *h != "connection")
