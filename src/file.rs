@@ -6,7 +6,7 @@ use super::key::*;
 use super::encrypt::*;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 
-pub fn encrypt(input_path: String, output_path: String, noop: bool) {
+pub fn encrypt(input_path: String, output_path: String, _noop: bool) {
     let fs = FsPool::default();
 
     // our source file
@@ -24,7 +24,7 @@ pub fn encrypt(input_path: String, output_path: String, noop: bool) {
         .expect("IO error piping foo.txt to out.txt");
 }
 
-pub fn decrypt(input_path: String, output_path: String, noop: bool) {
+pub fn decrypt(input_path: String, output_path: String, _noop: bool) {
     let fs = FsPool::default();
 
     // our source file

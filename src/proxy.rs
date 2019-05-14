@@ -6,6 +6,27 @@ use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServ
 use futures::Future;
 use actix_web::guard;
 use actix_web::http::Uri;
+use std::env;
+
+pub struct Config {
+  pub upstream_base_url: String,
+  pub listen_adress: Option<String>,
+  pub listen_port: Option<u16>,
+  pub noop: bool
+}
+
+impl Config {
+  pub fn new() -> Config {
+    Config {
+      upstream_base_url: env::var("UPSTREAM_URL").unwrap_or(
+        "https://storage.gra5.cloud.ovh.net".to_string()
+      ),
+      listen_port: None,
+      listen_adress: None,
+      noop: false
+    }
+  }
+}
 
 fn create_url(base_url: &str, uri: &Uri) -> String {
     format!("{}{}", base_url, uri)
@@ -16,7 +37,7 @@ fn forward(
     payload: web::Payload,
     client: web::Data<Client>,
     upstream_base_url: web::Data<String>,
-    noop: web::Data<bool>,
+    _noop: web::Data<bool>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
     let key = build_key();
