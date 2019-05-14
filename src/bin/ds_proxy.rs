@@ -2,9 +2,9 @@ extern crate encrypt;
 
 use docopt::Docopt;
 use serde::Deserialize;
-use encrypt::proxy::Config;
+use encrypt::config::Config;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 DS encryption proxy.
 
 Usage:

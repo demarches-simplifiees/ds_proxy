@@ -3,3 +3,4 @@ pub mod encrypt;
 pub mod file;
 pub mod decoder;
 pub mod key;
+pub mod config;

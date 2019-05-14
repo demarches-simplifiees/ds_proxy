@@ -2,9 +2,9 @@ extern crate encrypt;
 
 use docopt::Docopt;
 use serde::Deserialize;
-use encrypt::proxy::Config;
+use encrypt::config::Config;
 
-const USAGE: &'static str = "
+const USAGE: &str = "
 DS encryption proxy.
 
 Usage:
@@ -44,8 +44,8 @@ fn main() {
     println!("{:#?}", config);
     
     if args.cmd_encrypt {
-        encrypt::file::encrypt(args.arg_input_file.unwrap(), args.arg_output_file.unwrap(), config.noop);
+        encrypt::file::encrypt(args.arg_input_file.unwrap(), args.arg_output_file.unwrap(), &config);
     } else if args.cmd_decrypt {
-        encrypt::file::decrypt(args.arg_input_file.unwrap(), args.arg_output_file.unwrap(), config.noop);
+        encrypt::file::decrypt(args.arg_input_file.unwrap(), args.arg_output_file.unwrap(), &config);
     }
 }
