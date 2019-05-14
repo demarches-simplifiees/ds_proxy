@@ -98,3 +98,44 @@ impl <E> Stream for Encoder <E> {
         }
     }
 }
+
+/*
+
+pub struct IdentityStreamer <E> {
+    inner: Box<Stream<Item = Bytes, Error = E>>,
+    chunk_size: usize
+}
+
+impl<E> IdentityStreamer<E> {
+    pub fn new(chunk_size: usize, s : Box<Stream<Item = Bytes, Error = E>>) -> IdentityStreamer<E> {
+        IdentityStreamer { inner: s, chunk_size: chunk_size }
+    }
+}
+
+impl <E> Stream for IdentityStreamer <E> {
+    type Item = Bytes;
+    type Error = E;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, E> {
+        println!("===================");
+        match self.inner.poll() {
+            Ok(Async::NotReady) => {
+                println!("poll: pas pret on attend");
+                Ok(Async::NotReady)
+            },
+            Ok(Async::Ready(Some(bytes))) => {
+                println!("poll: bytes");
+                self.encrypt_buffer()
+            },
+            Ok(Async::Ready(None)) => {
+                println!("poll: Fini");
+                self.encrypt_buffer()
+            },
+            Err(e) => {
+                println!("poll: erreur");
+                Err(e)
+            }
+        }
+    }
+}
+*/

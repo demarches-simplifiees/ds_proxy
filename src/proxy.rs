@@ -8,6 +8,7 @@ use actix_web::guard;
 use actix_web::http::Uri;
 use std::env;
 
+#[derive(Debug)]
 pub struct Config {
   pub upstream_base_url: String,
   pub listen_adress: Option<String>,
