@@ -89,7 +89,7 @@ pub fn main(listen_addr: &str, listen_port: u16, upstream_base_url: String, noop
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .default_service(web::route().guard(guard::Put()).to_async(forward))
     })
-    .bind((listen_addr.as_ref(), listen_port))?
+    .bind((listen_addr, listen_port))?
         .system_exit()
         .run()
 }

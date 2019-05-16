@@ -3,10 +3,12 @@ cargo build
 file_to_encrypt=src/lib.rs
 deciphered_text=plain.txt
 
+export DS_PASS=plop
+export DS_SALT="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
 cargo run --bin ds_fs_cipher encrypt $file_to_encrypt ciphertext.bin
 cargo run --bin ds_fs_cipher decrypt ciphertext.bin $deciphered_text
 diff plain.txt $file_to_encrypt
-rm $deciphered_text ciphertext.bin
 
 error=$?
 if [ $error -eq 0 ]
@@ -18,3 +20,5 @@ then
 else
    echo "There was something wrong with the diff command"
 fi
+
+rm $deciphered_text ciphertext.bin

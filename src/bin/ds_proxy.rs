@@ -34,7 +34,7 @@ impl Args {
 }
 
 fn main() {
-    let mut config = Config::new();
+    let mut config = Config::new_from_env();
     let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
