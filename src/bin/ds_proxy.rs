@@ -59,7 +59,7 @@ fn main() {
 
         let listen_adress = &args.arg_listen_adress.unwrap();
         let listen_port = args.arg_listen_port.unwrap();
-        let upstream_base_url = "https://storage.gra5.cloud.ovh.net".to_string();
+        let upstream_base_url = "https://storage.sbg1.cloud.ovh.net".to_string();
         encrypt::proxy::main(listen_adress, listen_port, upstream_base_url, config).unwrap();
     } else if args.cmd_encrypt {
         encrypt::file::encrypt(
