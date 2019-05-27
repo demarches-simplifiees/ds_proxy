@@ -7,6 +7,8 @@ use actix_web::guard;
 use actix_web::http::Uri;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures::Future;
+use futures::IntoFuture;
+use std::time::Duration;
 
 fn create_url(base_url: &str, uri: &Uri) -> String {
     format!("{}{}", base_url, uri)
@@ -32,6 +34,7 @@ fn forward(
 
     client
         .put(put_url)
+        .timeout(Duration::from_secs(600))
         .header("User-Agent", "Actix-web")
         .send_stream(encoder)
         .map_err(|e| {
@@ -60,6 +63,7 @@ fn fetch(
 
     client
         .get(get_url)
+        .timeout(Duration::from_secs(600))
         .header("User-Agent", "Actix-web")
         .send()
         .map_err(|e| {
@@ -91,6 +95,10 @@ fn fetch(
         })
 }
 
+fn default(_req: HttpRequest) -> impl IntoFuture<Item = &'static str, Error = Error> {
+    Ok("Hello world!\r\n")
+}
+
 pub fn main(
     listen_addr: &str,
     listen_port: u16,
@@ -105,7 +113,8 @@ pub fn main(
             .data(noop)
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
-            .default_service(web::route().guard(guard::Put()).to_async(forward))
+            .service(web::resource(".*").guard(guard::Put()).to_async(forward)
+            .default_service(web::route()).to_async(default))
     })
     .bind((listen_addr, listen_port))?
     .system_exit()
