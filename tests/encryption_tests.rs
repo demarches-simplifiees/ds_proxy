@@ -37,4 +37,24 @@ mod tests {
 
         assert_eq!(clear, &target_bytes[..]);
     }
+
+    #[test]
+    fn test_decrypt_clear_stream() {
+        let passwd = "Correct Horse Battery Staple";
+        let salt = "abcdefghabcdefghabcdefghabcdefgh";
+        let chunk_size = 512;
+        let config = Config::new(salt, passwd, chunk_size);
+        let key: Key = config.create_key().unwrap();
+
+        let clear: &[u8] = b"something not encrypted";
+
+        let source: Bytes = Bytes::from(&clear[..]);
+        let source_stream = stream::once::<Bytes, Error>(Ok(source));
+
+        let decoder = Decoder::new(key, chunk_size, Box::new(source_stream));
+
+        let target_bytes: Bytes = decoder.concat2().wait().unwrap();
+
+        assert_eq!(clear, &target_bytes[..]);
+    }
 }
