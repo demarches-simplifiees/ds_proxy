@@ -4,15 +4,10 @@ use super::encrypt::*;
 use super::key::*;
 use actix_web::client::Client;
 use actix_web::guard;
-use actix_web::http::Uri;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures::Future;
 use futures::IntoFuture;
 use std::time::Duration;
-
-fn create_url(base_url: &str, uri: &Uri) -> String {
-    format!("{}{}", base_url, uri)
-}
 
 const TIMEOUT_DURATION:Duration = Duration::from_secs(600);
 const USER_AGENT:&str = "Actix-web";
@@ -27,7 +22,7 @@ fn forward(
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let encoder = Encoder::new(key.get_ref().clone(), 512, Box::new(payload));
 
-    let put_url = create_url(&config.upstream_base_url.clone().unwrap(), &req.uri());
+    let put_url = config.get_ref().create_url(&req.uri());
 
     client
         .put(put_url)
@@ -53,12 +48,11 @@ fn forward(
 fn fetch(
     req: HttpRequest,
     client: web::Data<Client>,
-    //upstream_base_url: web::Data<String>,
     config: web::Data<Config>,
     noop: web::Data<bool>,
     key: web::Data<DsKey>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-    let get_url = create_url(&config.upstream_base_url.clone().unwrap(), &req.uri());
+    let get_url=  config.get_ref().create_url(&req.uri());
 
     client
         .get(get_url)

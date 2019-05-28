@@ -2,6 +2,7 @@ use sodiumoxide::crypto::pwhash;
 use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
+use actix_web::http::Uri;
 
 const DEFAULT_CHUNK_SIZE: usize = 512;
 
@@ -54,6 +55,10 @@ impl Config {
             }
             _ => Err("Password or salt is missing. Impossible to derive a key"),
         };
+    }
+
+    pub fn create_url(&self, uri: &Uri) -> String {
+        format!("{}{}", self.upstream_base_url.clone().unwrap(), uri)
     }
 }
 

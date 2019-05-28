@@ -7,8 +7,6 @@ use docopt::Docopt;
 use encrypt::config::Config;
 use serde::Deserialize;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
-use std::io;
-use std::sync::Mutex;
 
 const USAGE: &str = "
 DS encryption proxy.
