@@ -31,7 +31,8 @@ impl<E> Decoder<E> {
 
     pub fn decrypt_buffer(&mut self) -> Poll<Option<Bytes>, E> {
         println!("---- decrypt ----");
-        if self.buffer.is_empty() {
+
+        if self.inner_ended && self.buffer.is_empty() {
             println!("decrypt: buffer empty, on arrete");
             Ok(Async::Ready(None))
         } else {
