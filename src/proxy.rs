@@ -18,7 +18,8 @@ fn forward(
     req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
-    upstream_base_url: web::Data<String>,
+    // upstream_base_url: web::Data<String>,
+    config: web::Data<Config>,
     _noop: web::Data<bool>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let key = build_key(
@@ -30,7 +31,8 @@ fn forward(
     );
     let encoder = Encoder::new(key, 512, Box::new(payload));
 
-    let put_url = create_url(upstream_base_url.get_ref(), &req.uri());
+    // let put_url = create_url(upstream_base_url.get_ref(), &req.uri());
+    let put_url = create_url(&config.upstream_base_url.clone().unwrap(), &req.uri());
 
     client
         .put(put_url)
@@ -56,10 +58,11 @@ fn forward(
 fn fetch(
     req: HttpRequest,
     client: web::Data<Client>,
-    upstream_base_url: web::Data<String>,
+    //upstream_base_url: web::Data<String>,
+    config: web::Data<Config>,
     noop: web::Data<bool>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-    let get_url = create_url(upstream_base_url.get_ref(), &req.uri());
+    let get_url = create_url(&config.upstream_base_url.clone().unwrap(), &req.uri());
 
     client
         .get(get_url)
@@ -102,14 +105,14 @@ fn default(_req: HttpRequest) -> impl IntoFuture<Item = &'static str, Error = Er
 pub fn main(
     listen_addr: &str,
     listen_port: u16,
-    config: &Config,
+    config: &'static Config,
 ) -> std::io::Result<()> {
     let noop = false;
-    let upstream_url = config.upstream_base_url.clone().unwrap();
+    // let upstream_url = config.upstream_base_url.clone().unwrap();
     HttpServer::new(move || {
         App::new()
             .data(actix_web::client::Client::new())
-            .data(upstream_url.clone())
+            .data(config.clone())
             .data(noop)
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))

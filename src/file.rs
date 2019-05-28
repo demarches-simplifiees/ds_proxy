@@ -5,13 +5,13 @@ use futures::future::Future;
 use futures::stream::Stream;
 use futures_fs::FsPool;
 
-pub fn encrypt(input_path: String, output_path: String, config: Config) {
+pub fn encrypt(input_path: String, output_path: String, config: &Config) {
     let fs = FsPool::default();
 
     // our source file
     let read = fs.read(input_path, Default::default());
 
-    let key = config.create_key().unwrap();
+    let key = config.clone().create_key().unwrap();
 
     let encoder = Encoder::new(key, 512, Box::new(read));
 
@@ -26,13 +26,13 @@ pub fn encrypt(input_path: String, output_path: String, config: Config) {
         .expect("IO error piping foo.txt to out.txt");
 }
 
-pub fn decrypt(input_path: String, output_path: String, config: Config) {
+pub fn decrypt(input_path: String, output_path: String, config: &Config) {
     let fs = FsPool::default();
 
     // our source file
     let read = fs.read(input_path, Default::default());
 
-    let key = config.create_key().unwrap();
+    let key = config.clone().create_key().unwrap();
     let decoder = Decoder::new(key, 512, Box::new(read));
 
     // default writes options to create a new file
