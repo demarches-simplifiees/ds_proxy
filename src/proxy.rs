@@ -14,30 +14,25 @@ fn create_url(base_url: &str, uri: &Uri) -> String {
     format!("{}{}", base_url, uri)
 }
 
+const TIMEOUT_DURATION:Duration = Duration::from_secs(600);
+const USER_AGENT:&str = "Actix-web";
+
 fn forward(
     req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
-    // upstream_base_url: web::Data<String>,
     config: web::Data<Config>,
     _noop: web::Data<bool>,
+    key: web::Data<DsKey>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-    let key = build_key(
-        "some_key".to_string().as_bytes(),
-        &[
-            170, 111, 168, 154, 69, 120, 180, 73, 145, 157, 199, 205, 254, 227, 149, 8, 204, 185,
-            14, 56, 249, 178, 47, 47, 189, 158, 227, 250, 192, 13, 41, 76,
-        ],
-    );
-    let encoder = Encoder::new(key, 512, Box::new(payload));
+    let encoder = Encoder::new(key.get_ref().clone(), 512, Box::new(payload));
 
-    // let put_url = create_url(upstream_base_url.get_ref(), &req.uri());
     let put_url = create_url(&config.upstream_base_url.clone().unwrap(), &req.uri());
 
     client
         .put(put_url)
-        .timeout(Duration::from_secs(600))
-        .header("User-Agent", "Actix-web")
+        .timeout(TIMEOUT_DURATION)
+        .header("User-Agent", USER_AGENT)
         .send_stream(encoder)
         .map_err(|e| {
             println!("==== erreur1 ====");
@@ -61,13 +56,14 @@ fn fetch(
     //upstream_base_url: web::Data<String>,
     config: web::Data<Config>,
     noop: web::Data<bool>,
+    key: web::Data<DsKey>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let get_url = create_url(&config.upstream_base_url.clone().unwrap(), &req.uri());
 
     client
         .get(get_url)
-        .timeout(Duration::from_secs(600))
-        .header("User-Agent", "Actix-web")
+        .timeout(TIMEOUT_DURATION)
+        .header("User-Agent", USER_AGENT)
         .send()
         .map_err(|e| {
             println!("==== erreur1 ====");
@@ -82,17 +78,10 @@ fn fetch(
                 client_resp.header(header_name.clone(), header_value.clone());
             }
 
-            let key = build_key(
-                "some_key".to_string().as_bytes(),
-                &[
-                    170, 111, 168, 154, 69, 120, 180, 73, 145, 157, 199, 205, 254, 227, 149, 8,
-                    204, 185, 14, 56, 249, 178, 47, 47, 189, 158, 227, 250, 192, 13, 41, 76,
-                ],
-            );
             if *noop.get_ref() {
                 client_resp.streaming(res)
             } else {
-                let decoder = Decoder::new(key, 512, Box::new(res));
+                let decoder = Decoder::new(key.get_ref().clone(), 512, Box::new(res));
                 client_resp.streaming(decoder)
             }
         })
@@ -108,12 +97,15 @@ pub fn main(
     config: &'static Config,
 ) -> std::io::Result<()> {
     let noop = false;
+    let key = config.clone().create_key().unwrap();
+
     // let upstream_url = config.upstream_base_url.clone().unwrap();
     HttpServer::new(move || {
         App::new()
             .data(actix_web::client::Client::new())
             .data(config.clone())
             .data(noop)
+            .data(key.clone())
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .service(web::resource(".*").guard(guard::Put()).to_async(forward)
