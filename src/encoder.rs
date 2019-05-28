@@ -45,8 +45,12 @@ impl<E> Encoder<E> {
 
                     let header_bytes = Bytes::from(header.as_ref());
 
-                    Ok(Async::Ready(Some(header_bytes)))
-                }
+                    let mut buf = BytesMut::with_capacity(1024);
+                    buf.extend(super::HEADER_DS_PROXY);
+                    buf.extend(header_bytes);
+
+                    Ok(Async::Ready(Some(buf.into())))
+                },
                 // on a un encrypt stream, on essaye de chiffrer
                 Some(ref mut stream) => {
                     // on a un chunk complet, on chiffre
