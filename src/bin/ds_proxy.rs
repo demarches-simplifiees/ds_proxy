@@ -4,11 +4,7 @@ extern crate sodiumoxide;
 use docopt::Docopt;
 use encrypt::config::Config;
 use serde::Deserialize;
-use sodiumoxide::crypto::pwhash::argon2i13::pwhash;
-use sodiumoxide::crypto::pwhash::argon2i13::pwhash_verify;
-use sodiumoxide::crypto::pwhash::argon2i13::HashedPassword;
-use sodiumoxide::crypto::pwhash::argon2i13::MEMLIMIT_INTERACTIVE;
-use sodiumoxide::crypto::pwhash::argon2i13::OPSLIMIT_INTERACTIVE;
+use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use std::io;
 
 const USAGE: &str = "
@@ -59,8 +55,7 @@ fn main() {
 
         let listen_adress = &args.arg_listen_adress.unwrap();
         let listen_port = args.arg_listen_port.unwrap();
-        let upstream_base_url = "https://storage.sbg1.cloud.ovh.net".to_string();
-        encrypt::proxy::main(listen_adress, listen_port, upstream_base_url, config).unwrap();
+        encrypt::proxy::main(listen_adress, listen_port, &config).unwrap();
     } else if args.cmd_encrypt {
         encrypt::file::encrypt(
             args.arg_input_file.unwrap(),

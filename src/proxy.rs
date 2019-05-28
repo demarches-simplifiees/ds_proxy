@@ -102,14 +102,14 @@ fn default(_req: HttpRequest) -> impl IntoFuture<Item = &'static str, Error = Er
 pub fn main(
     listen_addr: &str,
     listen_port: u16,
-    upstream_base_url: String,
-    _config: Config,
+    config: &Config,
 ) -> std::io::Result<()> {
     let noop = false;
+    let upstream_url = config.upstream_base_url.clone().unwrap();
     HttpServer::new(move || {
         App::new()
             .data(actix_web::client::Client::new())
-            .data(upstream_base_url.clone())
+            .data(upstream_url.clone())
             .data(noop)
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
