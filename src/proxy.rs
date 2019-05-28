@@ -93,7 +93,6 @@ pub fn main(
     let noop = false;
     let key = config.clone().create_key().unwrap();
 
-    // let upstream_url = config.upstream_base_url.clone().unwrap();
     HttpServer::new(move || {
         App::new()
             .data(actix_web::client::Client::new())

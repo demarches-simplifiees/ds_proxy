@@ -23,7 +23,7 @@ Options:
   --version             Show version.
 ";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct Args {
     arg_input_file: Option<String>,
     arg_output_file: Option<String>,
@@ -36,43 +36,44 @@ struct Args {
     flag_noop: Option<String>,
 }
 
+fn create_config() -> Config {
+    Config{
+        password: Some(ARGS.arg_password.clone().unwrap()),
+        ..Config::new_from_env()
+    }
+}
+
 lazy_static! {
-    static ref CONFIG: Config = Config::new_from_env();
+    static ref CONFIG: Config = create_config();
+    static ref ARGS: Args = Docopt::new(USAGE)
+        .and_then(|d| d.deserialize())
+        .unwrap_or_else(|e| e.exit());
 }
 
 fn main() {
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.deserialize())
-        .unwrap_or_else(|e| e.exit());
-
-    if args.cmd_proxy {
-        // CONFIG.password = args.arg_password.clone();
-        /*let mut password = String::new();
-        println!("What password do you want to use?");
-        io::stdin()
-            .read_line(&mut password)
-            .expect("unable to read the password");*/
-        let serialized_hash = std::fs::read("hash.key").expect("Unable to read hash file");
+    if ARGS.cmd_proxy {
+        let serialized_hash = std::fs::read("hash.key")
+            .expect("Unable to read hash file");
         let hash = HashedPassword::from_slice(&serialized_hash[..]);
         if pwhash_verify(&hash.unwrap(), CONFIG.password.clone().unwrap().trim_end().as_bytes()) {
             println!("This password matches the saved hash, starting the proxy");
 
-            let listen_adress = &args.arg_listen_adress.unwrap();
-            let listen_port = args.arg_listen_port.unwrap();
-            let _ = encrypt::proxy::main(listen_adress, listen_port, &CONFIG);
+            let listen_adress = ARGS.clone().arg_listen_adress.unwrap();
+            let listen_port = ARGS.arg_listen_port.unwrap();
+            let _ = encrypt::proxy::main(&listen_adress, listen_port, &CONFIG);
         } else {
             println!("Incorrect password, aborting")
         }
-    } else if args.cmd_encrypt {
+    } else if ARGS.cmd_encrypt {
         encrypt::file::encrypt(
-            args.arg_input_file.unwrap(),
-            args.arg_output_file.unwrap(),
+            ARGS.clone().arg_input_file.unwrap(),
+            ARGS.clone().arg_output_file.unwrap(),
             &CONFIG,
         );
-    } else if args.cmd_decrypt {
+    } else if ARGS.cmd_decrypt {
         encrypt::file::decrypt(
-            args.arg_input_file.unwrap(),
-            args.arg_output_file.unwrap(),
+            ARGS.clone().arg_input_file.unwrap(),
+            ARGS.clone().arg_output_file.unwrap(),
             &CONFIG,
         );
     }
