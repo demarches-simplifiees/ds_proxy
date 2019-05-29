@@ -10,7 +10,7 @@ use log::trace;
 pub struct Encoder<E> {
     inner: Box<Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
-    encrypt_stream: Option<xchacha20poly1305::Stream<xchacha20poly1305::Push>>,
+    stream_encoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Push>>,
     buffer: BytesMut,
     chunk_size: usize,
     key: Key,
@@ -21,7 +21,7 @@ impl<E> Encoder<E> {
         Encoder {
             inner: s,
             inner_ended: false,
-            encrypt_stream: None,
+            stream_encoder: None,
             buffer: BytesMut::with_capacity(chunk_size),
             chunk_size,
             key,
@@ -34,13 +34,13 @@ impl<E> Encoder<E> {
             Ok(Async::Ready(None))
         } else {
             trace!("buffer not empty");
-            match self.encrypt_stream {
+            match self.stream_encoder {
                 None => {
                     trace!("no stream encoder");
                     let (enc_stream, header) =
                         xchacha20poly1305::Stream::init_push(&self.key).unwrap();
 
-                    self.encrypt_stream = Some(enc_stream);
+                    self.stream_encoder = Some(enc_stream);
 
                     let header_bytes = Bytes::from(header.as_ref());
 
