@@ -1,7 +1,6 @@
-use super::config::Config;
+use super::config::{Config, DsKey};
 use super::decoder::*;
 use super::encoder::*;
-use super::key::*;
 use actix_web::client::Client;
 use actix_web::guard;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};

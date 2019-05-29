@@ -45,17 +45,4 @@ fn main() {
     } else {
         eprintln!("{} already exists, please provide another file", filename);
     }
-
-    /*
-    let data_from_file = std::fs::read("hash").expect("Unable to read hash file");
-    let hash_from_file = HashedPassword::from_slice(&data_from_file[..]);
-
-    println!("hashed_bytes");
-    println!("{:?}", original_hashed_bytes);
-    println!("hashed_bytes");
-    println!("{:?}", &data_from_file[..].len());
-    println!("hash");
-    println!("{:?}", hash_from_file);
-
-    println!("{:?}", pwhash_verify(&hash_from_file.unwrap(), password));*/
 }

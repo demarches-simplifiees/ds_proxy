@@ -4,6 +4,8 @@ use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
 use actix_web::http::Uri;
 
+pub type DsKey = Key;
+
 const DEFAULT_CHUNK_SIZE: usize = 512;
 
 #[derive(Debug, Clone)]
