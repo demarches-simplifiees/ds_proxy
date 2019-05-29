@@ -45,7 +45,7 @@ impl<E> Encoder<E> {
 
                     let header_bytes = Bytes::from(header.as_ref());
 
-                    let mut buf = BytesMut::with_capacity(1024);
+                    let mut buf = Bytes::with_capacity(super::HEADER_DS_PROXY.len() + header_bytes.len());
                     buf.extend(super::HEADER_DS_PROXY);
                     buf.extend(header_bytes);
 
