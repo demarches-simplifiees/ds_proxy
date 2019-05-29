@@ -5,13 +5,13 @@ use futures::stream::Stream;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 use sodiumoxide::crypto::secretstream::Tag;
+use log::trace;
 
 pub struct Encoder<E> {
     inner: Box<Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
     encrypt_stream: Option<xchacha20poly1305::Stream<xchacha20poly1305::Push>>,
     buffer: BytesMut,
-    //taille du chunk sans le header
     chunk_size: usize,
     key: Key,
 }
@@ -29,15 +29,14 @@ impl<E> Encoder<E> {
     }
 
     pub fn encrypt_buffer(&mut self) -> Poll<Option<Bytes>, E> {
-        println!("---- encrypt ----");
         if self.buffer.is_empty() {
-            println!("encrypt: buffer empty, on arrete");
+            trace!("buffer empty, stop");
             Ok(Async::Ready(None))
         } else {
-            println!("encrypt: buffer non vide");
+            trace!("buffer not empty");
             match self.encrypt_stream {
                 None => {
-                    println!("pas de encrypt stream");
+                    trace!("no stream encoder");
                     let (enc_stream, header) =
                         xchacha20poly1305::Stream::init_push(&self.key).unwrap();
 
@@ -51,22 +50,20 @@ impl<E> Encoder<E> {
 
                     Ok(Async::Ready(Some(buf.into())))
                 },
-                // on a un encrypt stream, on essaye de chiffrer
+
                 Some(ref mut stream) => {
-                    // on a un chunk complet, on chiffre
-                    println!("encrypt stream present !");
+                    trace!("stream encoder present !");
                     if self.chunk_size <= self.buffer.len() {
-                        println!("on encrypt un buffer complet");
+                        trace!("encoding a whole chunk");
                         let encoded = stream
                             .push(&self.buffer[0..self.chunk_size], None, Tag::Message)
                             .unwrap();
                         self.buffer.advance(self.chunk_size);
                         Ok(Async::Ready(Some(Bytes::from(encoded))))
-                    // on a pas de chunk complet
                     } else {
-                        // si inner stream est clos, on essaye d'envoyer ce qui reste
+                        trace!("the chunk is not complete");
                         if self.inner_ended {
-                            println!("on encrypt la partie restante du stream");
+                            trace!("the stream is closed, encoding whats left");
                             let rest = self.buffer.len();
                             let encoded = stream
                                 .push(&self.buffer[0..rest], None, Tag::Message)
@@ -74,8 +71,7 @@ impl<E> Encoder<E> {
                             self.buffer.advance(rest);
                             Ok(Async::Ready(Some(Bytes::from(encoded))))
                         } else {
-                            // si inner stream n'est pas clos, on repart pour un tour
-                            println!("on attend plus de données avant de chiffrer");
+                            trace!("waiting for more data");
                             self.poll()
                         }
                     }
@@ -90,24 +86,23 @@ impl<E> Stream for Encoder<E> {
     type Error = E;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, E> {
-        println!("===================");
         match self.inner.poll() {
             Ok(Async::NotReady) => {
-                println!("poll: pas pret on attend");
+                trace!("poll: not ready");
                 Ok(Async::NotReady)
             }
             Ok(Async::Ready(Some(bytes))) => {
-                println!("poll: bytes");
+                trace!("poll: bytes");
                 self.buffer.extend(bytes);
                 self.encrypt_buffer()
             }
             Ok(Async::Ready(None)) => {
-                println!("poll: Fini");
+                trace!("poll: over");
                 self.inner_ended = true;
                 self.encrypt_buffer()
             }
             Err(e) => {
-                println!("poll: erreur");
+                trace!("poll: error");
                 Err(e)
             }
         }

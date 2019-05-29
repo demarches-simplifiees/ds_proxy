@@ -2,6 +2,8 @@ extern crate encrypt;
 extern crate sodiumoxide;
 #[macro_use]
 extern crate lazy_static;
+extern crate log;
+extern crate env_logger;
 
 use docopt::Docopt;
 use encrypt::config::Config;
@@ -51,6 +53,8 @@ lazy_static! {
 }
 
 fn main() {
+    env_logger::init();
+
     if ARGS.cmd_proxy {
         let serialized_hash = std::fs::read("hash.key")
             .expect("Unable to read hash file");

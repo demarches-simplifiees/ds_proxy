@@ -4,6 +4,7 @@ use futures::prelude::*;
 use futures::stream::Stream;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Header, Key};
+use log::trace;
 
 pub struct Decoder <E> {
     inner: Box<Stream<Item = Bytes, Error = E>>,
@@ -11,7 +12,6 @@ pub struct Decoder <E> {
     decipher_type: DecipherType,
     decrypt_stream: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
     buffer: BytesMut,
-    //taille du chunk sans le header
     chunk_size: usize,
     key: Key,
 }
@@ -36,13 +36,10 @@ impl<E> Decoder<E> {
     }
 
     pub fn decrypt_buffer(&mut self) -> Poll<Option<Bytes>, E> {
-        println!("---- decrypt ----");
-
         if self.inner_ended && self.buffer.is_empty() {
-            println!("decrypt: buffer empty, on arrete");
+            trace!("buffer empty and stream ended, stop");
             Ok(Async::Ready(None))
         } else {
-            println!("decrypt: buffer non vide");
             match &self.decipher_type {
                 DecipherType::DontKnowYet =>  self.read_header(),
 
@@ -54,25 +51,25 @@ impl<E> Decoder<E> {
     }
 
     fn read_header(&mut self) -> Poll<Option<Bytes>, E> {
-        println!("on ne sait pas si le stream est chiffré");
+        trace!("Decypher type unknown");
 
         if super::HEADER_DS_PROXY.len() <= self.buffer.len() {
-            println!("on a assez de bytes pour tester le header");
+            trace!("not enough byte to decide decypher type");
 
             let stream_header = &self.buffer[0..super::HEADER_DS_PROXY.len()];
             if stream_header == super::HEADER_DS_PROXY {
-                println!("le fichier est chiffré !");
+                trace!("the file is encrypted !");
                 self.decipher_type = DecipherType::Encrypted;
                 self.buffer.advance(super::HEADER_DS_PROXY.len());
             } else {
-                println!("le fichier n'est pas chiffré !");
+                trace!("the file is not encrypted !");
                 self.decipher_type = DecipherType::Plaintext;
             }
 
             self.poll()
         }
         else if self.inner_ended {
-            // le stream est fini, donc le fichier n'est pas chiffré
+            trace!("the stream is over, so the file is not encrypted !");
             Ok(Async::Ready(Some(self.buffer.take().into())))
         } else {
             self.poll()
@@ -82,54 +79,48 @@ impl<E> Decoder<E> {
     fn decrypt(&mut self) -> Poll<Option<Bytes>, E> {
         match self.decrypt_stream {
             None => {
-                println!("pas de header");
-                // si assez d'info pour déchiffrer le header
+                trace!("no stream_decoder");
+
                 if xchacha20poly1305::HEADERBYTES <= self.buffer.len() {
-                    println!("decryption du header");
-                    // TODO: emettre une erreur
+                    trace!("decrypting the header");
+                    // TODO: throw error
                     let header = Header::from_slice(&self.buffer[0..xchacha20poly1305::HEADERBYTES]).unwrap();
 
-                    // TODO: emettre une erreur
+                    // TODO: throw error
                     self.decrypt_stream = Some(xchacha20poly1305::Stream::init_pull(&header, &self.key).unwrap());
 
                     self.buffer.advance(xchacha20poly1305::HEADERBYTES);
 
                     self.decrypt_buffer()
-                }
-                // pas assez d'info pour déchiffrer le header
-                else {
-                    println!("pas assez pour décrypter");
-                    // si inner stream est clos, on clos le stream
+                } else {
+                    trace!("not enough data to decrypt the header");
                     if self.inner_ended {
-                        // TODO: emettre une erreur
+                        // TODO: throw error
                         Ok(Async::Ready(None))
                     } else {
-                        // si inner stream n'est pas clos, on attend
+                        // waiting for more data
                         self.poll()
                     }
                 }
             },
-            // on a un decrypt stream, on essaye de dechiffrer
+
             Some(ref mut stream) => {
-                // on a un chunk complet, on dechiffre
-                println!("header !");
+                trace!("stream_decoder present !");
+
                 if (xchacha20poly1305::ABYTES + self.chunk_size) <= self.buffer.len() {
-                    println!("on decrypt un buffer complet");
+                    trace!("decrypting a whole buffer");
                     let (decrypted1, _tag1) = stream.pull(&self.buffer[0..(xchacha20poly1305::ABYTES + self.chunk_size)], None).unwrap();
                     self.buffer.advance(xchacha20poly1305::ABYTES + self.chunk_size);
                     Ok(Async::Ready(Some(Bytes::from(&decrypted1[..]))))
-                        // on a pas de chunk complet
                 } else {
-                    // si inner stream est clos, on essaye d'envoyer ce qui reste
                     if self.inner_ended {
-                        println!("on decrypt la partie restante du stream");
+                        trace!("inner stream over, decrypting whats left");
                         let rest = self.buffer.len();
                         let (decrypted1, _tag1) = stream.pull(&self.buffer[..], None).unwrap();
                         self.buffer.advance(rest);
                         Ok(Async::Ready(Some(Bytes::from(&decrypted1[..]))))
                     } else {
-                        // si inner stream n'est pas clos, on repart pour un tour
-                        println!("on attend plus de données avant de decrypter");
+                        trace!("waiting for more data");
                         self.poll()
                     }
                 }
@@ -143,24 +134,23 @@ impl<E> Stream for Decoder<E> {
     type Error = E;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, E> {
-        println!("===================");
         match self.inner.poll() {
             Ok(Async::NotReady) => {
-                println!("poll: pas pret on attend");
+                trace!("poll: not ready");
                 Ok(Async::NotReady)
             }
             Ok(Async::Ready(Some(bytes))) => {
-                println!("poll: bytes");
+                trace!("poll: bytes");
                 self.buffer.extend(bytes);
                 self.decrypt_buffer()
             }
             Ok(Async::Ready(None)) => {
-                println!("poll: Fini");
+                trace!("poll: over");
                 self.inner_ended = true;
                 self.decrypt_buffer()
             }
             Err(e) => {
-                println!("poll: erreur");
+                trace!("poll: error");
                 Err(e)
             }
         }
