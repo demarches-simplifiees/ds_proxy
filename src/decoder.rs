@@ -10,7 +10,7 @@ pub struct Decoder <E> {
     inner: Box<Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
     decipher_type: DecipherType,
-    decrypt_stream: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
+    stream_decoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
     buffer: BytesMut,
     chunk_size: usize,
     key: Key,
@@ -28,7 +28,7 @@ impl<E> Decoder<E> {
             inner: s,
             inner_ended: false,
             decipher_type: DecipherType::DontKnowYet,
-            decrypt_stream: None,
+            stream_decoder: None,
             buffer: BytesMut::with_capacity(chunk_size),
             chunk_size,
             key,
@@ -77,7 +77,7 @@ impl<E> Decoder<E> {
     }
 
     fn decrypt(&mut self) -> Poll<Option<Bytes>, E> {
-        match self.decrypt_stream {
+        match self.stream_decoder {
             None => {
                 trace!("no stream_decoder");
 
@@ -87,7 +87,7 @@ impl<E> Decoder<E> {
                     let header = Header::from_slice(&self.buffer[0..xchacha20poly1305::HEADERBYTES]).unwrap();
 
                     // TODO: throw error
-                    self.decrypt_stream = Some(xchacha20poly1305::Stream::init_pull(&header, &self.key).unwrap());
+                    self.stream_decoder = Some(xchacha20poly1305::Stream::init_pull(&header, &self.key).unwrap());
 
                     self.buffer.advance(xchacha20poly1305::HEADERBYTES);
 
