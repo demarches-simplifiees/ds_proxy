@@ -26,6 +26,18 @@ On peut ensuite lancer le proxy:
 
 L'utilisation de systemd-ask-password permet de ne pas faire apparaitre le mot de passe dans le terminal
 
+# Status du serveur
+
+On peut savoir si le serveur est up depuis l'extérieur via un requête HEAD vers /status
+
+    $ curl -I "http://localhost:8888/status"
+    HTTP/1.1 200 OK
+    content-length: 14
+    content-type: text/plain; charset=utf-8
+    date: Wed, 29 May 2019 08:59:59 GMT
+
+Si ça répond 200, c'est que ça tourne !
+
 # Todo
 
 ## proxy

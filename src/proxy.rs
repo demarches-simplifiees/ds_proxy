@@ -100,8 +100,8 @@ pub fn main(
             .data(key.clone())
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
-            .service(web::resource(".*").guard(guard::Put()).to_async(forward)
-            .default_service(web::route()).to_async(default))
+            .service(web::resource(".*").guard(guard::Put()).to_async(forward))
+            .default_service(web::route().to_async(default))
     })
     .bind((listen_addr, listen_port))?
     .system_exit()
