@@ -1,6 +1,6 @@
 use super::config::*;
 use super::decoder::*;
-use super::encrypt::*;
+use super::encoder::*;
 use futures::future::Future;
 use futures::stream::Stream;
 use futures_fs::FsPool;

@@ -4,7 +4,7 @@ extern crate encrypt;
 mod tests {
     use encrypt::config::Config;
     use encrypt::decoder::*;
-    use encrypt::encrypt::*;
+    use encrypt::encoder::*;
 
     use actix_web::Error;
     use bytes::Bytes;

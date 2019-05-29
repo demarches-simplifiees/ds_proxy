@@ -1,6 +1,6 @@
 use super::config::Config;
 use super::decoder::*;
-use super::encrypt::*;
+use super::encoder::*;
 use super::key::*;
 use actix_web::client::Client;
 use actix_web::guard;
