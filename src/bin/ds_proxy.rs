@@ -13,8 +13,8 @@ const USAGE: &str = "
 DS encryption proxy.
 
 Usage:
-  ds_proxy encrypt <input-file> <output-file>
-  ds_proxy decrypt <input-file> <output-file>
+  ds_proxy encrypt <input-file> <output-file> <password>
+  ds_proxy decrypt <input-file> <output-file> <password>
   ds_proxy proxy <listen-adress> <listen-port> <password> [--noop]
   ds_proxy (-h | --help)
   ds_proxy --version
