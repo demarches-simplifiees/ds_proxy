@@ -12,49 +12,54 @@ mod tests {
     use futures::stream;
     use futures::stream::Stream;
     use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
+    use rand;
+    use rand::{thread_rng, Rng};
+    use rand::distributions::{Standard};
 
     #[test]
     fn test_encrypt_decrypt_stream() {
-        let passwd = "Correct Horse Battery Staple";
+        let mut rng = thread_rng();
 
-        let salt = "abcdefghabcdefghabcdefghabcdefgh";
-        let chunk_size = 512;
-        let config = Config::new(salt, passwd, chunk_size);
-        let config2 = Config::new(salt, passwd, chunk_size);
+        let key: Key = build_key();
 
-        let key: Key = config.create_key().unwrap();
-        let key2: Key = config2.create_key().unwrap();
+        for chunk_size in 5..20 {
+            for input_length in 0..(chunk_size * 10) {
+                let v: Vec<u8> = rng.sample_iter(&Standard).take(input_length).collect();
 
-        let clear: &[u8] = b"something to be encrypted";
+                let input: Bytes = Bytes::from(&v[..]);
 
-        let source: Bytes = Bytes::from(&clear[..]);
-        let source_stream = stream::once::<Bytes, Error>(Ok(source));
+                let source_stream = stream::once::<Bytes, Error>(Ok(input));
 
-        let encoder = Encoder::new(key, chunk_size, Box::new(source_stream));
-        let decoder = Decoder::new(key2, chunk_size, Box::new(encoder));
+                let encoder = Encoder::new(key.clone(), chunk_size, Box::new(source_stream));
+                let decoder = Decoder::new(key.clone(), chunk_size, Box::new(encoder));
 
-        let target_bytes: Bytes = decoder.concat2().wait().unwrap();
+                let target_bytes: Bytes = decoder.concat2().wait().unwrap();
 
-        assert_eq!(clear, &target_bytes[..]);
+                assert_eq!(&v[..], &target_bytes[..]);
+            }
+        }
     }
 
     #[test]
     fn test_decrypt_clear_stream() {
-        let passwd = "Correct Horse Battery Staple";
-        let salt = "abcdefghabcdefghabcdefghabcdefgh";
-        let chunk_size = 512;
-        let config = Config::new(salt, passwd, chunk_size);
-        let key: Key = config.create_key().unwrap();
+        let key: Key = build_key();
 
         let clear: &[u8] = b"something not encrypted";
 
         let source: Bytes = Bytes::from(&clear[..]);
         let source_stream = stream::once::<Bytes, Error>(Ok(source));
 
-        let decoder = Decoder::new(key, chunk_size, Box::new(source_stream));
+        let decoder = Decoder::new(key, 50, Box::new(source_stream));
 
         let target_bytes: Bytes = decoder.concat2().wait().unwrap();
 
         assert_eq!(clear, &target_bytes[..]);
+    }
+
+    fn build_key() -> Key {
+        let passwd = "Correct Horse Battery Staple";
+        let salt = "abcdefghabcdefghabcdefghabcdefgh";
+        let config = Config::new(salt, passwd, 5);
+        config.create_key().unwrap()
     }
 }
