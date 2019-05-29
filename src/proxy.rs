@@ -7,6 +7,7 @@ use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServ
 use futures::Future;
 use futures::IntoFuture;
 use std::time::Duration;
+use futures::stream::Stream;
 
 const TIMEOUT_DURATION:Duration = Duration::from_secs(600);
 const USER_AGENT:&str = "Actix-web";
@@ -19,15 +20,22 @@ fn forward(
     _noop: web::Data<bool>,
     key: web::Data<DsKey>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-    let encoder = Encoder::new(key.get_ref().clone(), 512, Box::new(payload));
 
-    let put_url = config.get_ref().create_url(&req.uri());
+    let config_ref = config.get_ref();
+
+    let put_url = config_ref.create_url(&req.uri());
+
+    let stream_to_send: Box<Stream<Item = _, Error = _>> = if config_ref.noop {
+        Box::new(payload)
+    } else {
+        Box::new(Encoder::new(key.get_ref().clone(), 512, Box::new(payload)))
+    };
 
     client
         .put(put_url)
         .timeout(TIMEOUT_DURATION)
         .header("User-Agent", USER_AGENT)
-        .send_stream(encoder)
+        .send_stream(stream_to_send)
         .map_err(|e| {
             println!("==== erreur1 ====");
             println!("{:?}", e);

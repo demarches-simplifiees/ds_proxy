@@ -9,6 +9,7 @@ use docopt::Docopt;
 use encrypt::config::Config;
 use serde::Deserialize;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
+use log::info;
 
 const USAGE: &str = "
 DS encryption proxy.
@@ -16,7 +17,7 @@ DS encryption proxy.
 Usage:
   ds_proxy encrypt <input-file> <output-file>
   ds_proxy decrypt <input-file> <output-file>
-  ds_proxy proxy <listen-adress> <listen-port> <password> [<noop>]
+  ds_proxy proxy <listen-adress> <listen-port> <password> [--noop]
   ds_proxy (-h | --help)
   ds_proxy --version
 
@@ -35,12 +36,13 @@ struct Args {
     cmd_encrypt: bool,
     cmd_decrypt: bool,
     cmd_proxy: bool,
-    flag_noop: Option<String>,
+    flag_noop: bool,
 }
 
 fn create_config() -> Config {
     Config{
         password: Some(ARGS.arg_password.clone().unwrap()),
+        noop: ARGS.flag_noop,
         ..Config::new_from_env()
     }
 }
@@ -56,6 +58,10 @@ fn main() {
     env_logger::init();
 
     if ARGS.cmd_proxy {
+        if ARGS.flag_noop {
+            info!("proxy in dry mode")
+        }
+
         let serialized_hash = std::fs::read("hash.key")
             .expect("Unable to read hash file");
         let hash = HashedPassword::from_slice(&serialized_hash[..]);
