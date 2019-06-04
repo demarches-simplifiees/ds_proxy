@@ -53,14 +53,16 @@ impl<E> Decoder<E> {
     fn read_header(&mut self) -> Poll<Option<Bytes>, E> {
         trace!("Decypher type unknown");
 
-        if super::HEADER_DS_PROXY.len() <= self.buffer.len() {
+        if super::HEADER_DS_PROXY.len() + [super::HEADER_DS_VERSION_NB].len() <= self.buffer.len() {
             trace!("not enough byte to decide decypher type");
 
             let stream_header = &self.buffer[0..super::HEADER_DS_PROXY.len()];
-            if stream_header == super::HEADER_DS_PROXY {
+            let version_nb_header = self.buffer[super::HEADER_DS_PROXY.len()];
+            if stream_header == super::HEADER_DS_PROXY && version_nb_header == super::HEADER_DS_VERSION_NB {
                 trace!("the file is encrypted !");
                 self.decipher_type = DecipherType::Encrypted;
                 self.buffer.advance(super::HEADER_DS_PROXY.len());
+                self.buffer.advance([super::HEADER_DS_VERSION_NB].len());
             } else {
                 trace!("the file is not encrypted !");
                 self.decipher_type = DecipherType::Plaintext;
