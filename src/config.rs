@@ -6,7 +6,7 @@ use actix_web::http::Uri;
 
 pub type DsKey = Key;
 
-const DEFAULT_CHUNK_SIZE: usize = 512;
+pub const DEFAULT_CHUNK_SIZE: usize = 512;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -28,9 +28,15 @@ impl Config {
     }
 
     pub fn new_from_env() -> Config {
+        let chunk_size:usize = match env::var("DS_CHUNK_SIZE") {
+            Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
+            _ => DEFAULT_CHUNK_SIZE
+        };
+
         Config {
             upstream_base_url: env::var("UPSTREAM_URL").ok(),
             salt: env::var("DS_SALT").ok(),
+            chunk_size: Some(chunk_size),
             ..Config::default()
         }
     }
