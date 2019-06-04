@@ -95,7 +95,7 @@ fn default(_req: HttpRequest) -> impl IntoFuture<Item = &'static str, Error = Er
 pub fn main(
     listen_addr: &str,
     listen_port: u16,
-    config: &'static Config,
+    config: Config,
 ) -> std::io::Result<()> {
     let noop = false;
     let key = config.clone().create_key().unwrap();
