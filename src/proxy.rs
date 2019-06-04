@@ -44,7 +44,7 @@ fn forward(
     let stream_to_send: Box<Stream<Item = _, Error = _>> = if config_ref.noop {
         Box::new(payload)
     } else {
-        Box::new(Encoder::new(key.get_ref().clone(), 512, Box::new(payload)))
+        Box::new(Encoder::new(key.get_ref().clone(), config.chunk_size.unwrap(), Box::new(payload)))
     };
 
     forwarded_req
@@ -87,7 +87,7 @@ fn fetch(
             if *noop.get_ref() {
                 client_resp.streaming(res)
             } else {
-                let decoder = Decoder::new(key.get_ref().clone(), 512, Box::new(res));
+                let decoder = Decoder::new(key.get_ref().clone(), config.chunk_size.unwrap(), Box::new(res));
                 client_resp.streaming(decoder)
             }
         })
