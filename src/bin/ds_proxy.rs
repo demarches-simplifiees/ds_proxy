@@ -7,7 +7,7 @@ use docopt::Docopt;
 use encrypt::config::Config;
 use serde::Deserialize;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
-use log::info;
+use log::{info, error};
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -65,23 +65,30 @@ fn main() {
 
     let config: Config = create_config(&args);
 
+    match std::fs::read("hash.key") {
+        Err(_) => {
+            error!("hash.key not found");
+            std::process::exit(1);
+        },
+        Ok(file) => {
+            let hash = HashedPassword::from_slice(&file[..]);
+
+            if !pwhash_verify(&hash.unwrap(), config.password.clone().unwrap().trim_end().as_bytes()) {
+                error!("Incorrect password, aborting");
+                std::process::exit(1);
+            }
+
+        }
+    }
+
     if args.cmd_proxy {
         if args.flag_noop {
             info!("proxy in dry mode")
         }
 
-        let serialized_hash = std::fs::read("hash.key")
-            .expect("Unable to read hash file");
-        let hash = HashedPassword::from_slice(&serialized_hash[..]);
-        if pwhash_verify(&hash.unwrap(), config.password.clone().unwrap().trim_end().as_bytes()) {
-            println!("This password matches the saved hash, starting the proxy");
-
-            let listen_adress = args.clone().arg_listen_adress.unwrap();
-            let listen_port = args.arg_listen_port.unwrap();
-            let _ = encrypt::proxy::main(&listen_adress, listen_port, config);
-        } else {
-            println!("Incorrect password, aborting")
-        }
+        let listen_adress = args.clone().arg_listen_adress.unwrap();
+        let listen_port = args.arg_listen_port.unwrap();
+        let _ = encrypt::proxy::main(&listen_adress, listen_port, config);
     } else if args.cmd_encrypt {
         encrypt::file::encrypt(
             args.clone().arg_input_file.unwrap(),
