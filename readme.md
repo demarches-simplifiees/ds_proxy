@@ -1,11 +1,32 @@
 # DS Proxy
 
-DS Proxy sert de proxy de chiffrement des fichiers entre l'application et son backend.
+DS Proxy sert de proxy de chiffrement des fichiers entre l'application [démarches-simplifées](https://github.com/betagouv/demarches-simplifiees.fr/) et son backend de stockage.
 
 Il se compose de 2 programmes:
 
  - le proxy
  - un générateur de hash
+
+# Compilation
+
+Le proxy est un applicatif [rust](rust-lang.org). La méthode préconisée pour installer le compilateur au sein de
+la communauté est [rustup](https://rustup.rs/)
+
+`Rustup`, le gestionnaire de versions de rust, va vous permettre d'installer la bonne version de `cargo`,
+l'outil à tout faire qui permet notamment de piloter `rustc`, le compilateur. Ouf !
+
+Concrètement, après avoir suivi l'installation de rustup, on peut compiler l'application en mode `debug` ou `release`
+avec les commandes suivantes:
+
+    $ cargo build
+    $ cargo build --release
+
+Vous pouvez également jouer les tests automatisés avec `cargo test` :
+
+    $ cargo test
+
+Afin de vous faciliter la vie, vous pouvez également regarder sur [AreWeIDEYet](https://areweideyet.com/) quels sont
+les plugins les plus adaptés pour votre éditeur favori.
 
 # Usage
 
@@ -26,33 +47,3 @@ On peut ensuite lancer le proxy:
 
 L'utilisation de systemd-ask-password permet de ne pas faire apparaitre le mot de passe dans le terminal
 
-# Status du serveur
-
-On peut savoir si le serveur est up depuis l'extérieur via un requête HEAD vers /status
-
-    $ curl -I "http://localhost:8888/status"
-    HTTP/1.1 200 OK
-    content-length: 14
-    content-type: text/plain; charset=utf-8
-    date: Wed, 29 May 2019 08:59:59 GMT
-
-Si ça répond 200, c'est que ça tourne !
-
-# Todo
-
-## proxy
-
-- gérer la config injectée
-- gérer les erreurs et ajouter de la couverture de test
-- meilleur logging (actix gère ça, à creuser. Lundi, nos tests ont généré 40Mo de logs en qques minutes…)
-- gérer le header de fichier qui indique si c'est chiffré ou non. Pour ça c'est pas clair comment ajouter ça dans les encoders/decoders, les futures c'est pas hyper simple, si tu veux jeter un oeil…
-
-## déploiement
-
- - dans les modifs ansible faudra donc ajouter la création d'un service systemd pour piloter le proxy et ne pas oublier de reporter les modifs qu'on a faites hier
-
-## monitoring
-
- - ajout dans influxdb + un board grafana ?
-   - à chaque upload/download, pour voir le volume de traitements?
-   - ping d'une url /status, pour voir si le service est up ?
