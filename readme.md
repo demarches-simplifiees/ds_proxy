@@ -43,7 +43,7 @@ Le sel DS_SALT doit faire 32 caractères.
 
 On peut ensuite lancer le proxy:
 
-    $ ./ds_proxy proxy localhost 8888 $(systemd-ask-password)
+    $ ./ds_proxy proxy localhost 8888 fichier_password
 
-L'utilisation de systemd-ask-password permet de ne pas faire apparaitre le mot de passe dans le terminal
+Le fichier password contenant le mot de passe. 
 

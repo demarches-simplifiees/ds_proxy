@@ -8,14 +8,18 @@ use encrypt::config::Config;
 use serde::Deserialize;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use log::info;
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
+
 
 const USAGE: &str = "
 DS encryption proxy.
 
 Usage:
-  ds_proxy encrypt <input-file> <output-file> <password>
-  ds_proxy decrypt <input-file> <output-file> <password>
-  ds_proxy proxy <listen-adress> <listen-port> <password> [--noop]
+  ds_proxy encrypt <input-file> <output-file> <password-file>
+  ds_proxy decrypt <input-file> <output-file> <password-file>
+  ds_proxy proxy <listen-adress> <listen-port> <password-file> [--noop]
   ds_proxy (-h | --help)
   ds_proxy --version
 
@@ -29,7 +33,7 @@ struct Args {
     arg_input_file: Option<String>,
     arg_output_file: Option<String>,
     arg_listen_adress: Option<String>,
-    arg_password: Option<String>,
+    arg_password_file: Option<String>,
     arg_listen_port: Option<u16>,
     cmd_encrypt: bool,
     cmd_decrypt: bool,
@@ -37,9 +41,16 @@ struct Args {
     flag_noop: bool,
 }
 
+fn read_password(path: String) -> String {
+    let file = File::open(path).unwrap();
+    let reader = io::BufReader::new(file);
+    let line = reader.lines().nth(0).unwrap().unwrap();
+    line
+}
+
 fn create_config(args: &Args) -> Config {
     Config{
-        password: Some(args.arg_password.clone().unwrap()),
+        password: Some(read_password(args.arg_password_file.clone().unwrap())),
         noop: args.flag_noop,
         ..Config::new_from_env()
     }
