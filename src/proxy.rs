@@ -10,7 +10,13 @@ use std::time::Duration;
 use futures::stream::Stream;
 
 const TIMEOUT_DURATION:Duration = Duration::from_secs(600);
-const USER_AGENT:&str = "Actix-web";
+
+// Encryption changes the value of those headers
+const HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
+    actix_web::http::header::CONTENT_LENGTH,
+    actix_web::http::header::CONTENT_TYPE,
+    actix_web::http::header::ETAG,
+];
 
 fn forward(
     req: HttpRequest,
@@ -23,7 +29,17 @@ fn forward(
 
     let config_ref = config.get_ref();
 
-    let put_url = config_ref.create_url(&req.uri());
+    let put_url = config.create_url(&req.uri());
+
+    let mut forwarded_req = client
+        .request_from(put_url.as_str(), req.head())
+        .timeout(TIMEOUT_DURATION);
+
+    for header in &HEADERS_TO_REMOVE {
+        forwarded_req
+            .headers_mut()
+            .remove(header);
+    }
 
     let stream_to_send: Box<Stream<Item = _, Error = _>> = if config_ref.noop {
         Box::new(payload)
@@ -31,16 +47,9 @@ fn forward(
         Box::new(Encoder::new(key.get_ref().clone(), 512, Box::new(payload)))
     };
 
-    client
-        .put(put_url)
-        .timeout(TIMEOUT_DURATION)
-        .header("User-Agent", USER_AGENT)
+    forwarded_req
         .send_stream(stream_to_send)
-        .map_err(|e| {
-            println!("==== erreur1 ====");
-            println!("{:?}", e);
-            Error::from(e)
-        })
+        .map_err(Error::from)
         .map(|res| {
             let mut client_resp = HttpResponse::build(res.status());
             for (header_name, header_value) in
@@ -54,6 +63,7 @@ fn forward(
 
 fn fetch(
     req: HttpRequest,
+    payload: web::Payload,
     client: web::Data<Client>,
     config: web::Data<Config>,
     noop: web::Data<bool>,
@@ -62,15 +72,10 @@ fn fetch(
     let get_url=  config.get_ref().create_url(&req.uri());
 
     client
-        .get(get_url)
+        .request_from(get_url.as_str(), req.head())
         .timeout(TIMEOUT_DURATION)
-        .header("User-Agent", USER_AGENT)
-        .send()
-        .map_err(|e| {
-            println!("==== erreur1 ====");
-            println!("{:?}", e);
-            Error::from(e)
-        })
+        .send_stream(payload)
+        .map_err(Error::from)
         .map(move |res| {
             let mut client_resp = HttpResponse::build(res.status());
             for (header_name, header_value) in
