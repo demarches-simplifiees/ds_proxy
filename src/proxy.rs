@@ -93,6 +93,32 @@ fn fetch(
         })
 }
 
+fn options(
+    req: HttpRequest,
+    payload: web::Payload,
+    client: web::Data<Client>,
+    config: web::Data<Config>,
+    _noop: web::Data<bool>,
+    _key: web::Data<DsKey>,
+) -> impl Future<Item = HttpResponse, Error = Error> {
+    let options_url = config.get_ref().create_url(&req.uri());
+
+    client
+        .request_from(options_url.as_str(), req.head())
+        .timeout(TIMEOUT_DURATION)
+        .send_stream(payload)
+        .map_err(Error::from)
+        .map(|res| {
+            let mut client_resp = HttpResponse::build(res.status());
+            for (header_name, header_value) in
+                res.headers().iter().filter(|(h, _)| *h != "connection")
+            {
+                client_resp.header(header_name.clone(), header_value.clone());
+            }
+            client_resp.streaming(res)
+        })
+}
+
 fn default(_req: HttpRequest) -> impl IntoFuture<Item = &'static str, Error = Error> {
     Ok("Hello world!\r\n")
 }
@@ -114,6 +140,7 @@ pub fn main(
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .service(web::resource(".*").guard(guard::Put()).to_async(forward))
+            .service(web::resource(".*").guard(guard::Options()).to_async(options))
             .default_service(web::route().to_async(default))
     })
     .bind((listen_addr, listen_port))?
