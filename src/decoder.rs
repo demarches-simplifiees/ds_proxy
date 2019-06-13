@@ -6,6 +6,7 @@ use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Header, Key};
 use log::trace;
 use std::convert::TryInto;
+use super::{HEADER_SIZE, HEADER_PREFIX, HEADER_PREFIX_SIZE, HEADER_VERSION_NB, HEADER_VERSION_NB_SIZE};
 
 pub struct Decoder <E> {
     inner: Box<Stream<Item = Bytes, Error = E>>,
@@ -54,17 +55,17 @@ impl<E> Decoder<E> {
     fn read_header(&mut self) -> Poll<Option<Bytes>, E> {
         trace!("Decypher type unknown");
 
-        if super::HEADER_SIZE <= self.buffer.len() {
+        if HEADER_SIZE <= self.buffer.len() {
             trace!("not enough byte to decide decypher type");
 
-            let stream_header = &self.buffer[0..super::HEADER_PREFIX_SIZE];
-            let version_nb_header: u32 = u32::from_le_bytes(self.buffer[super::HEADER_PREFIX_SIZE..super::HEADER_SIZE].try_into().expect("slice with incorrect length"));
+            let stream_header = &self.buffer[0..HEADER_PREFIX_SIZE];
+            let version_nb_header: u32 = u32::from_le_bytes(self.buffer[HEADER_PREFIX_SIZE..HEADER_SIZE].try_into().expect("slice with incorrect length"));
 
-            if stream_header == super::HEADER_PREFIX && version_nb_header == super::HEADER_VERSION_NB {
+            if stream_header == HEADER_PREFIX && version_nb_header == HEADER_VERSION_NB {
                 trace!("the file is encrypted !");
                 self.decipher_type = DecipherType::Encrypted;
-                self.buffer.advance(super::HEADER_PREFIX_SIZE);
-                self.buffer.advance(super::HEADER_VERSION_NB_SIZE);
+                self.buffer.advance(HEADER_PREFIX_SIZE);
+                self.buffer.advance(HEADER_VERSION_NB_SIZE);
             } else {
                 trace!("the file is not encrypted !");
                 self.decipher_type = DecipherType::Plaintext;

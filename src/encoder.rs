@@ -6,6 +6,7 @@ use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 use sodiumoxide::crypto::secretstream::Tag;
 use log::trace;
+use super::{HEADER_SIZE, HEADER_PREFIX, HEADER_VERSION_NB};
 
 pub struct Encoder<E> {
     inner: Box<Stream<Item = Bytes, Error = E>>,
@@ -44,9 +45,9 @@ impl<E> Encoder<E> {
 
                     let header_bytes = Bytes::from(header.as_ref());
 
-                    let mut buf = Bytes::with_capacity(super::HEADER_SIZE + header_bytes.len());
-                    buf.extend(super::HEADER_PREFIX);
-                    buf.extend(&super::HEADER_VERSION_NB.to_le_bytes());
+                    let mut buf = Bytes::with_capacity(HEADER_SIZE + header_bytes.len());
+                    buf.extend(HEADER_PREFIX);
+                    buf.extend(&HEADER_VERSION_NB.to_le_bytes());
                     buf.extend(header_bytes);
 
                     Ok(Async::Ready(Some(buf)))
