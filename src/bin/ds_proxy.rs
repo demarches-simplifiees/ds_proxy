@@ -11,7 +11,7 @@ use log::info;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-
+use systemd::daemon::{notify, STATE_READY};
 
 const USAGE: &str = "
 DS encryption proxy.
@@ -78,6 +78,8 @@ fn main() {
 
             let listen_adress = args.clone().arg_listen_adress.unwrap();
             let listen_port = args.arg_listen_port.unwrap();
+
+            let _ = notify(false, vec![(STATE_READY, "1".to_string())].iter());
             let _ = encrypt::proxy::main(&listen_adress, listen_port, config);
         } else {
             println!("Incorrect password, aborting")

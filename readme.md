@@ -45,5 +45,32 @@ On peut ensuite lancer le proxy:
 
     $ ./ds_proxy proxy localhost 8888 fichier_password
 
-Le fichier password contenant le mot de passe. 
+Le fichier password contenant le mot de passe.
 
+# Utilisation via systemd
+
+L'application est prévue pour tourner comme service avec systemd, qu'elle notifie de ses changements de status. Il faut donc déclarer son
+utilisation dans un fichier avec a minima:
+
+    # /etc/systemd/system/ds_proxy.service
+    [Unit]
+    Description=DS Proxy Service
+    After=network.target
+
+    [Service]
+    WorkingDirectory=/home/ds_proxy
+    ExecStart=/home/ds_proxy/ds_proxy proxy localhost 8888 password_file
+
+    Environment=RUST_LOG="actix_web=info"
+    Environment=UPSTREAM_URL="https://some.backend"
+    Environment=DS_SALT="32 caracteres de sel"
+
+    [Install]
+    WantedBy=multi-user.target
+
+Ensuite, on peut recharger ces modifications apportées à la configuration de systemd, lancer le service,
+et vérifier qu'il a bien démarré:
+
+    $ systemctl daemon-reload
+    $ systemctl start ds_proxy
+    $ systemctl status ds_proxys
