@@ -42,7 +42,7 @@ impl Config {
     }
 
     pub fn create_key(self) -> Result<Key, &'static str> {
-        return match (self.password, self.salt) {
+        match (self.password, self.salt) {
             (Some(password), Some(input_salt)) => {
                 if let Some(salt) = Salt::from_slice(&input_salt.as_bytes()[..]) {
                     let mut raw_key = [0u8; KEYBYTES];
@@ -62,7 +62,7 @@ impl Config {
                 }
             }
             _ => Err("Password or salt is missing. Impossible to derive a key"),
-        };
+        }
     }
 
     pub fn create_url(&self, uri: &Uri) -> String {

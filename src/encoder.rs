@@ -49,7 +49,7 @@ impl<E> Encoder<E> {
                     buf.extend(&[super::HEADER_DS_VERSION_NB]);
                     buf.extend(header_bytes);
 
-                    Ok(Async::Ready(Some(buf.into())))
+                    Ok(Async::Ready(Some(buf)))
                 },
 
                 Some(ref mut stream) => {
