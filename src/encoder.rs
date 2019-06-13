@@ -48,6 +48,7 @@ impl<E> Encoder<E> {
                     let mut buf = Bytes::with_capacity(HEADER_SIZE + header_bytes.len());
                     buf.extend(HEADER_PREFIX);
                     buf.extend(&HEADER_VERSION_NB.to_le_bytes());
+                    buf.extend(&self.chunk_size.to_le_bytes());
                     buf.extend(header_bytes);
 
                     Ok(Async::Ready(Some(buf)))

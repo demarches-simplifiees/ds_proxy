@@ -25,14 +25,14 @@ enum DecipherType {
 }
 
 impl<E> Decoder<E> {
-    pub fn new(key: Key, chunk_size: usize, s: Box<Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
+    pub fn new(key: Key, s: Box<Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,
             decipher_type: DecipherType::DontKnowYet,
             stream_decoder: None,
-            buffer: BytesMut::with_capacity(chunk_size),
-            chunk_size,
+            buffer: BytesMut::new(),
+            chunk_size: 0,
             key,
         }
     }
@@ -59,13 +59,13 @@ impl<E> Decoder<E> {
             trace!("not enough byte to decide decypher type");
 
             let stream_header = &self.buffer[0..HEADER_PREFIX_SIZE];
-            let version_nb_header: u32 = u32::from_le_bytes(self.buffer[HEADER_PREFIX_SIZE..HEADER_SIZE].try_into().expect("slice with incorrect length"));
+            let version_nb_header: u32 = u32::from_le_bytes(self.buffer[HEADER_PREFIX_SIZE..HEADER_PREFIX_SIZE + HEADER_VERSION_NB_SIZE].try_into().expect("slice with incorrect length"));
 
             if stream_header == HEADER_PREFIX && version_nb_header == HEADER_VERSION_NB {
                 trace!("the file is encrypted !");
                 self.decipher_type = DecipherType::Encrypted;
-                self.buffer.advance(HEADER_PREFIX_SIZE);
-                self.buffer.advance(HEADER_VERSION_NB_SIZE);
+                self.chunk_size = usize::from_le_bytes(self.buffer[HEADER_PREFIX_SIZE + HEADER_VERSION_NB_SIZE..HEADER_SIZE].try_into().expect("slice with incorrect length"));
+                self.buffer.advance(HEADER_SIZE);
             } else {
                 trace!("the file is not encrypted !");
                 self.decipher_type = DecipherType::Plaintext;

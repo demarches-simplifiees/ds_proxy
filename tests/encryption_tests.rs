@@ -31,7 +31,7 @@ mod tests {
                 let source_stream = stream::once::<Bytes, Error>(Ok(input));
 
                 let encoder = Encoder::new(key.clone(), chunk_size, Box::new(source_stream));
-                let decoder = Decoder::new(key.clone(), chunk_size, Box::new(encoder));
+                let decoder = Decoder::new(key.clone(), Box::new(encoder));
 
                 let target_bytes: Bytes = decoder.concat2().wait().unwrap();
 
@@ -49,7 +49,7 @@ mod tests {
         let source: Bytes = Bytes::from(&clear[..]);
         let source_stream = stream::once::<Bytes, Error>(Ok(source));
 
-        let decoder = Decoder::new(key, 50, Box::new(source_stream));
+        let decoder = Decoder::new(key, Box::new(source_stream));
 
         let target_bytes: Bytes = decoder.concat2().wait().unwrap();
 

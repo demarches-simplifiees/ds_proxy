@@ -87,7 +87,7 @@ fn fetch(
             if *noop.get_ref() {
                 client_resp.streaming(res)
             } else {
-                let decoder = Decoder::new(key.get_ref().clone(), config.chunk_size.unwrap(), Box::new(res));
+                let decoder = Decoder::new(key.get_ref().clone(), Box::new(res));
                 client_resp.streaming(decoder)
             }
         })
