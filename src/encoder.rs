@@ -44,7 +44,7 @@ impl<E> Encoder<E> {
 
                     let header_bytes = Bytes::from(header.as_ref());
 
-                    let mut buf = Bytes::with_capacity(super::HEADER_PREFIX_SIZE + super::HEADER_VERSION_NB_SIZE + header_bytes.len());
+                    let mut buf = Bytes::with_capacity(super::HEADER_SIZE + header_bytes.len());
                     buf.extend(super::HEADER_PREFIX);
                     buf.extend(&super::HEADER_VERSION_NB.to_le_bytes());
                     buf.extend(header_bytes);
