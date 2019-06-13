@@ -13,7 +13,7 @@ pub fn encrypt(input_path: String, output_path: String, config: &Config) {
 
     let key = config.clone().create_key().unwrap();
 
-    let encoder = Encoder::new(key, DEFAULT_CHUNK_SIZE, Box::new(read));
+    let encoder = Encoder::new(key, config.chunk_size.unwrap(), Box::new(read));
 
     // default writes options to create a new file
     let write = fs.write(output_path, Default::default());
@@ -33,7 +33,7 @@ pub fn decrypt(input_path: String, output_path: String, config: &Config) {
     let read = fs.read(input_path, Default::default());
 
     let key = config.clone().create_key().unwrap();
-    let decoder = Decoder::new(key, DEFAULT_CHUNK_SIZE, Box::new(read));
+    let decoder = Decoder::new(key, config.chunk_size.unwrap(), Box::new(read));
 
     // default writes options to create a new file
     let write = fs.write(output_path, Default::default());
