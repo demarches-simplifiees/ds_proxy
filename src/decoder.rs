@@ -54,16 +54,16 @@ impl<E> Decoder<E> {
     fn read_header(&mut self) -> Poll<Option<Bytes>, E> {
         trace!("Decypher type unknown");
 
-        if super::HEADER_DS_PROXY.len() + super::HEADER_DS_VERSION_NB_SIZE <= self.buffer.len() {
+        if super::HEADER_DS_PROXY_SIZE + super::HEADER_DS_VERSION_NB_SIZE <= self.buffer.len() {
             trace!("not enough byte to decide decypher type");
 
-            let stream_header = &self.buffer[0..super::HEADER_DS_PROXY.len()];
-            let version_nb_header: u32 = u32::from_le_bytes(self.buffer[super::HEADER_DS_PROXY.len()..super::HEADER_DS_PROXY.len() + super::HEADER_DS_VERSION_NB_SIZE].try_into().expect("slice with incorrect length"));
+            let stream_header = &self.buffer[0..super::HEADER_DS_PROXY_SIZE];
+            let version_nb_header: u32 = u32::from_le_bytes(self.buffer[super::HEADER_DS_PROXY_SIZE..super::HEADER_DS_PROXY_SIZE + super::HEADER_DS_VERSION_NB_SIZE].try_into().expect("slice with incorrect length"));
 
             if stream_header == super::HEADER_DS_PROXY && version_nb_header == super::HEADER_DS_VERSION_NB {
                 trace!("the file is encrypted !");
                 self.decipher_type = DecipherType::Encrypted;
-                self.buffer.advance(super::HEADER_DS_PROXY.len());
+                self.buffer.advance(super::HEADER_DS_PROXY_SIZE);
                 self.buffer.advance(super::HEADER_DS_VERSION_NB_SIZE);
             } else {
                 trace!("the file is not encrypted !");
