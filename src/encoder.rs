@@ -6,7 +6,7 @@ use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 use sodiumoxide::crypto::secretstream::Tag;
 use log::trace;
-use super::{HEADER_SIZE, HEADER_PREFIX, HEADER_VERSION_NB};
+use super::header::{ Header, HEADER_SIZE };
 
 pub struct Encoder<E> {
     inner: Box<Stream<Item = Bytes, Error = E>>,
@@ -38,18 +38,19 @@ impl<E> Encoder<E> {
             match self.stream_encoder {
                 None => {
                     trace!("no stream encoder");
-                    let (enc_stream, header) =
+                    let (enc_stream, encryption_header) =
                         xchacha20poly1305::Stream::init_push(&self.key).unwrap();
 
                     self.stream_encoder = Some(enc_stream);
 
-                    let header_bytes = Bytes::from(header.as_ref());
+                    let encryption_header_bytes = Bytes::from(encryption_header.as_ref());
 
-                    let mut buf = Bytes::with_capacity(HEADER_SIZE + header_bytes.len());
-                    buf.extend(HEADER_PREFIX);
-                    buf.extend(&HEADER_VERSION_NB.to_le_bytes());
-                    buf.extend(&self.chunk_size.to_le_bytes());
-                    buf.extend(header_bytes);
+                    let mut buf = Bytes::with_capacity(HEADER_SIZE + encryption_header_bytes.len());
+
+                    let ds_header = Header::new(self.chunk_size);
+                    let ds_header_bytes: Vec<u8> = ds_header.into();
+                    buf.extend(&ds_header_bytes[..]);
+                    buf.extend(encryption_header_bytes);
 
                     Ok(Async::Ready(Some(buf)))
                 },
