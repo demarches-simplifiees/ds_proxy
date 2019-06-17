@@ -22,6 +22,8 @@ pub struct Config {
     pub noop: bool,
     pub key: DsKey,
     pub chunk_size: usize,
+    pub input_file: Option<String>,
+    pub output_file: Option<String>
 }
 
 impl Config {
@@ -60,6 +62,8 @@ impl Config {
             chunk_size: chunk_size,
             upstream_base_url: upstream_base_url,
             noop: args.flag_noop,
+            input_file: args.arg_input_file.clone(),
+            output_file: args.arg_output_file.clone(),
         }
     }
 

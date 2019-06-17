@@ -18,7 +18,6 @@ fn main() {
 
     let config: Config = Config::create_config(&args);
 
-
     if args.cmd_proxy {
         if args.flag_noop {
             info!("proxy in dry mode")
@@ -28,17 +27,9 @@ fn main() {
         let listen_port = args.arg_listen_port.unwrap();
         let _ = encrypt::proxy::main(&listen_adress, listen_port, config);
     } else if args.cmd_encrypt {
-        encrypt::file::encrypt(
-            args.clone().arg_input_file.unwrap(),
-            args.clone().arg_output_file.unwrap(),
-            &config,
-        );
+        encrypt::file::encrypt(&config);
     } else if args.cmd_decrypt {
-        encrypt::file::decrypt(
-            args.clone().arg_input_file.unwrap(),
-            args.clone().arg_output_file.unwrap(),
-            &config,
-        );
+        encrypt::file::decrypt(&config);
     }
 }
 
