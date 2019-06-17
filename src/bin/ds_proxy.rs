@@ -5,41 +5,9 @@ extern crate env_logger;
 
 use docopt::Docopt;
 use encrypt::config::Config;
-use serde::Deserialize;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use log::{info, error};
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
-
-
-const USAGE: &str = "
-DS encryption proxy.
-
-Usage:
-  ds_proxy encrypt <input-file> <output-file> <password-file>
-  ds_proxy decrypt <input-file> <output-file> <password-file>
-  ds_proxy proxy <listen-adress> <listen-port> <password-file> [--noop]
-  ds_proxy (-h | --help)
-  ds_proxy --version
-
-Options:
-  -h --help             Show this screen.
-  --version             Show version.
-";
-
-#[derive(Debug, Deserialize, Clone)]
-struct Args {
-    arg_input_file: Option<String>,
-    arg_output_file: Option<String>,
-    arg_listen_adress: Option<String>,
-    arg_password_file: Option<String>,
-    arg_listen_port: Option<u16>,
-    cmd_encrypt: bool,
-    cmd_decrypt: bool,
-    cmd_proxy: bool,
-    flag_noop: bool,
-}
+use encrypt::args::{Args, USAGE};
 
 fn read_password(path: String) -> String {
     let file = File::open(path).unwrap();
