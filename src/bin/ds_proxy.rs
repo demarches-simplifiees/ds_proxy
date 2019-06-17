@@ -44,8 +44,7 @@ struct Args {
 fn read_password(path: String) -> String {
     let file = File::open(path).unwrap();
     let reader = io::BufReader::new(file);
-    let line = reader.lines().nth(0).unwrap().unwrap();
-    line
+    reader.lines().nth(0).unwrap().unwrap()
 }
 
 fn create_config(args: &Args) -> Config {

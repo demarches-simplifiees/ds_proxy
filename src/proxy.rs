@@ -12,7 +12,7 @@ use futures::stream::Stream;
 const TIMEOUT_DURATION:Duration = Duration::from_secs(600);
 
 // Encryption changes the value of those headers
-const HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
+static HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
     actix_web::http::header::CONTENT_LENGTH,
     actix_web::http::header::CONTENT_TYPE,
     actix_web::http::header::ETAG,

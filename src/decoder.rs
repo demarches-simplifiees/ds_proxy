@@ -114,17 +114,15 @@ impl<E> Decoder<E> {
                     let (decrypted1, _tag1) = stream.pull(&self.buffer[0..(xchacha20poly1305::ABYTES + self.chunk_size)], None).unwrap();
                     self.buffer.advance(xchacha20poly1305::ABYTES + self.chunk_size);
                     Ok(Async::Ready(Some(Bytes::from(&decrypted1[..]))))
+                } else if self.inner_ended {
+                    trace!("inner stream over, decrypting whats left");
+                    let rest = self.buffer.len();
+                    let (decrypted1, _tag1) = stream.pull(&self.buffer[..], None).unwrap();
+                    self.buffer.advance(rest);
+                    Ok(Async::Ready(Some(Bytes::from(&decrypted1[..]))))
                 } else {
-                    if self.inner_ended {
-                        trace!("inner stream over, decrypting whats left");
-                        let rest = self.buffer.len();
-                        let (decrypted1, _tag1) = stream.pull(&self.buffer[..], None).unwrap();
-                        self.buffer.advance(rest);
-                        Ok(Async::Ready(Some(Bytes::from(&decrypted1[..]))))
-                    } else {
-                        trace!("waiting for more data");
-                        self.poll()
-                    }
+                    trace!("waiting for more data");
+                    self.poll()
                 }
             }
         }
