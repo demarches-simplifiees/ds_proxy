@@ -9,6 +9,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::error::Error;
 use super::args;
+use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 
 pub type DsKey = Key;
 
@@ -30,6 +31,8 @@ impl Config {
             Some(password_file) => read_password(password_file),
             None => env::var("DS_PASSWORD").expect("Missing password, use DS_PASSWORD env or --password-file cli argument")
         };
+
+        ensure_valid_password(&password);
 
         let salt = match &args.arg_salt {
             Some(salt) => salt.to_string(),
@@ -97,6 +100,23 @@ fn read_password(path_string: &str) -> String {
 
     let reader = io::BufReader::new(file);
     reader.lines().nth(0).unwrap().unwrap()
+}
+
+
+fn ensure_valid_password(password: &str) {
+    match std::fs::read("hash.key") {
+        Err(_) => {
+            panic!("hash.key not found");
+        },
+        Ok(file) => {
+            let hash = HashedPassword::from_slice(&file[..]);
+
+            if !pwhash_verify(&hash.unwrap(), password.clone().trim_end().as_bytes()) {
+                panic!("Incorrect password, aborting");
+            }
+
+        }
+    }
 }
 
 #[cfg(test)]

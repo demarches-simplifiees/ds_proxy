@@ -5,8 +5,7 @@ extern crate env_logger;
 
 use docopt::Docopt;
 use encrypt::config::Config;
-use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
-use log::{info, error};
+use log::info;
 use encrypt::args::{Args, USAGE};
 
 fn main() {
@@ -19,21 +18,6 @@ fn main() {
 
     let config: Config = Config::create_config(&args);
 
-    match std::fs::read("hash.key") {
-        Err(_) => {
-            error!("hash.key not found");
-            std::process::exit(1);
-        },
-        Ok(file) => {
-            let hash = HashedPassword::from_slice(&file[..]);
-
-            if !pwhash_verify(&hash.unwrap(), config.password.clone().trim_end().as_bytes()) {
-                error!("Incorrect password, aborting");
-                std::process::exit(1);
-            }
-
-        }
-    }
 
     if args.cmd_proxy {
         if args.flag_noop {
