@@ -32,6 +32,14 @@ impl Config {
         }
     }
 
+    pub fn create_config(args: &args::Args) -> Config {
+        Config{
+            password: Some(read_password(args.arg_password_file.clone().unwrap())),
+            noop: args.flag_noop,
+            ..Config::new_from_env()
+        }
+    }
+
     fn new_from_env() -> Config {
         let chunk_size:usize = match env::var("DS_CHUNK_SIZE") {
             Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
@@ -72,14 +80,6 @@ impl Config {
 
     pub fn create_url(&self, uri: &Uri) -> String {
         format!("{}{}", self.upstream_base_url.clone().unwrap(), uri)
-    }
-
-    pub fn create_config(args: &args::Args) -> Config {
-        Config{
-            password: Some(read_password(args.arg_password_file.clone().unwrap())),
-            noop: args.flag_noop,
-            ..Config::new_from_env()
-        }
     }
 }
 
