@@ -3,10 +3,6 @@ use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
 use actix_web::http::Uri;
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
-use std::path::Path;
 use std::error::Error;
 use super::args;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
@@ -91,16 +87,10 @@ impl Config {
 }
 
 fn read_password(path_string: &str) -> String {
-    let path = Path::new(path_string);
-    let display = path.display();
-
-    let file = match File::open(&path) {
-        Err(why) => panic!("couldn't open {}: {}", display, why.description()),
-        Ok(file) => file,
-    };
-
-    let reader = io::BufReader::new(file);
-    reader.lines().nth(0).unwrap().unwrap()
+    match std::fs::read(path_string) {
+        Err(why) => panic!("couldn't open {}: {}", path_string, why.description()),
+        Ok(file) => String::from_utf8(file).unwrap()
+    }
 }
 
 fn ensure_valid_password(password: &str) {
