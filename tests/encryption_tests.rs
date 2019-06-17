@@ -57,9 +57,9 @@ mod tests {
     }
 
     fn build_key() -> Key {
-        let passwd = "Correct Horse Battery Staple";
-        let salt = "abcdefghabcdefghabcdefghabcdefgh";
-        let config = Config::new(salt, passwd, 5);
+        let passwd = "Correct Horse Battery Staple".to_string();
+        let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
+        let config = Config{ salt: salt, password: passwd, chunk_size: 512, noop: false, upstream_base_url: None };
         config.create_key().unwrap()
     }
 }

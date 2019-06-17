@@ -27,7 +27,7 @@ fn main() {
         Ok(file) => {
             let hash = HashedPassword::from_slice(&file[..]);
 
-            if !pwhash_verify(&hash.unwrap(), config.password.clone().unwrap().trim_end().as_bytes()) {
+            if !pwhash_verify(&hash.unwrap(), config.password.clone().trim_end().as_bytes()) {
                 error!("Incorrect password, aborting");
                 std::process::exit(1);
             }

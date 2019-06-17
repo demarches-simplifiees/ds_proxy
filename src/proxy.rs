@@ -44,7 +44,7 @@ fn forward(
     let stream_to_send: Box<Stream<Item = _, Error = _>> = if config_ref.noop {
         Box::new(payload)
     } else {
-        Box::new(Encoder::new(key.get_ref().clone(), config.chunk_size.unwrap(), Box::new(payload)))
+        Box::new(Encoder::new(key.get_ref().clone(), config.chunk_size, Box::new(payload)))
     };
 
     forwarded_req
