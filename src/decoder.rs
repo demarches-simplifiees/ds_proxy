@@ -4,7 +4,9 @@ use futures::prelude::*;
 use futures::stream::Stream;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Header, Key};
-use log::trace;
+use log::{trace, error};
+use std::convert::TryFrom;
+use super::header;
 
 pub struct Decoder <E> {
     inner: Box<Stream<Item = Bytes, Error = E>>,
@@ -23,14 +25,14 @@ enum DecipherType {
 }
 
 impl<E> Decoder<E> {
-    pub fn new(key: Key, chunk_size: usize, s: Box<Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
+    pub fn new(key: Key, s: Box<Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,
             decipher_type: DecipherType::DontKnowYet,
             stream_decoder: None,
-            buffer: BytesMut::with_capacity(chunk_size),
-            chunk_size,
+            buffer: BytesMut::new(),
+            chunk_size: 0,
             key,
         }
     }
@@ -53,19 +55,24 @@ impl<E> Decoder<E> {
     fn read_header(&mut self) -> Poll<Option<Bytes>, E> {
         trace!("Decypher type unknown");
 
-        if super::HEADER_DS_PROXY.len() + [super::HEADER_DS_VERSION_NB].len() <= self.buffer.len() {
+        if header::HEADER_SIZE <= self.buffer.len() {
             trace!("not enough byte to decide decypher type");
 
-            let stream_header = &self.buffer[0..super::HEADER_DS_PROXY.len()];
-            let version_nb_header = self.buffer[super::HEADER_DS_PROXY.len()];
-            if stream_header == super::HEADER_DS_PROXY && version_nb_header == super::HEADER_DS_VERSION_NB {
-                trace!("the file is encrypted !");
-                self.decipher_type = DecipherType::Encrypted;
-                self.buffer.advance(super::HEADER_DS_PROXY.len());
-                self.buffer.advance([super::HEADER_DS_VERSION_NB].len());
-            } else {
-                trace!("the file is not encrypted !");
-                self.decipher_type = DecipherType::Plaintext;
+            match header::Header::try_from(&self.buffer[0..header::HEADER_SIZE]) {
+                Ok(header) => {
+                    trace!("the file is encrypted !");
+                    self.chunk_size = header.chunk_size;
+                    self.decipher_type = DecipherType::Encrypted;
+                    self.buffer.advance(header::HEADER_SIZE);
+                },
+                Err(header::HeaderParsingError::WrongPrefix) => {
+                    trace!("the file is not encrypted !");
+                    self.decipher_type = DecipherType::Plaintext;
+                },
+                e => {
+                    error!("{:?}", e);
+                    panic!()
+                },
             }
 
             self.poll()
