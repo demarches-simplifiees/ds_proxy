@@ -57,6 +57,7 @@ fn create_config(args: &Args) -> Config {
 
 fn main() {
     env_logger::init();
+    sodiumoxide::init().unwrap();
 
     let args : Args = Docopt::new(USAGE)
         .and_then(|d| d.deserialize())
