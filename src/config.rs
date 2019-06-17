@@ -68,20 +68,6 @@ impl Config {
             chunk_size: Some(chunk_size),
             upstream_base_url: upstream_base_url,
             noop: args.flag_noop,
-            ..Config::new_from_env()
-        }
-    }
-
-    fn new_from_env() -> Config {
-        let chunk_size:usize = match env::var("DS_CHUNK_SIZE") {
-            Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
-            _ => DEFAULT_CHUNK_SIZE
-        };
-
-        Config {
-            upstream_base_url: env::var("DS_UPSTREAM_URL").ok(),
-            salt: env::var("DS_SALT").ok(),
-            chunk_size: Some(chunk_size),
             ..Config::default()
         }
     }
