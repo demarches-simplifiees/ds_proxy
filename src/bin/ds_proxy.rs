@@ -27,9 +27,9 @@ fn main() {
         let listen_port = args.arg_listen_port.unwrap();
         let _ = encrypt::proxy::main(&listen_adress, listen_port, config);
     } else if args.cmd_encrypt {
-        encrypt::file::encrypt(&config);
+        encrypt::file::encrypt(config);
     } else if args.cmd_decrypt {
-        encrypt::file::decrypt(&config);
+        encrypt::file::decrypt(config);
     }
 }
 
