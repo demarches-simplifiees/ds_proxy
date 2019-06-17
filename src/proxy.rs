@@ -118,10 +118,10 @@ fn default(_req: HttpRequest) -> impl IntoFuture<Item = &'static str, Error = Er
 }
 
 pub fn main(
-    listen_addr: &str,
-    listen_port: u16,
     config: Config,
 ) -> std::io::Result<()> {
+
+    let address = config.address.clone().unwrap();
 
     HttpServer::new(move || {
         App::new()
@@ -133,7 +133,7 @@ pub fn main(
             .service(web::resource(".*").guard(guard::Options()).to_async(options))
             .default_service(web::route().to_async(default))
     })
-    .bind((listen_addr, listen_port))?
+    .bind(address)?
     .system_exit()
     .run()
 }

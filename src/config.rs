@@ -10,6 +10,7 @@ use std::path::Path;
 use std::error::Error;
 use super::args;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
+use std::net::{ToSocketAddrs, SocketAddr};
 
 pub type DsKey = Key;
 
@@ -23,7 +24,8 @@ pub struct Config {
     pub key: DsKey,
     pub chunk_size: usize,
     pub input_file: Option<String>,
-    pub output_file: Option<String>
+    pub output_file: Option<String>,
+    pub address: Option<SocketAddr>
 }
 
 impl Config {
@@ -57,6 +59,21 @@ impl Config {
             None
         };
 
+        let address = if args.cmd_proxy {
+            match &args.arg_address {
+                Some(address) => match address.to_socket_addrs() {
+                    Ok(mut sockets) => Some(sockets.next().unwrap()),
+                    _ => panic!("Unable to parse the address")
+                }
+                None => match (env::var("DS_ADDRESS").expect("Missing address, use DS_ADDRESS env or --address cli argument").to_string()).to_socket_addrs() {
+                    Ok(mut sockets) => Some(sockets.next().unwrap()),
+                    _ => panic!("Unable to parse the address")
+                }
+            }
+        } else {
+            None
+        };
+
         Config{
             key: create_key(salt, password).unwrap(),
             chunk_size: chunk_size,
@@ -64,6 +81,7 @@ impl Config {
             noop: args.flag_noop,
             input_file: args.arg_input_file.clone(),
             output_file: args.arg_output_file.clone(),
+            address: address
         }
     }
 
