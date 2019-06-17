@@ -32,7 +32,7 @@ impl Config {
         }
     }
 
-    pub fn new_from_env() -> Config {
+    fn new_from_env() -> Config {
         let chunk_size:usize = match env::var("DS_CHUNK_SIZE") {
             Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
             _ => DEFAULT_CHUNK_SIZE
