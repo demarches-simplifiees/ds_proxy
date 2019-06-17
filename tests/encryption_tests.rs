@@ -2,7 +2,7 @@ extern crate encrypt;
 
 #[cfg(test)]
 mod tests {
-    use encrypt::config::Config;
+    use encrypt::config::create_key;
     use encrypt::decoder::*;
     use encrypt::encoder::*;
 
@@ -57,9 +57,8 @@ mod tests {
     }
 
     fn build_key() -> Key {
-        let passwd = "Correct Horse Battery Staple".to_string();
+        let password = "Correct Horse Battery Staple".to_string();
         let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
-        let config = Config{ salt: salt, password: passwd, chunk_size: 512, noop: false, upstream_base_url: None };
-        config.create_key().unwrap()
+        create_key(salt, password).unwrap()
     }
 }

@@ -1,4 +1,4 @@
-use super::config::{Config, DsKey};
+use super::config::Config;
 use super::decoder::*;
 use super::encoder::*;
 use actix_web::client::Client;
@@ -24,7 +24,6 @@ fn forward(
     client: web::Data<Client>,
     config: web::Data<Config>,
     _noop: web::Data<bool>,
-    key: web::Data<DsKey>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
     let config_ref = config.get_ref();
@@ -44,7 +43,7 @@ fn forward(
     let stream_to_send: Box<Stream<Item = _, Error = _>> = if config_ref.noop {
         Box::new(payload)
     } else {
-        Box::new(Encoder::new(key.get_ref().clone(), config.chunk_size, Box::new(payload)))
+        Box::new(Encoder::new(config_ref.key.clone(), config.chunk_size, Box::new(payload)))
     };
 
     forwarded_req
@@ -67,7 +66,6 @@ fn fetch(
     client: web::Data<Client>,
     config: web::Data<Config>,
     noop: web::Data<bool>,
-    key: web::Data<DsKey>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let get_url=  config.get_ref().create_url(&req.uri());
 
@@ -87,7 +85,7 @@ fn fetch(
             if *noop.get_ref() {
                 client_resp.streaming(res)
             } else {
-                let decoder = Decoder::new(key.get_ref().clone(), Box::new(res));
+                let decoder = Decoder::new(config.get_ref().key.clone(), Box::new(res));
                 client_resp.streaming(decoder)
             }
         })
@@ -99,7 +97,6 @@ fn options(
     client: web::Data<Client>,
     config: web::Data<Config>,
     _noop: web::Data<bool>,
-    _key: web::Data<DsKey>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let options_url = config.get_ref().create_url(&req.uri());
 
@@ -129,14 +126,12 @@ pub fn main(
     config: Config,
 ) -> std::io::Result<()> {
     let noop = false;
-    let key = config.clone().create_key().unwrap();
 
     HttpServer::new(move || {
         App::new()
             .data(actix_web::client::Client::new())
             .data(config.clone())
             .data(noop)
-            .data(key.clone())
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .service(web::resource(".*").guard(guard::Put()).to_async(forward))

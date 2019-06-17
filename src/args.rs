@@ -15,7 +15,7 @@ Options:
   --version             Show version.
 ";
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct Args {
     pub arg_input_file: Option<String>,
     pub arg_output_file: Option<String>,

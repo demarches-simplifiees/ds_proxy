@@ -20,8 +20,7 @@ pub const DEFAULT_CHUNK_SIZE: usize = 16 * 1024;
 pub struct Config {
     pub upstream_base_url: Option<String>,
     pub noop: bool,
-    pub password: String,
-    pub salt: String,
+    pub key: DsKey,
     pub chunk_size: usize,
 }
 
@@ -57,30 +56,10 @@ impl Config {
         };
 
         Config{
-            password: password,
-            salt: salt,
+            key: create_key(salt, password).unwrap(),
             chunk_size: chunk_size,
             upstream_base_url: upstream_base_url,
             noop: args.flag_noop,
-        }
-    }
-
-    pub fn create_key(self) -> Result<Key, &'static str> {
-        if let Some(salt) = Salt::from_slice(&self.salt.as_bytes()[..]) {
-            let mut raw_key = [0u8; KEYBYTES];
-
-            pwhash::derive_key(
-                &mut raw_key,
-                self.password.as_bytes(),
-                &salt,
-                pwhash::OPSLIMIT_INTERACTIVE,
-                pwhash::MEMLIMIT_INTERACTIVE,
-                )
-                .unwrap();
-
-            Ok(Key(raw_key))
-        } else {
-            Err("Unable to derive a key from the salt")
         }
     }
 
@@ -102,7 +81,6 @@ fn read_password(path_string: &str) -> String {
     reader.lines().nth(0).unwrap().unwrap()
 }
 
-
 fn ensure_valid_password(password: &str) {
     match std::fs::read("hash.key") {
         Err(_) => {
@@ -119,16 +97,36 @@ fn ensure_valid_password(password: &str) {
     }
 }
 
+pub fn create_key(salt: String, password: String) -> Result<Key, &'static str> {
+    if let Some(salt) = Salt::from_slice(&salt.as_bytes()[..]) {
+        let mut raw_key = [0u8; KEYBYTES];
+
+        pwhash::derive_key(
+            &mut raw_key,
+            &password.as_bytes(),
+            &salt,
+            pwhash::OPSLIMIT_INTERACTIVE,
+            pwhash::MEMLIMIT_INTERACTIVE,
+            )
+            .unwrap();
+
+        Ok(Key(raw_key))
+    } else {
+        Err("Unable to derive a key from the salt")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_key_creation() {
-        let passwd = "Correct Horse Battery Staple".to_string();
+        let password = "Correct Horse Battery Staple".to_string();
         let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
-        let config_ok = Config{ salt: salt, password: passwd, chunk_size: 512, noop: false, upstream_base_url: None };
 
-        assert_eq!(true, config_ok.create_key().is_ok());
+        let key_ok = create_key(salt, password);
+
+        assert_eq!(true, key_ok.is_ok());
     }
 }
