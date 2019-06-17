@@ -6,6 +6,8 @@ use actix_web::http::Uri;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
+use std::path::Path;
+use std::error::Error;
 use super::args;
 
 pub type DsKey = Key;
@@ -83,8 +85,15 @@ impl Config {
     }
 }
 
-fn read_password(path: String) -> String {
-    let file = File::open(path).unwrap();
+fn read_password(path_string: String) -> String {
+    let path = Path::new(&path_string);
+    let display = path.display();
+
+    let file = match File::open(&path) {
+        Err(why) => panic!("couldn't open {}: {}", display, why.description()),
+        Ok(file) => file,
+    };
+
     let reader = io::BufReader::new(file);
     reader.lines().nth(0).unwrap().unwrap()
 }
