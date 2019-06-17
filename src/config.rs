@@ -26,19 +26,19 @@ pub struct Config {
 
 impl Config {
     pub fn create_config(args: &args::Args) -> Config {
-        let password = match &args.arg_password_file {
+        let password = match &args.flag_password_file {
             Some(password_file) => read_password(password_file),
             None => env::var("DS_PASSWORD").expect("Missing password, use DS_PASSWORD env or --password-file cli argument")
         };
 
         ensure_valid_password(&password);
 
-        let salt = match &args.arg_salt {
+        let salt = match &args.flag_salt {
             Some(salt) => salt.to_string(),
             None => env::var("DS_SALT").expect("Missing salt, use DS_SALT env or --salt cli argument").to_string()
         };
 
-        let chunk_size = match &args.arg_chunk_size {
+        let chunk_size = match &args.flag_chunk_size {
             Some(chunk_size) => chunk_size.clone(),
             None => match env::var("DS_CHUNK_SIZE") {
                 Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
@@ -47,7 +47,7 @@ impl Config {
         };
 
         let upstream_base_url = if args.cmd_proxy {
-            match &args.arg_upstream_url {
+            match &args.flag_upstream_url {
                 Some(upstream_url) => Some(upstream_url.to_string()),
                 None => Some(env::var("DS_UPSTREAM_URL").expect("Missing upstream_url, use DS_UPSTREAM_URL env or --upstream-url cli argument").to_string())
             }
@@ -56,7 +56,7 @@ impl Config {
         };
 
         let address = if args.cmd_proxy {
-            match &args.arg_address {
+            match &args.flag_address {
                 Some(address) => match address.to_socket_addrs() {
                     Ok(mut sockets) => Some(sockets.next().unwrap()),
                     _ => panic!("Unable to parse the address")
