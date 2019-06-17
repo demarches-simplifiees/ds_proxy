@@ -23,7 +23,6 @@ fn forward(
     payload: web::Payload,
     client: web::Data<Client>,
     config: web::Data<Config>,
-    _noop: web::Data<bool>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
     let config_ref = config.get_ref();
@@ -65,7 +64,6 @@ fn fetch(
     payload: web::Payload,
     client: web::Data<Client>,
     config: web::Data<Config>,
-    noop: web::Data<bool>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let get_url=  config.get_ref().create_url(&req.uri());
 
@@ -82,7 +80,7 @@ fn fetch(
                 client_resp.header(header_name.clone(), header_value.clone());
             }
 
-            if *noop.get_ref() {
+            if config.get_ref().noop {
                 client_resp.streaming(res)
             } else {
                 let decoder = Decoder::new(config.get_ref().key.clone(), Box::new(res));
@@ -96,7 +94,6 @@ fn options(
     payload: web::Payload,
     client: web::Data<Client>,
     config: web::Data<Config>,
-    _noop: web::Data<bool>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     let options_url = config.get_ref().create_url(&req.uri());
 
@@ -125,13 +122,11 @@ pub fn main(
     listen_port: u16,
     config: Config,
 ) -> std::io::Result<()> {
-    let noop = false;
 
     HttpServer::new(move || {
         App::new()
             .data(actix_web::client::Client::new())
             .data(config.clone())
-            .data(noop)
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .service(web::resource(".*").guard(guard::Put()).to_async(forward))
