@@ -47,7 +47,7 @@ impl Config {
         };
 
         Config {
-            upstream_base_url: env::var("UPSTREAM_URL").ok(),
+            upstream_base_url: env::var("DS_UPSTREAM_URL").ok(),
             salt: env::var("DS_SALT").ok(),
             chunk_size: Some(chunk_size),
             ..Config::default()
