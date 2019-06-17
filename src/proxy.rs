@@ -9,7 +9,7 @@ use futures::IntoFuture;
 use std::time::Duration;
 use futures::stream::Stream;
 
-const TIMEOUT_DURATION:Duration = Duration::from_secs(600);
+const TIMEOUT_DURATION:Duration = Duration::from_secs(60*60);
 
 // Encryption changes the value of those headers
 const HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
