@@ -40,8 +40,33 @@ impl Config {
             None => env::var("DS_PASSWORD").expect("Missing password, use DS_PASSWORD env or --password-file cli argument")
         };
 
+        let salt = match &args.arg_salt {
+            Some(salt) => salt.to_string(),
+            None => env::var("DS_SALT").expect("Missing salt, use DS_SALT env or --salt cli argument").to_string()
+        };
+
+        let chunk_size = match &args.arg_chunk_size {
+            Some(chunk_size) => chunk_size.clone(),
+            None => match env::var("DS_CHUNK_SIZE") {
+                Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
+                _ => DEFAULT_CHUNK_SIZE
+            }
+        };
+
+        let upstream_base_url = if args.cmd_proxy {
+            match &args.arg_upstream_url {
+                Some(upstream_url) => Some(upstream_url.to_string()),
+                None => Some(env::var("DS_UPSTREAM_URL").expect("Missing upstream_url, use DS_UPSTREAM_URL env or --upstream-url cli argument").to_string())
+            }
+        } else {
+            None
+        };
+
         Config{
             password: Some(password),
+            salt: Some(salt),
+            chunk_size: Some(chunk_size),
+            upstream_base_url: upstream_base_url,
             noop: args.flag_noop,
             ..Config::new_from_env()
         }
