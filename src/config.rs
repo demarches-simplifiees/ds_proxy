@@ -35,8 +35,13 @@ impl Config {
     }
 
     pub fn create_config(args: &args::Args) -> Config {
+        let password = match &args.arg_password_file {
+            Some(password_file) => read_password(password_file),
+            None => env::var("DS_PASSWORD").expect("Missing password, use DS_PASSWORD env or --password-file cli argument")
+        };
+
         Config{
-            password: Some(read_password(args.arg_password_file.clone().unwrap())),
+            password: Some(password),
             noop: args.flag_noop,
             ..Config::new_from_env()
         }
@@ -85,8 +90,8 @@ impl Config {
     }
 }
 
-fn read_password(path_string: String) -> String {
-    let path = Path::new(&path_string);
+fn read_password(path_string: &str) -> String {
+    let path = Path::new(path_string);
     let display = path.display();
 
     let file = match File::open(&path) {

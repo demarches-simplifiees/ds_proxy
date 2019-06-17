@@ -4,9 +4,9 @@ pub const USAGE: &str = "
 DS encryption proxy.
 
 Usage:
-  ds_proxy encrypt <input-file> <output-file> <password-file>
-  ds_proxy decrypt <input-file> <output-file> <password-file>
-  ds_proxy proxy <listen-adress> <listen-port> <password-file> [--noop]
+  ds_proxy encrypt <input-file> <output-file> [--password=<password-file>]
+  ds_proxy decrypt <input-file> <output-file> [--password=<password-file>]
+  ds_proxy proxy <listen-adress> <listen-port> [--password=<password-file>] [--noop]
   ds_proxy (-h | --help)
   ds_proxy --version
 
