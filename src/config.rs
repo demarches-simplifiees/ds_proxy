@@ -3,6 +3,10 @@ use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
 use actix_web::http::Uri;
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
+use super::args;
 
 pub type DsKey = Key;
 
@@ -69,7 +73,22 @@ impl Config {
     pub fn create_url(&self, uri: &Uri) -> String {
         format!("{}{}", self.upstream_base_url.clone().unwrap(), uri)
     }
+
+    pub fn create_config(args: &args::Args) -> Config {
+        Config{
+            password: Some(read_password(args.arg_password_file.clone().unwrap())),
+            noop: args.flag_noop,
+            ..Config::new_from_env()
+        }
+    }
 }
+
+fn read_password(path: String) -> String {
+    let file = File::open(path).unwrap();
+    let reader = io::BufReader::new(file);
+    reader.lines().nth(0).unwrap().unwrap()
+}
+
 
 impl Default for Config {
     fn default() -> Config {

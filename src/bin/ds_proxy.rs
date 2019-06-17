@@ -9,20 +9,6 @@ use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use log::{info, error};
 use encrypt::args::{Args, USAGE};
 
-fn read_password(path: String) -> String {
-    let file = File::open(path).unwrap();
-    let reader = io::BufReader::new(file);
-    reader.lines().nth(0).unwrap().unwrap()
-}
-
-fn create_config(args: &Args) -> Config {
-    Config{
-        password: Some(read_password(args.arg_password_file.clone().unwrap())),
-        noop: args.flag_noop,
-        ..Config::new_from_env()
-    }
-}
-
 fn main() {
     env_logger::init();
     sodiumoxide::init().unwrap();
@@ -31,7 +17,7 @@ fn main() {
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
 
-    let config: Config = create_config(&args);
+    let config: Config = Config::create_config(&args);
 
     match std::fs::read("hash.key") {
         Err(_) => {
