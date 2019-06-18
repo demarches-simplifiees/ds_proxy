@@ -6,7 +6,8 @@ use actix_web::http::Uri;
 
 pub type DsKey = Key;
 
-pub const DEFAULT_CHUNK_SIZE: usize = 512;
+// match nginx default (proxy_buffer_size in ngx_stream_proxy_module)
+pub const DEFAULT_CHUNK_SIZE: usize = 16 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct Config {
