@@ -5,55 +5,8 @@ extern crate env_logger;
 
 use docopt::Docopt;
 use encrypt::config::Config;
-use serde::Deserialize;
-use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use log::info;
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
-
-
-const USAGE: &str = "
-DS encryption proxy.
-
-Usage:
-  ds_proxy encrypt <input-file> <output-file> <password-file>
-  ds_proxy decrypt <input-file> <output-file> <password-file>
-  ds_proxy proxy <listen-adress> <listen-port> <password-file> [--noop]
-  ds_proxy (-h | --help)
-  ds_proxy --version
-
-Options:
-  -h --help             Show this screen.
-  --version             Show version.
-";
-
-#[derive(Debug, Deserialize, Clone)]
-struct Args {
-    arg_input_file: Option<String>,
-    arg_output_file: Option<String>,
-    arg_listen_adress: Option<String>,
-    arg_password_file: Option<String>,
-    arg_listen_port: Option<u16>,
-    cmd_encrypt: bool,
-    cmd_decrypt: bool,
-    cmd_proxy: bool,
-    flag_noop: bool,
-}
-
-fn read_password(path: String) -> String {
-    let file = File::open(path).unwrap();
-    let reader = io::BufReader::new(file);
-    reader.lines().nth(0).unwrap().unwrap()
-}
-
-fn create_config(args: &Args) -> Config {
-    Config{
-        password: Some(read_password(args.arg_password_file.clone().unwrap())),
-        noop: args.flag_noop,
-        ..Config::new_from_env()
-    }
-}
+use encrypt::args::{Args, USAGE};
 
 fn main() {
     env_logger::init();
@@ -63,37 +16,18 @@ fn main() {
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
 
-    let config: Config = create_config(&args);
+    let config: Config = Config::create_config(&args);
 
     if args.cmd_proxy {
         if args.flag_noop {
             info!("proxy in dry mode")
         }
 
-        let serialized_hash = std::fs::read("hash.key")
-            .expect("Unable to read hash file");
-        let hash = HashedPassword::from_slice(&serialized_hash[..]);
-        if pwhash_verify(&hash.unwrap(), config.password.clone().unwrap().trim_end().as_bytes()) {
-            println!("This password matches the saved hash, starting the proxy");
-
-            let listen_adress = args.clone().arg_listen_adress.unwrap();
-            let listen_port = args.arg_listen_port.unwrap();
-            let _ = encrypt::proxy::main(&listen_adress, listen_port, config);
-        } else {
-            println!("Incorrect password, aborting")
-        }
+        let _ = encrypt::proxy::main(config);
     } else if args.cmd_encrypt {
-        encrypt::file::encrypt(
-            args.clone().arg_input_file.unwrap(),
-            args.clone().arg_output_file.unwrap(),
-            &config,
-        );
+        encrypt::file::encrypt(config);
     } else if args.cmd_decrypt {
-        encrypt::file::decrypt(
-            args.clone().arg_input_file.unwrap(),
-            args.clone().arg_output_file.unwrap(),
-            &config,
-        );
+        encrypt::file::decrypt(config);
     }
 }
 

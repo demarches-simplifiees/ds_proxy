@@ -3,6 +3,10 @@ use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
 use actix_web::http::Uri;
+use std::error::Error;
+use super::args;
+use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
+use std::net::{ToSocketAddrs, SocketAddr};
 
 pub type DsKey = Key;
 
@@ -13,56 +17,72 @@ pub const DEFAULT_CHUNK_SIZE: usize = 16 * 1024;
 pub struct Config {
     pub upstream_base_url: Option<String>,
     pub noop: bool,
-    pub password: Option<String>,
-    pub salt: Option<String>,
-    pub chunk_size: Option<usize>,
+    pub key: DsKey,
+    pub chunk_size: usize,
+    pub input_file: Option<String>,
+    pub output_file: Option<String>,
+    pub address: Option<SocketAddr>
 }
 
 impl Config {
-    pub fn new(salt: &str, password: &str, chunk_size: usize) -> Config {
-        Config {
-            salt: Some(salt.to_string()),
-            password: Some(password.to_string()),
-            chunk_size: Some(chunk_size),
-            ..Config::default()
-        }
-    }
-
-    pub fn new_from_env() -> Config {
-        let chunk_size:usize = match env::var("DS_CHUNK_SIZE") {
-            Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
-            _ => DEFAULT_CHUNK_SIZE
+    pub fn create_config(args: &args::Args) -> Config {
+        let password = match &args.flag_password_file {
+            Some(password_file) => read_file_content(password_file),
+            None => env::var("DS_PASSWORD").expect("Missing password, use DS_PASSWORD env or --password-file cli argument")
         };
 
-        Config {
-            upstream_base_url: env::var("UPSTREAM_URL").ok(),
-            salt: env::var("DS_SALT").ok(),
-            chunk_size: Some(chunk_size),
-            ..Config::default()
-        }
-    }
+        let password_hash = match &args.flag_hash_file {
+            Some(hash_file) => read_file_content(hash_file),
+            None => env::var("DS_PASSWORD_HASH").expect("Missing hash, use DS_PASSWORD_HASH env or --hash-file cli argument")
+        };
 
-    pub fn create_key(self) -> Result<Key, &'static str> {
-        match (self.password, self.salt) {
-            (Some(password), Some(input_salt)) => {
-                if let Some(salt) = Salt::from_slice(&input_salt.as_bytes()[..]) {
-                    let mut raw_key = [0u8; KEYBYTES];
+        ensure_valid_password(&password, &password_hash);
 
-                    pwhash::derive_key(
-                        &mut raw_key,
-                        password.as_bytes(),
-                        &salt,
-                        pwhash::OPSLIMIT_INTERACTIVE,
-                        pwhash::MEMLIMIT_INTERACTIVE,
-                    )
-                    .unwrap();
+        let salt = match &args.flag_salt {
+            Some(salt) => salt.to_string(),
+            None => env::var("DS_SALT").expect("Missing salt, use DS_SALT env or --salt cli argument").to_string()
+        };
 
-                    Ok(Key(raw_key))
-                } else {
-                    Err("Unable to derive a key from the salt")
+        let chunk_size = match &args.flag_chunk_size {
+            Some(chunk_size) => chunk_size.clone(),
+            None => match env::var("DS_CHUNK_SIZE") {
+                Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
+                _ => DEFAULT_CHUNK_SIZE
+            }
+        };
+
+        let upstream_base_url = if args.cmd_proxy {
+            match &args.flag_upstream_url {
+                Some(upstream_url) => Some(upstream_url.to_string()),
+                None => Some(env::var("DS_UPSTREAM_URL").expect("Missing upstream_url, use DS_UPSTREAM_URL env or --upstream-url cli argument").to_string())
+            }
+        } else {
+            None
+        };
+
+        let address = if args.cmd_proxy {
+            match &args.flag_address {
+                Some(address) => match address.to_socket_addrs() {
+                    Ok(mut sockets) => Some(sockets.next().unwrap()),
+                    _ => panic!("Unable to parse the address")
+                }
+                None => match (env::var("DS_ADDRESS").expect("Missing address, use DS_ADDRESS env or --address cli argument").to_string()).to_socket_addrs() {
+                    Ok(mut sockets) => Some(sockets.next().unwrap()),
+                    _ => panic!("Unable to parse the address")
                 }
             }
-            _ => Err("Password or salt is missing. Impossible to derive a key"),
+        } else {
+            None
+        };
+
+        Config{
+            key: create_key(salt, password).unwrap(),
+            chunk_size: chunk_size,
+            upstream_base_url: upstream_base_url,
+            noop: args.flag_noop,
+            input_file: args.arg_input_file.clone(),
+            output_file: args.arg_output_file.clone(),
+            address: address
         }
     }
 
@@ -71,15 +91,37 @@ impl Config {
     }
 }
 
-impl Default for Config {
-    fn default() -> Config {
-        Config {
-            upstream_base_url: None,
-            noop: false,
-            password: None,
-            salt: None,
-            chunk_size: Some(DEFAULT_CHUNK_SIZE),
-        }
+fn read_file_content(path_string: &str) -> String {
+    match std::fs::read(path_string) {
+        Err(why) => panic!("couldn't open {}: {}", path_string, why.description()),
+        Ok(file) => String::from_utf8(file).unwrap()
+    }
+}
+
+fn ensure_valid_password(password: &str, hash: &str) {
+    let hash = HashedPassword::from_slice(hash.as_bytes());
+
+    if !pwhash_verify(&hash.unwrap(), password.clone().trim_end().as_bytes()) {
+        panic!("Incorrect password, aborting");
+    }
+}
+
+pub fn create_key(salt: String, password: String) -> Result<Key, &'static str> {
+    if let Some(salt) = Salt::from_slice(&salt.as_bytes()[..]) {
+        let mut raw_key = [0u8; KEYBYTES];
+
+        pwhash::derive_key(
+            &mut raw_key,
+            &password.as_bytes(),
+            &salt,
+            pwhash::OPSLIMIT_INTERACTIVE,
+            pwhash::MEMLIMIT_INTERACTIVE,
+            )
+            .unwrap();
+
+        Ok(Key(raw_key))
+    } else {
+        Err("Unable to derive a key from the salt")
     }
 }
 
@@ -89,20 +131,11 @@ mod tests {
 
     #[test]
     fn test_key_creation() {
-        let passwd = "Correct Horse Battery Staple";
-        let salt = "abcdefghabcdefghabcdefghabcdefgh";
-        let config_ok = Config::new(&salt.to_string(), passwd, 512);
-        let config_no_salt = Config {
-            password: Some(passwd.to_string()),
-            ..Config::default()
-        };
-        let config_no_password = Config {
-            salt: Some(salt.to_string()),
-            ..Config::default()
-        };
+        let password = "Correct Horse Battery Staple".to_string();
+        let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
 
-        assert_eq!(true, config_ok.create_key().is_ok());
-        assert_eq!(true, config_no_salt.create_key().is_err());
-        assert_eq!(true, config_no_password.create_key().is_err());
+        let key_ok = create_key(salt, password);
+
+        assert_eq!(true, key_ok.is_ok());
     }
 }
