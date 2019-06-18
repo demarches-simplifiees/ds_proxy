@@ -25,8 +25,6 @@ fn forward(
     config: web::Data<Config>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
 
-    let config_ref = config.get_ref();
-
     let put_url = config.create_url(&req.uri());
 
     let mut forwarded_req = client
@@ -39,10 +37,10 @@ fn forward(
             .remove(header);
     }
 
-    let stream_to_send: Box<Stream<Item = _, Error = _>> = if config_ref.noop {
+    let stream_to_send: Box<Stream<Item = _, Error = _>> = if config.noop {
         Box::new(payload)
     } else {
-        Box::new(Encoder::new(config_ref.key.clone(), config.chunk_size, Box::new(payload)))
+        Box::new(Encoder::new(config.key.clone(), config.chunk_size, Box::new(payload)))
     };
 
     forwarded_req
@@ -65,7 +63,7 @@ fn fetch(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-    let get_url=  config.get_ref().create_url(&req.uri());
+    let get_url=  config.create_url(&req.uri());
 
     client
         .request_from(get_url.as_str(), req.head())
@@ -80,10 +78,10 @@ fn fetch(
                 client_resp.header(header_name.clone(), header_value.clone());
             }
 
-            if config.get_ref().noop {
+            if config.noop {
                 client_resp.streaming(res)
             } else {
-                let decoder = Decoder::new(config.get_ref().key.clone(), Box::new(res));
+                let decoder = Decoder::new(config.key.clone(), Box::new(res));
                 client_resp.streaming(decoder)
             }
         })
@@ -95,7 +93,7 @@ fn options(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-    let options_url = config.get_ref().create_url(&req.uri());
+    let options_url = config.create_url(&req.uri());
 
     client
         .request_from(options_url.as_str(), req.head())
