@@ -5,6 +5,7 @@ const PREFIX: &[u8] = b"J'apercus l'audacieux capitaine.";
 const PREFIX_SIZE: usize = 32;
 const VERSION_NB: usize = 1;
 const VERSION_NB_SIZE: usize = 8;
+const CHUNK_SIZE_LIMIT: usize = 10 * 1024 * 1024;
 const CHUNK_SIZE_SIZE: usize = 8; //usize size
 pub const HEADER_SIZE: usize = PREFIX_SIZE + VERSION_NB_SIZE + CHUNK_SIZE_SIZE;
 
@@ -24,7 +25,8 @@ impl Header {
 pub enum HeaderParsingError {
     WrongSize,
     WrongPrefix,
-    WrongVersion
+    WrongVersion,
+    ChunkSizeTooBig,
 }
 
 impl TryFrom<&[u8]> for Header {
@@ -45,6 +47,10 @@ impl TryFrom<&[u8]> for Header {
         }
 
         let chunk_size = usize::from_le_bytes(slice[PREFIX_SIZE + VERSION_NB_SIZE..HEADER_SIZE].try_into().unwrap());
+
+        if CHUNK_SIZE_LIMIT < chunk_size {
+            return Err(HeaderParsingError::ChunkSizeTooBig)
+        }
 
         Ok(Header::new(chunk_size))
     }
@@ -98,6 +104,22 @@ mod tests {
 
         let received_header = Header::try_from(wrong_version);
         assert_eq!(Err(HeaderParsingError::WrongVersion), received_header);
+    }
+
+    #[test]
+    fn test_deserialize_chunk_size_too_big() {
+        let chunk_size_too_big: usize = CHUNK_SIZE_LIMIT + 1;
+
+
+        let wrong_version: &[u8] = &[
+            PREFIX as &[u8],
+            &VERSION_NB.to_le_bytes(),
+            &chunk_size_too_big.to_le_bytes()
+        ]
+        .concat()[..];
+
+        let received_header = Header::try_from(wrong_version);
+        assert_eq!(Err(HeaderParsingError::ChunkSizeTooBig), received_header);
     }
 
     #[test]
