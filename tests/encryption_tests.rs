@@ -12,33 +12,7 @@ mod tests {
     use futures::stream;
     use futures::stream::Stream;
     use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
-    use rand;
-    use rand::{thread_rng, Rng};
-    use rand::distributions::{Standard};
-
-    #[test]
-    fn test_encrypt_decrypt_stream() {
-        let mut rng = thread_rng();
-
-        let key: Key = build_key();
-
-        for chunk_size in 5..20 {
-            for input_length in 0..(chunk_size * 10) {
-                let v: Vec<u8> = rng.sample_iter(&Standard).take(input_length).collect();
-
-                let input: Bytes = Bytes::from(&v[..]);
-
-                let source_stream = stream::once::<Bytes, Error>(Ok(input));
-
-                let encoder = Encoder::new(key.clone(), chunk_size, Box::new(source_stream));
-                let decoder = Decoder::new(key.clone(), Box::new(encoder));
-
-                let target_bytes: Bytes = decoder.concat2().wait().unwrap();
-
-                assert_eq!(&v[..], &target_bytes[..]);
-            }
-        }
-    }
+    use proptest::prelude::*;
 
     #[test]
     fn test_decrypt_clear_stream() {
@@ -60,5 +34,35 @@ mod tests {
         let password = "Correct Horse Battery Staple".to_string();
         let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
         create_key(salt, password).unwrap()
+    }
+
+    proptest! {
+        #[test]
+        fn encoding_then_decoding_doesnt_crash_and_returns_source_data(source_bytes:Vec<u8>, chunk_size in 1usize..10000) {
+            let key: Key = build_key();
+            let input: Bytes = Bytes::from(&source_bytes[..]);
+
+            let source_stream = stream::once::<Bytes, Error>(Ok(input));
+
+            let encoder = Encoder::new(key.clone(), chunk_size, Box::new(source_stream));
+            let decoder = Decoder::new(key.clone(), Box::new(encoder));
+
+            let target_bytes: Bytes = decoder.concat2().wait().unwrap();
+
+            assert_eq!(source_bytes, target_bytes);
+        }
+
+        #[test]
+        fn decrypting_plaintext_doesnt_crash_and_returns_plaintext(clear:Vec<u8>) {
+            let key: Key = build_key();
+            let source: Bytes = Bytes::from(&clear[..]);
+            let source_stream = stream::once::<Bytes, Error>(Ok(source));
+
+            let decoder = Decoder::new(key, Box::new(source_stream));
+
+            let target_bytes: Bytes = decoder.concat2().wait().unwrap();
+
+            assert_eq!(clear, target_bytes);
+        }
     }
 }
