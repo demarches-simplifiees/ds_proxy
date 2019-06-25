@@ -49,7 +49,7 @@ fn encrypt_and_decrypt() {
 }
 
 #[test]
-fn decrypt() {
+fn decrypting_a_plaintext_file_yields_the_original_file() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     let password = "plop";
@@ -77,4 +77,70 @@ fn decrypt() {
     temp.close().unwrap();
 
     assert_eq!(original_bytes, decrypted_bytes);
+}
+
+
+#[test]
+fn the_app_crashes_on_a_missing_password() {
+    let temp = assert_fs::TempDir::new().unwrap();
+
+    let salt = "12345678901234567890123456789012";
+    let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
+
+    let encrypted = "tests/fixtures/computer.svg.enc";
+    let decrypted = temp.child("computer.dec.svg");
+    let decrypted_path = decrypted.path();
+
+    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
+    decrypt_cmd.arg("proxy")
+        .arg(encrypted)
+        .arg(decrypted_path)
+        .arg(hash_file_arg)
+        .env("DS_SALT", salt);
+
+    decrypt_cmd.assert().failure();
+}
+
+#[test]
+fn the_app_crashes_on_a_missing_hash() {
+    let temp = assert_fs::TempDir::new().unwrap();
+
+    let password = "plop";
+    let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
+
+    let encrypted = "tests/fixtures/computer.svg.enc";
+    let decrypted = temp.child("computer.dec.svg");
+    let decrypted_path = decrypted.path();
+
+    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
+    decrypt_cmd.arg("proxy")
+        .arg(encrypted)
+        .arg(decrypted_path)
+        .arg(hash_file_arg)
+        .env("DS_PASSWORD", password);
+
+    decrypt_cmd.assert().failure();
+}
+
+#[test]
+fn the_app_crashes_with_an_invalid_password() {
+    let temp = assert_fs::TempDir::new().unwrap();
+
+    let password = "this is not the expected password";
+    let salt = "12345678901234567890123456789012";
+    let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
+
+    let encrypted = "tests/fixtures/computer.svg.enc";
+    let decrypted = temp.child("computer.dec.svg");
+    let decrypted_path = decrypted.path();
+
+    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
+    decrypt_cmd.arg("proxy")
+        .arg(encrypted)
+        .arg(decrypted_path)
+        .arg(hash_file_arg)
+        .env("DS_PASSWORD", password)
+        .env("DS_SALT", salt);
+
+    decrypt_cmd.assert().failure();
 }
