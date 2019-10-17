@@ -44,7 +44,7 @@ impl Config {
         };
 
         let chunk_size = match &args.flag_chunk_size {
-            Some(chunk_size) => chunk_size.clone(),
+            Some(chunk_size) => *chunk_size,
             None => match env::var("DS_CHUNK_SIZE") {
                 Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
                 _ => DEFAULT_CHUNK_SIZE
@@ -77,12 +77,12 @@ impl Config {
 
         Config{
             key: create_key(salt, password).unwrap(),
-            chunk_size: chunk_size,
-            upstream_base_url: upstream_base_url,
+            chunk_size,
+            upstream_base_url,
             noop: args.flag_noop,
             input_file: args.arg_input_file.clone(),
             output_file: args.arg_output_file.clone(),
-            address: address
+            address
         }
     }
 
@@ -101,7 +101,7 @@ fn read_file_content(path_string: &str) -> String {
 fn ensure_valid_password(password: &str, hash: &str) {
     let hash = HashedPassword::from_slice(hash.as_bytes());
 
-    if !pwhash_verify(&hash.unwrap(), password.clone().trim_end().as_bytes()) {
+    if !pwhash_verify(&hash.unwrap(), password.trim_end().as_bytes()) {
         panic!("Incorrect password, aborting");
     }
 }

@@ -9,7 +9,7 @@ use log::trace;
 use super::header::{ Header, HEADER_SIZE };
 
 pub struct Encoder<E> {
-    inner: Box<Stream<Item = Bytes, Error = E>>,
+    inner: Box<dyn Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
     stream_encoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Push>>,
     buffer: BytesMut,
@@ -18,7 +18,7 @@ pub struct Encoder<E> {
 }
 
 impl<E> Encoder<E> {
-    pub fn new(key: Key, chunk_size: usize, s: Box<Stream<Item = Bytes, Error = E>>) -> Encoder<E> {
+    pub fn new(key: Key, chunk_size: usize, s: Box<dyn Stream<Item = Bytes, Error = E>>) -> Encoder<E> {
         Encoder {
             inner: s,
             inner_ended: false,

@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 use super::header;
 
 pub struct Decoder <E> {
-    inner: Box<Stream<Item = Bytes, Error = E>>,
+    inner: Box<dyn Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
     decipher_type: DecipherType,
     stream_decoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
@@ -25,7 +25,7 @@ enum DecipherType {
 }
 
 impl<E> Decoder<E> {
-    pub fn new(key: Key, s: Box<Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
+    pub fn new(key: Key, s: Box<dyn Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,

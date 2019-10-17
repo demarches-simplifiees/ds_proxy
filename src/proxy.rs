@@ -37,7 +37,7 @@ fn forward(
             .remove(header);
     }
 
-    let stream_to_send: Box<Stream<Item = _, Error = _>> = if config.noop {
+    let stream_to_send: Box<dyn Stream<Item = _, Error = _>> = if config.noop {
         Box::new(payload)
     } else {
         Box::new(Encoder::new(config.key.clone(), config.chunk_size, Box::new(payload)))
@@ -119,7 +119,7 @@ pub fn main(
     config: Config,
 ) -> std::io::Result<()> {
 
-    let address = config.address.clone().unwrap();
+    let address = config.address.unwrap();
 
     HttpServer::new(move || {
         App::new()
