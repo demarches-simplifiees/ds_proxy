@@ -11,12 +11,15 @@ pub const HEADER_SIZE: usize = PREFIX_SIZE + VERSION_NB_SIZE + CHUNK_SIZE_SIZE;
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Header {
     version: usize,
-    pub chunk_size: usize
+    pub chunk_size: usize,
 }
 
 impl Header {
     pub fn new(chunk_size: usize) -> Header {
-        Header { version: VERSION_NB, chunk_size }
+        Header {
+            version: VERSION_NB,
+            chunk_size,
+        }
     }
 }
 
@@ -24,39 +27,46 @@ impl Header {
 pub enum HeaderParsingError {
     WrongSize,
     WrongPrefix,
-    WrongVersion
+    WrongVersion,
 }
 
 impl TryFrom<&[u8]> for Header {
     type Error = HeaderParsingError;
 
-    fn try_from(slice: &[u8]) -> Result<Self, Self::Error>
-    {
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
         if slice.len() != HEADER_SIZE {
-            return Err(HeaderParsingError::WrongSize)
+            return Err(HeaderParsingError::WrongSize);
         }
 
         if &slice[..PREFIX_SIZE] != PREFIX {
-            return Err(HeaderParsingError::WrongPrefix)
+            return Err(HeaderParsingError::WrongPrefix);
         }
 
-        if usize::from_le_bytes(slice[PREFIX_SIZE..PREFIX_SIZE + VERSION_NB_SIZE].try_into().unwrap()) != VERSION_NB {
-            return Err(HeaderParsingError::WrongVersion)
+        if usize::from_le_bytes(
+            slice[PREFIX_SIZE..PREFIX_SIZE + VERSION_NB_SIZE]
+                .try_into()
+                .unwrap(),
+        ) != VERSION_NB
+        {
+            return Err(HeaderParsingError::WrongVersion);
         }
 
-        let chunk_size = usize::from_le_bytes(slice[PREFIX_SIZE + VERSION_NB_SIZE..HEADER_SIZE].try_into().unwrap());
+        let chunk_size = usize::from_le_bytes(
+            slice[PREFIX_SIZE + VERSION_NB_SIZE..HEADER_SIZE]
+                .try_into()
+                .unwrap(),
+        );
 
         Ok(Header::new(chunk_size))
     }
 }
 
 impl From<Header> for Vec<u8> {
-    fn from(header: Header) -> Vec<u8>
-    {
+    fn from(header: Header) -> Vec<u8> {
         [
             PREFIX,
             &VERSION_NB.to_le_bytes(),
-            &header.chunk_size.to_le_bytes()
+            &header.chunk_size.to_le_bytes(),
         ]
         .concat()
     }
@@ -69,10 +79,16 @@ mod tests {
     #[test]
     fn test_deserialize_wrong_size() {
         let too_small: &[u8] = &[0; HEADER_SIZE - 1];
-        assert_eq!(Err(HeaderParsingError::WrongSize), Header::try_from(too_small));
+        assert_eq!(
+            Err(HeaderParsingError::WrongSize),
+            Header::try_from(too_small)
+        );
 
         let too_big: &[u8] = &[0; HEADER_SIZE + 1];
-        assert_eq!(Err(HeaderParsingError::WrongSize), Header::try_from(too_big));
+        assert_eq!(
+            Err(HeaderParsingError::WrongSize),
+            Header::try_from(too_big)
+        );
     }
 
     #[test]
@@ -80,11 +96,14 @@ mod tests {
         let wrong_prefix: &[u8] = &[
             b"J'apercus le mechant  capitaine." as &[u8],
             &VERSION_NB.to_le_bytes(),
-            &10usize.to_le_bytes()
+            &10usize.to_le_bytes(),
         ]
         .concat()[..];
 
-        assert_eq!(Err(HeaderParsingError::WrongPrefix), Header::try_from(wrong_prefix));
+        assert_eq!(
+            Err(HeaderParsingError::WrongPrefix),
+            Header::try_from(wrong_prefix)
+        );
     }
 
     #[test]
@@ -92,7 +111,7 @@ mod tests {
         let wrong_version: &[u8] = &[
             PREFIX as &[u8],
             &666usize.to_le_bytes(),
-            &10usize.to_le_bytes()
+            &10usize.to_le_bytes(),
         ]
         .concat()[..];
 
