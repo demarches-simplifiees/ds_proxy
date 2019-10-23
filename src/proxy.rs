@@ -88,7 +88,7 @@ fn fetch(
         })
 }
 
-fn options(
+fn simple_proxy(
     req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
@@ -129,7 +129,7 @@ pub fn main(config: Config) -> std::io::Result<()> {
             .service(
                 web::resource(".*")
                     .guard(guard::Options())
-                    .to_async(options),
+                    .to_async(simple_proxy),
             )
             .default_service(web::route().to_async(default))
     })
