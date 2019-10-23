@@ -6,7 +6,6 @@ use actix_web::guard;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures::stream::Stream;
 use futures::Future;
-use futures::IntoFuture;
 use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
@@ -112,10 +111,6 @@ fn simple_proxy(
         })
 }
 
-fn default(_req: HttpRequest) -> impl IntoFuture<Item = &'static str, Error = Error> {
-    Ok("Hello world!\r\n")
-}
-
 pub fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
 
@@ -126,12 +121,7 @@ pub fn main(config: Config) -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .service(web::resource(".*").guard(guard::Put()).to_async(forward))
-            .service(
-                web::resource(".*")
-                    .guard(guard::Options())
-                    .to_async(simple_proxy),
-            )
-            .default_service(web::route().to_async(default))
+            .default_service(web::route().to_async(simple_proxy))
     })
     .bind(address)?
     .system_exit()
