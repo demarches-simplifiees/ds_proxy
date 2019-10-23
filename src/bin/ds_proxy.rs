@@ -12,9 +12,11 @@ fn main() {
     env_logger::init();
     sodiumoxide::init().unwrap();
 
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.deserialize())
-        .unwrap_or_else(|e| e.exit());
+    let docopt: Docopt = Docopt::new(USAGE)
+        .unwrap_or_else(|e| e.exit())
+        .version(Some(env!("GIT_HASH").to_string()));
+
+    let args: Args = docopt.deserialize().unwrap_or_else(|e| e.exit());
 
     let config: Config = Config::create_config(&args);
 
