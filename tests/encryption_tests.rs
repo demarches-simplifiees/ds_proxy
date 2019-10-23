@@ -11,8 +11,8 @@ mod tests {
     use futures::future::Future;
     use futures::stream;
     use futures::stream::Stream;
-    use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
     use proptest::prelude::*;
+    use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 
     #[test]
     fn test_decrypt_clear_stream() {

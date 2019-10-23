@@ -1,18 +1,18 @@
 extern crate encrypt;
-extern crate sodiumoxide;
-extern crate log;
 extern crate env_logger;
+extern crate log;
+extern crate sodiumoxide;
 
 use docopt::Docopt;
+use encrypt::args::{Args, USAGE};
 use encrypt::config::Config;
 use log::info;
-use encrypt::args::{Args, USAGE};
 
 fn main() {
     env_logger::init();
     sodiumoxide::init().unwrap();
 
-    let args : Args = Docopt::new(USAGE)
+    let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
 
@@ -30,4 +30,3 @@ fn main() {
         encrypt::file::decrypt(config);
     }
 }
-

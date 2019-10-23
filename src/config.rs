@@ -1,12 +1,12 @@
+use super::args;
+use actix_web::http::Uri;
 use sodiumoxide::crypto::pwhash;
+use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
-use actix_web::http::Uri;
 use std::error::Error;
-use super::args;
-use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
-use std::net::{ToSocketAddrs, SocketAddr};
+use std::net::{SocketAddr, ToSocketAddrs};
 
 pub type DsKey = Key;
 
@@ -21,34 +21,38 @@ pub struct Config {
     pub chunk_size: usize,
     pub input_file: Option<String>,
     pub output_file: Option<String>,
-    pub address: Option<SocketAddr>
+    pub address: Option<SocketAddr>,
 }
 
 impl Config {
     pub fn create_config(args: &args::Args) -> Config {
         let password = match &args.flag_password_file {
             Some(password_file) => read_file_content(password_file),
-            None => env::var("DS_PASSWORD").expect("Missing password, use DS_PASSWORD env or --password-file cli argument")
+            None => env::var("DS_PASSWORD")
+                .expect("Missing password, use DS_PASSWORD env or --password-file cli argument"),
         };
 
         let password_hash = match &args.flag_hash_file {
             Some(hash_file) => read_file_content(hash_file),
-            None => env::var("DS_PASSWORD_HASH").expect("Missing hash, use DS_PASSWORD_HASH env or --hash-file cli argument")
+            None => env::var("DS_PASSWORD_HASH")
+                .expect("Missing hash, use DS_PASSWORD_HASH env or --hash-file cli argument"),
         };
 
         ensure_valid_password(&password, &password_hash);
 
         let salt = match &args.flag_salt {
             Some(salt) => salt.to_string(),
-            None => env::var("DS_SALT").expect("Missing salt, use DS_SALT env or --salt cli argument").to_string()
+            None => env::var("DS_SALT")
+                .expect("Missing salt, use DS_SALT env or --salt cli argument")
+                .to_string(),
         };
 
         let chunk_size = match &args.flag_chunk_size {
-            Some(chunk_size) => chunk_size.clone(),
+            Some(chunk_size) => *chunk_size,
             None => match env::var("DS_CHUNK_SIZE") {
                 Ok(chunk_str) => chunk_str.parse::<usize>().unwrap_or(DEFAULT_CHUNK_SIZE),
-                _ => DEFAULT_CHUNK_SIZE
-            }
+                _ => DEFAULT_CHUNK_SIZE,
+            },
         };
 
         let upstream_base_url = if args.cmd_proxy {
@@ -64,25 +68,29 @@ impl Config {
             match &args.flag_address {
                 Some(address) => match address.to_socket_addrs() {
                     Ok(mut sockets) => Some(sockets.next().unwrap()),
-                    _ => panic!("Unable to parse the address")
-                }
-                None => match (env::var("DS_ADDRESS").expect("Missing address, use DS_ADDRESS env or --address cli argument").to_string()).to_socket_addrs() {
+                    _ => panic!("Unable to parse the address"),
+                },
+                None => match (env::var("DS_ADDRESS")
+                    .expect("Missing address, use DS_ADDRESS env or --address cli argument")
+                    .to_string())
+                .to_socket_addrs()
+                {
                     Ok(mut sockets) => Some(sockets.next().unwrap()),
-                    _ => panic!("Unable to parse the address")
-                }
+                    _ => panic!("Unable to parse the address"),
+                },
             }
         } else {
             None
         };
 
-        Config{
+        Config {
             key: create_key(salt, password).unwrap(),
-            chunk_size: chunk_size,
-            upstream_base_url: upstream_base_url,
+            chunk_size,
+            upstream_base_url,
             noop: args.flag_noop,
             input_file: args.arg_input_file.clone(),
             output_file: args.arg_output_file.clone(),
-            address: address
+            address,
         }
     }
 
@@ -94,14 +102,14 @@ impl Config {
 fn read_file_content(path_string: &str) -> String {
     match std::fs::read(path_string) {
         Err(why) => panic!("couldn't open {}: {}", path_string, why.description()),
-        Ok(file) => String::from_utf8(file).unwrap()
+        Ok(file) => String::from_utf8(file).unwrap(),
     }
 }
 
 fn ensure_valid_password(password: &str, hash: &str) {
     let hash = HashedPassword::from_slice(hash.as_bytes());
 
-    if !pwhash_verify(&hash.unwrap(), password.clone().trim_end().as_bytes()) {
+    if !pwhash_verify(&hash.unwrap(), password.trim_end().as_bytes()) {
         panic!("Incorrect password, aborting");
     }
 }
@@ -116,8 +124,8 @@ pub fn create_key(salt: String, password: String) -> Result<Key, &'static str> {
             &salt,
             pwhash::OPSLIMIT_INTERACTIVE,
             pwhash::MEMLIMIT_INTERACTIVE,
-            )
-            .unwrap();
+        )
+        .unwrap();
 
         Ok(Key(raw_key))
     } else {

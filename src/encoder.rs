@@ -1,15 +1,15 @@
+use super::header::{Header, HEADER_SIZE};
 use bytes::Bytes;
 use bytes::BytesMut;
 use futures::prelude::*;
 use futures::stream::Stream;
+use log::trace;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 use sodiumoxide::crypto::secretstream::Tag;
-use log::trace;
-use super::header::{ Header, HEADER_SIZE };
 
 pub struct Encoder<E> {
-    inner: Box<Stream<Item = Bytes, Error = E>>,
+    inner: Box<dyn Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
     stream_encoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Push>>,
     buffer: BytesMut,
@@ -18,7 +18,11 @@ pub struct Encoder<E> {
 }
 
 impl<E> Encoder<E> {
-    pub fn new(key: Key, chunk_size: usize, s: Box<Stream<Item = Bytes, Error = E>>) -> Encoder<E> {
+    pub fn new(
+        key: Key,
+        chunk_size: usize,
+        s: Box<dyn Stream<Item = Bytes, Error = E>>,
+    ) -> Encoder<E> {
         Encoder {
             inner: s,
             inner_ended: false,
@@ -53,7 +57,7 @@ impl<E> Encoder<E> {
                     buf.extend(encryption_header_bytes);
 
                     Ok(Async::Ready(Some(buf)))
-                },
+                }
 
                 Some(ref mut stream) => {
                     trace!("stream encoder present !");

@@ -4,12 +4,12 @@ use super::encoder::*;
 use actix_web::client::Client;
 use actix_web::guard;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use futures::stream::Stream;
 use futures::Future;
 use futures::IntoFuture;
 use std::time::Duration;
-use futures::stream::Stream;
 
-const TIMEOUT_DURATION:Duration = Duration::from_secs(60*60);
+const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
 
 // Encryption changes the value of those headers
 static HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
@@ -24,7 +24,6 @@ fn forward(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-
     let put_url = config.create_url(&req.uri());
 
     let mut forwarded_req = client
@@ -32,15 +31,17 @@ fn forward(
         .timeout(TIMEOUT_DURATION);
 
     for header in &HEADERS_TO_REMOVE {
-        forwarded_req
-            .headers_mut()
-            .remove(header);
+        forwarded_req.headers_mut().remove(header);
     }
 
-    let stream_to_send: Box<Stream<Item = _, Error = _>> = if config.noop {
+    let stream_to_send: Box<dyn Stream<Item = _, Error = _>> = if config.noop {
         Box::new(payload)
     } else {
-        Box::new(Encoder::new(config.key.clone(), config.chunk_size, Box::new(payload)))
+        Box::new(Encoder::new(
+            config.key.clone(),
+            config.chunk_size,
+            Box::new(payload),
+        ))
     };
 
     forwarded_req
@@ -63,7 +64,7 @@ fn fetch(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
-    let get_url=  config.create_url(&req.uri());
+    let get_url = config.create_url(&req.uri());
 
     client
         .request_from(get_url.as_str(), req.head())
@@ -115,11 +116,8 @@ fn default(_req: HttpRequest) -> impl IntoFuture<Item = &'static str, Error = Er
     Ok("Hello world!\r\n")
 }
 
-pub fn main(
-    config: Config,
-) -> std::io::Result<()> {
-
-    let address = config.address.clone().unwrap();
+pub fn main(config: Config) -> std::io::Result<()> {
+    let address = config.address.unwrap();
 
     HttpServer::new(move || {
         App::new()
@@ -128,7 +126,11 @@ pub fn main(
             .wrap(middleware::Logger::default())
             .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
             .service(web::resource(".*").guard(guard::Put()).to_async(forward))
-            .service(web::resource(".*").guard(guard::Options()).to_async(options))
+            .service(
+                web::resource(".*")
+                    .guard(guard::Options())
+                    .to_async(options),
+            )
             .default_service(web::route().to_async(default))
     })
     .bind(address)?

@@ -1,15 +1,15 @@
+use super::header;
 use bytes::Bytes;
 use bytes::BytesMut;
 use futures::prelude::*;
 use futures::stream::Stream;
+use log::{error, trace};
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Header, Key};
-use log::{trace, error};
 use std::convert::TryFrom;
-use super::header;
 
-pub struct Decoder <E> {
-    inner: Box<Stream<Item = Bytes, Error = E>>,
+pub struct Decoder<E> {
+    inner: Box<dyn Stream<Item = Bytes, Error = E>>,
     inner_ended: bool,
     decipher_type: DecipherType,
     stream_decoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
@@ -21,11 +21,11 @@ pub struct Decoder <E> {
 enum DecipherType {
     DontKnowYet,
     Encrypted,
-    Plaintext
+    Plaintext,
 }
 
 impl<E> Decoder<E> {
-    pub fn new(key: Key, s: Box<Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
+    pub fn new(key: Key, s: Box<dyn Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,
@@ -43,11 +43,11 @@ impl<E> Decoder<E> {
             Ok(Async::Ready(None))
         } else {
             match &self.decipher_type {
-                DecipherType::DontKnowYet =>  self.read_header(),
+                DecipherType::DontKnowYet => self.read_header(),
 
                 DecipherType::Encrypted => self.decrypt(),
 
-                DecipherType::Plaintext => { Ok(Async::Ready(Some(self.buffer.take().into()))) }
+                DecipherType::Plaintext => Ok(Async::Ready(Some(self.buffer.take().into()))),
             }
         }
     }
@@ -64,20 +64,19 @@ impl<E> Decoder<E> {
                     self.chunk_size = header.chunk_size;
                     self.decipher_type = DecipherType::Encrypted;
                     self.buffer.advance(header::HEADER_SIZE);
-                },
+                }
                 Err(header::HeaderParsingError::WrongPrefix) => {
                     trace!("the file is not encrypted !");
                     self.decipher_type = DecipherType::Plaintext;
-                },
+                }
                 e => {
                     error!("{:?}", e);
                     panic!()
-                },
+                }
             }
 
             self.poll()
-        }
-        else if self.inner_ended {
+        } else if self.inner_ended {
             trace!("the stream is over, so the file is not encrypted !");
             Ok(Async::Ready(Some(self.buffer.take().into())))
         } else {
@@ -93,10 +92,13 @@ impl<E> Decoder<E> {
                 if xchacha20poly1305::HEADERBYTES <= self.buffer.len() {
                     trace!("decrypting the header");
                     // TODO: throw error
-                    let header = Header::from_slice(&self.buffer[0..xchacha20poly1305::HEADERBYTES]).unwrap();
+                    let header =
+                        Header::from_slice(&self.buffer[0..xchacha20poly1305::HEADERBYTES])
+                            .unwrap();
 
                     // TODO: throw error
-                    self.stream_decoder = Some(xchacha20poly1305::Stream::init_pull(&header, &self.key).unwrap());
+                    self.stream_decoder =
+                        Some(xchacha20poly1305::Stream::init_pull(&header, &self.key).unwrap());
 
                     self.buffer.advance(xchacha20poly1305::HEADERBYTES);
 
@@ -111,15 +113,21 @@ impl<E> Decoder<E> {
                         self.poll()
                     }
                 }
-            },
+            }
 
             Some(ref mut stream) => {
                 trace!("stream_decoder present !");
 
                 if (xchacha20poly1305::ABYTES + self.chunk_size) <= self.buffer.len() {
                     trace!("decrypting a whole buffer");
-                    let (decrypted1, _tag1) = stream.pull(&self.buffer[0..(xchacha20poly1305::ABYTES + self.chunk_size)], None).unwrap();
-                    self.buffer.advance(xchacha20poly1305::ABYTES + self.chunk_size);
+                    let (decrypted1, _tag1) = stream
+                        .pull(
+                            &self.buffer[0..(xchacha20poly1305::ABYTES + self.chunk_size)],
+                            None,
+                        )
+                        .unwrap();
+                    self.buffer
+                        .advance(xchacha20poly1305::ABYTES + self.chunk_size);
                     Ok(Async::Ready(Some(Bytes::from(&decrypted1[..]))))
                 } else if self.inner_ended {
                     trace!("inner stream over, decrypting whats left");
