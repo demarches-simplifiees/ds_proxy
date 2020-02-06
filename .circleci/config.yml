@@ -2,7 +2,7 @@
  jobs:
   build:
     docker:
-      - image: circleci/rust:1.38.0
+      - image: circleci/rust:1.40.0
     steps:
       - checkout
       - run: cargo test
