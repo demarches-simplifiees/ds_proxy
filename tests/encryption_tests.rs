@@ -7,10 +7,9 @@ mod tests {
     use encrypt::encoder::*;
 
     use actix_web::Error;
-    use bytes::Bytes;
-    use futures::future::Future;
-    use futures::stream;
-    use futures::stream::Stream;
+    use bytes::{BufMut, Bytes, BytesMut};
+    use futures::executor::block_on_stream;
+
     use proptest::prelude::*;
     use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 
@@ -20,14 +19,20 @@ mod tests {
 
         let clear: &[u8] = b"something not encrypted";
 
-        let source: Bytes = Bytes::from(&clear[..]);
-        let source_stream = stream::once::<Bytes, Error>(Ok(source));
+        let source: Result<Bytes, Error> = Ok(Bytes::from(&clear[..]));
+        let source_stream = futures::stream::once(Box::pin(async { source }));
 
         let decoder = Decoder::new(key, Box::new(source_stream));
 
-        let target_bytes: Bytes = decoder.concat2().wait().unwrap();
+        let buf = block_on_stream(decoder).map(|r| r.unwrap()).fold(
+            BytesMut::with_capacity(64),
+            |mut acc, x| {
+                acc.put(x);
+                acc
+            },
+        );
 
-        assert_eq!(clear, &target_bytes[..]);
+        assert_eq!(clear, &buf[..]);
     }
 
     fn build_key() -> Key {
@@ -38,31 +43,36 @@ mod tests {
 
     proptest! {
         #[test]
-        fn encoding_then_decoding_doesnt_crash_and_returns_source_data(source_bytes:Vec<u8>, chunk_size in 1usize..10000) {
+        fn encoding_then_decoding_doesnt_crash_and_returns_source_data(source_bytes: Vec<u8>, chunk_size in 1usize..10000) {
             let key: Key = build_key();
-            let input: Bytes = Bytes::from(&source_bytes[..]);
 
-            let source_stream = stream::once::<Bytes, Error>(Ok(input));
+            let source : Result<Bytes, Error> = Ok(Bytes::from(source_bytes.clone()));
+            let source_stream  = futures::stream::once(Box::pin(async { source }));
 
             let encoder = Encoder::new(key.clone(), chunk_size, Box::new(source_stream));
             let decoder = Decoder::new(key.clone(), Box::new(encoder));
 
-            let target_bytes: Bytes = decoder.concat2().wait().unwrap();
+            let buf = block_on_stream(decoder)
+                .map(|r| r.unwrap())
+                .fold(BytesMut::with_capacity(64), |mut acc, x| { acc.put(x); acc });
 
-            assert_eq!(source_bytes, target_bytes);
+            assert_eq!(source_bytes, &buf[..]);
         }
 
         #[test]
-        fn decrypting_plaintext_doesnt_crash_and_returns_plaintext(clear:Vec<u8>) {
+        fn decrypting_plaintext_doesnt_crash_and_returns_plaintext(clear: Vec<u8>) {
             let key: Key = build_key();
-            let source: Bytes = Bytes::from(&clear[..]);
-            let source_stream = stream::once::<Bytes, Error>(Ok(source));
+
+            let source : Result<Bytes, Error> = Ok(Bytes::from(clear.clone()));
+            let source_stream  = futures::stream::once(Box::pin(async { source }));
 
             let decoder = Decoder::new(key, Box::new(source_stream));
 
-            let target_bytes: Bytes = decoder.concat2().wait().unwrap();
+            let buf = block_on_stream(decoder)
+                .map(|r| r.unwrap())
+                .fold(BytesMut::with_capacity(64), |mut acc, x| { acc.put(x); acc });
 
-            assert_eq!(clear, target_bytes);
+            assert_eq!(clear, &buf[..]);
         }
     }
 }

@@ -1,15 +1,17 @@
 use super::header;
+use bytes::buf::Buf;
 use bytes::Bytes;
 use bytes::BytesMut;
-use futures::prelude::*;
-use futures::stream::Stream;
+use core::pin::Pin;
+use core::task::{Context, Poll};
+use futures_core::stream::Stream;
 use log::{error, trace};
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Header, Key};
 use std::convert::TryFrom;
 
 pub struct Decoder<E> {
-    inner: Box<dyn Stream<Item = Bytes, Error = E>>,
+    inner: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
     inner_ended: bool,
     decipher_type: DecipherType,
     stream_decoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
@@ -25,7 +27,7 @@ enum DecipherType {
 }
 
 impl<E> Decoder<E> {
-    pub fn new(key: Key, s: Box<dyn Stream<Item = Bytes, Error = E>>) -> Decoder<E> {
+    pub fn new(key: Key, s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>) -> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,
@@ -37,22 +39,22 @@ impl<E> Decoder<E> {
         }
     }
 
-    pub fn decrypt_buffer(&mut self) -> Poll<Option<Bytes>, E> {
+    pub fn decrypt_buffer(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
         if self.inner_ended && self.buffer.is_empty() {
             trace!("buffer empty and stream ended, stop");
-            Ok(Async::Ready(None))
+            Poll::Ready(None)
         } else {
             match &self.decipher_type {
-                DecipherType::DontKnowYet => self.read_header(),
+                DecipherType::DontKnowYet => self.read_header(cx),
 
-                DecipherType::Encrypted => self.decrypt(),
+                DecipherType::Encrypted => self.decrypt(cx),
 
-                DecipherType::Plaintext => Ok(Async::Ready(Some(self.buffer.take().into()))),
+                DecipherType::Plaintext => Poll::Ready(Some(Ok(self.buffer.split().freeze()))),
             }
         }
     }
 
-    fn read_header(&mut self) -> Poll<Option<Bytes>, E> {
+    fn read_header(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
         trace!("Decypher type unknown");
 
         if header::HEADER_SIZE <= self.buffer.len() {
@@ -75,16 +77,17 @@ impl<E> Decoder<E> {
                 }
             }
 
-            self.poll()
+            Pin::new(self).poll_next(cx)
         } else if self.inner_ended {
             trace!("the stream is over, so the file is not encrypted !");
-            Ok(Async::Ready(Some(self.buffer.take().into())))
+
+            Poll::Ready(Some(Ok(self.buffer.split().freeze())))
         } else {
-            self.poll()
+            Pin::new(self).poll_next(cx)
         }
     }
 
-    fn decrypt(&mut self) -> Poll<Option<Bytes>, E> {
+    fn decrypt(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
         match self.stream_decoder {
             None => {
                 trace!("no stream_decoder");
@@ -102,15 +105,15 @@ impl<E> Decoder<E> {
 
                     self.buffer.advance(xchacha20poly1305::HEADERBYTES);
 
-                    self.decrypt_buffer()
+                    self.decrypt_buffer(cx)
                 } else {
                     trace!("not enough data to decrypt the header");
                     if self.inner_ended {
                         // TODO: throw error
-                        Ok(Async::Ready(None))
+                        Poll::Ready(None)
                     } else {
                         // waiting for more data
-                        self.poll()
+                        Pin::new(self).poll_next(cx)
                     }
                 }
             }
@@ -128,16 +131,17 @@ impl<E> Decoder<E> {
                         .unwrap();
                     self.buffer
                         .advance(xchacha20poly1305::ABYTES + self.chunk_size);
-                    Ok(Async::Ready(Some(Bytes::from(&decrypted1[..]))))
+
+                    Poll::Ready(Some(Ok(Bytes::copy_from_slice(&decrypted1[..]))))
                 } else if self.inner_ended {
                     trace!("inner stream over, decrypting whats left");
                     let rest = self.buffer.len();
                     let (decrypted1, _tag1) = stream.pull(&self.buffer[..], None).unwrap();
                     self.buffer.advance(rest);
-                    Ok(Async::Ready(Some(Bytes::from(&decrypted1[..]))))
+                    Poll::Ready(Some(Ok(Bytes::copy_from_slice(&decrypted1[..]))))
                 } else {
                     trace!("waiting for more data");
-                    self.poll()
+                    Pin::new(self).poll_next(cx)
                 }
             }
         }
@@ -145,28 +149,29 @@ impl<E> Decoder<E> {
 }
 
 impl<E> Stream for Decoder<E> {
-    type Item = Bytes;
-    type Error = E;
+    type Item = Result<Bytes, E>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, E> {
-        match self.inner.poll() {
-            Ok(Async::NotReady) => {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        let mut encoder = self.get_mut();
+
+        match Pin::new(encoder.inner.as_mut()).poll_next(cx) {
+            Poll::Pending => {
                 trace!("poll: not ready");
-                Ok(Async::NotReady)
+                Poll::Pending
             }
-            Ok(Async::Ready(Some(bytes))) => {
+            Poll::Ready(Some(Ok(bytes))) => {
                 trace!("poll: bytes");
-                self.buffer.extend(bytes);
-                self.decrypt_buffer()
+                encoder.buffer.extend(bytes);
+                encoder.decrypt_buffer(cx)
             }
-            Ok(Async::Ready(None)) => {
+            Poll::Ready(None) => {
                 trace!("poll: over");
-                self.inner_ended = true;
-                self.decrypt_buffer()
+                encoder.inner_ended = true;
+                encoder.decrypt_buffer(cx)
             }
-            Err(e) => {
+            Poll::Ready(Some(Err(e))) => {
                 trace!("poll: error");
-                Err(e)
+                Poll::Ready(Some(Err(e)))
             }
         }
     }

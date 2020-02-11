@@ -1,15 +1,17 @@
 use super::header::{Header, HEADER_SIZE};
+use bytes::buf::Buf;
 use bytes::Bytes;
 use bytes::BytesMut;
-use futures::prelude::*;
-use futures::stream::Stream;
+use core::pin::Pin;
+use core::task::{Context, Poll};
+use futures_core::stream::Stream;
 use log::trace;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 use sodiumoxide::crypto::secretstream::Tag;
 
 pub struct Encoder<E> {
-    inner: Box<dyn Stream<Item = Bytes, Error = E>>,
+    inner: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
     inner_ended: bool,
     stream_encoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Push>>,
     buffer: BytesMut,
@@ -21,7 +23,7 @@ impl<E> Encoder<E> {
     pub fn new(
         key: Key,
         chunk_size: usize,
-        s: Box<dyn Stream<Item = Bytes, Error = E>>,
+        s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
     ) -> Encoder<E> {
         Encoder {
             inner: s,
@@ -33,10 +35,10 @@ impl<E> Encoder<E> {
         }
     }
 
-    pub fn encrypt_buffer(&mut self) -> Poll<Option<Bytes>, E> {
+    pub fn encrypt_buffer(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
         if self.buffer.is_empty() {
             trace!("buffer empty, stop");
-            Ok(Async::Ready(None))
+            Poll::Ready(None)
         } else {
             trace!("buffer not empty");
             match self.stream_encoder {
@@ -47,16 +49,18 @@ impl<E> Encoder<E> {
 
                     self.stream_encoder = Some(enc_stream);
 
-                    let encryption_header_bytes = Bytes::from(encryption_header.as_ref());
+                    let encryption_header_bytes =
+                        Bytes::copy_from_slice(encryption_header.as_ref());
 
-                    let mut buf = Bytes::with_capacity(HEADER_SIZE + encryption_header_bytes.len());
+                    let mut buf =
+                        BytesMut::with_capacity(HEADER_SIZE + encryption_header_bytes.len());
 
                     let ds_header = Header::new(self.chunk_size);
                     let ds_header_bytes: Vec<u8> = ds_header.into();
                     buf.extend(&ds_header_bytes[..]);
                     buf.extend(encryption_header_bytes);
 
-                    Ok(Async::Ready(Some(buf)))
+                    Poll::Ready(Some(Ok(buf.freeze())))
                 }
 
                 Some(ref mut stream) => {
@@ -67,7 +71,7 @@ impl<E> Encoder<E> {
                             .push(&self.buffer[0..self.chunk_size], None, Tag::Message)
                             .unwrap();
                         self.buffer.advance(self.chunk_size);
-                        Ok(Async::Ready(Some(Bytes::from(encoded))))
+                        Poll::Ready(Some(Ok(Bytes::from(encoded))))
                     } else {
                         trace!("the chunk is not complete");
                         if self.inner_ended {
@@ -77,10 +81,10 @@ impl<E> Encoder<E> {
                                 .push(&self.buffer[0..rest], None, Tag::Message)
                                 .unwrap();
                             self.buffer.advance(rest);
-                            Ok(Async::Ready(Some(Bytes::from(encoded))))
+                            Poll::Ready(Some(Ok(Bytes::from(encoded))))
                         } else {
                             trace!("waiting for more data");
-                            self.poll()
+                            Pin::new(self).poll_next(cx)
                         }
                     }
                 }
@@ -90,28 +94,29 @@ impl<E> Encoder<E> {
 }
 
 impl<E> Stream for Encoder<E> {
-    type Item = Bytes;
-    type Error = E;
+    type Item = Result<Bytes, E>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, E> {
-        match self.inner.poll() {
-            Ok(Async::NotReady) => {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        let mut encoder = self.get_mut();
+
+        match Pin::new(encoder.inner.as_mut()).poll_next(cx) {
+            Poll::Pending => {
                 trace!("poll: not ready");
-                Ok(Async::NotReady)
+                Poll::Pending
             }
-            Ok(Async::Ready(Some(bytes))) => {
+            Poll::Ready(Some(Ok(bytes))) => {
                 trace!("poll: bytes");
-                self.buffer.extend(bytes);
-                self.encrypt_buffer()
+                encoder.buffer.extend_from_slice(&bytes);
+                encoder.encrypt_buffer(cx)
             }
-            Ok(Async::Ready(None)) => {
-                trace!("poll: over");
-                self.inner_ended = true;
-                self.encrypt_buffer()
-            }
-            Err(e) => {
+            Poll::Ready(Some(Err(e))) => {
                 trace!("poll: error");
-                Err(e)
+                Poll::Ready(Some(Err(e)))
+            }
+            Poll::Ready(None) => {
+                trace!("poll: over");
+                encoder.inner_ended = true;
+                encoder.encrypt_buffer(cx)
             }
         }
     }

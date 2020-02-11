@@ -4,8 +4,7 @@ use super::encoder::*;
 use actix_web::client::Client;
 use actix_web::guard;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
-use futures::stream::Stream;
-use futures::Future;
+use futures_core::stream::Stream;
 use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
@@ -17,12 +16,12 @@ static HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
     actix_web::http::header::ETAG,
 ];
 
-fn forward(
+async fn forward(
     req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
     config: web::Data<Config>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
+) -> Result<HttpResponse, Error> {
     let put_url = config.create_url(&req.uri());
 
     let mut forwarded_req = client
@@ -33,7 +32,7 @@ fn forward(
         forwarded_req.headers_mut().remove(header);
     }
 
-    let stream_to_send: Box<dyn Stream<Item = _, Error = _>> = if config.noop {
+    let stream_to_send: Box<dyn Stream<Item = _> + Unpin> = if config.noop {
         Box::new(payload)
     } else {
         Box::new(Encoder::new(
@@ -45,6 +44,7 @@ fn forward(
 
     forwarded_req
         .send_stream(stream_to_send)
+        .await
         .map_err(Error::from)
         .map(|res| {
             let mut client_resp = HttpResponse::build(res.status());
@@ -57,18 +57,19 @@ fn forward(
         })
 }
 
-fn fetch(
+async fn fetch(
     req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
     config: web::Data<Config>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
+) -> Result<HttpResponse, Error> {
     let get_url = config.create_url(&req.uri());
 
     client
         .request_from(get_url.as_str(), req.head())
         .timeout(TIMEOUT_DURATION)
         .send_stream(payload)
+        .await
         .map_err(Error::from)
         .map(move |res| {
             let mut client_resp = HttpResponse::build(res.status());
@@ -87,18 +88,19 @@ fn fetch(
         })
 }
 
-fn simple_proxy(
+async fn simple_proxy(
     req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
     config: web::Data<Config>,
-) -> impl Future<Item = HttpResponse, Error = Error> {
+) -> Result<HttpResponse, Error> {
     let options_url = config.create_url(&req.uri());
 
     client
         .request_from(options_url.as_str(), req.head())
         .timeout(TIMEOUT_DURATION)
         .send_stream(payload)
+        .await
         .map_err(Error::from)
         .map(|res| {
             let mut client_resp = HttpResponse::build(res.status());
@@ -111,7 +113,7 @@ fn simple_proxy(
         })
 }
 
-pub fn main(config: Config) -> std::io::Result<()> {
+pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
 
     HttpServer::new(move || {
@@ -119,11 +121,11 @@ pub fn main(config: Config) -> std::io::Result<()> {
             .data(actix_web::client::Client::new())
             .data(config.clone())
             .wrap(middleware::Logger::default())
-            .service(web::resource(".*").guard(guard::Get()).to_async(fetch))
-            .service(web::resource(".*").guard(guard::Put()).to_async(forward))
-            .default_service(web::route().to_async(simple_proxy))
+            .service(web::resource(".*").guard(guard::Get()).to(fetch))
+            .service(web::resource(".*").guard(guard::Put()).to(forward))
+            .default_service(web::route().to(simple_proxy))
     })
     .bind(address)?
-    .system_exit()
     .run()
+    .await
 }
