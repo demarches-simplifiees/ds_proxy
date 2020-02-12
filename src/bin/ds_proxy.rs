@@ -7,8 +7,14 @@ use docopt::Docopt;
 use encrypt::args::{Args, USAGE};
 use encrypt::config::Config;
 use log::info;
+use std::env;
 
 fn main() {
+    if let Ok(url) = env::var("DS_PROXY_SENTRY_URL") {
+        info!("Sentry will be notified on {}", url);
+        let _guard = sentry::init(url);
+        sentry::integrations::panic::register_panic_handler();
+    }
     env_logger::init();
     sodiumoxide::init().unwrap();
 
