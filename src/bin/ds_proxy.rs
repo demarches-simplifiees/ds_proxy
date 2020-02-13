@@ -25,7 +25,7 @@ fn main() {
             info!("proxy in dry mode")
         }
 
-        let _ = encrypt::proxy::main(config);
+        let _ = encrypt::proxy::main(config).unwrap();
     } else if args.cmd_encrypt {
         encrypt::file::encrypt(config);
     } else if args.cmd_decrypt {
