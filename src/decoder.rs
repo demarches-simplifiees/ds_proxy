@@ -58,7 +58,7 @@ impl<E> Decoder<E> {
         trace!("Decypher type unknown");
 
         if header::HEADER_SIZE <= self.buffer.len() {
-            trace!("not enough byte to decide decypher type");
+            trace!("enough byte to decide decypher type");
 
             match header::Header::try_from(&self.buffer[0..header::HEADER_SIZE]) {
                 Ok(header) => {
@@ -123,12 +123,14 @@ impl<E> Decoder<E> {
 
                 if (xchacha20poly1305::ABYTES + self.chunk_size) <= self.buffer.len() {
                     trace!("decrypting a whole buffer");
+                    trace!("buffer len {:?}", self.buffer.len());
+                    trace!("self.chunk_size {:?}", self.chunk_size);
                     let (decrypted1, _tag1) = stream
                         .pull(
                             &self.buffer[0..(xchacha20poly1305::ABYTES + self.chunk_size)],
                             None,
                         )
-                        .unwrap();
+                        .expect("le pull ne marche pas du tout");
                     self.buffer
                         .advance(xchacha20poly1305::ABYTES + self.chunk_size);
 
@@ -136,10 +138,14 @@ impl<E> Decoder<E> {
                 } else if self.inner_ended {
                     trace!("inner stream over, decrypting whats left");
                     let rest = self.buffer.len();
-                    let (decrypted1, _tag1) = stream.pull(&self.buffer[..], None).unwrap();
+                    trace!("self.buffer.len() : {:?}", self.buffer.len());
+                    trace!("self.chunk_size {:?}", self.chunk_size);
+                    let (decrypted1, _tag1) = stream.pull(&self.buffer[..], None).expect("la aussi ca merde");
                     self.buffer.advance(rest);
                     Poll::Ready(Some(Ok(Bytes::copy_from_slice(&decrypted1[..]))))
                 } else {
+                    trace!("buffer len: {:?}", self.buffer.len());
+                    trace!("chunk_size: {:?}", self.chunk_size);
                     trace!("waiting for more data");
                     Pin::new(self).poll_next(cx)
                 }
@@ -160,7 +166,7 @@ impl<E> Stream for Decoder<E> {
                 Poll::Pending
             }
             Poll::Ready(Some(Ok(bytes))) => {
-                trace!("poll: bytes");
+                trace!("poll: bytes, + {:?}", bytes.len());
                 encoder.buffer.extend(bytes);
                 encoder.decrypt_buffer(cx)
             }
