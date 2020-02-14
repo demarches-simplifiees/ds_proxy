@@ -97,14 +97,12 @@ impl<E> Decoder<E> {
                     trace!("decrypting the header");
                     // TODO: throw error
                     let header =
-                        Header::from_slice(&self.buffer[0..xchacha20poly1305::HEADERBYTES])
+                        Header::from_slice(&self.buffer.split_to(xchacha20poly1305::HEADERBYTES))
                             .unwrap();
 
                     // TODO: throw error
                     self.stream_decoder =
                         Some(xchacha20poly1305::Stream::init_pull(&header, &self.key).unwrap());
-
-                    self.buffer.advance(xchacha20poly1305::HEADERBYTES);
 
                     self.decrypt_buffer(cx)
                 } else {
