@@ -136,11 +136,11 @@ impl<E> Decoder<E> {
                     Poll::Ready(Some(Ok(Bytes::copy_from_slice(&decrypted1[..]))))
                 } else if self.inner_ended {
                     trace!("inner stream over, decrypting whats left");
-                    let rest = self.buffer.len();
                     trace!("self.buffer.len() : {:?}", self.buffer.len());
                     trace!("self.chunk_size {:?}", self.chunk_size);
-                    let (decrypted1, _tag1) = stream.pull(&self.buffer[..], None).expect("la aussi ca merde");
-                    self.buffer.advance(rest);
+
+                    let (decrypted1, _tag1) = stream.pull(&self.buffer.split(), None).expect("la aussi ca merde");
+
                     Poll::Ready(Some(Ok(Bytes::copy_from_slice(&decrypted1[..]))))
                 } else {
                     trace!("buffer len: {:?}", self.buffer.len());
