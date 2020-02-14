@@ -157,22 +157,22 @@ impl<E> Stream for Decoder<E> {
     type Item = Result<Bytes, E>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let mut encoder = self.get_mut();
+        let mut decoder = self.get_mut();
 
-        match Pin::new(encoder.inner.as_mut()).poll_next(cx) {
+        match Pin::new(decoder.inner.as_mut()).poll_next(cx) {
             Poll::Pending => {
                 trace!("poll: not ready");
                 Poll::Pending
             }
             Poll::Ready(Some(Ok(bytes))) => {
                 trace!("poll: bytes, + {:?}", bytes.len());
-                encoder.buffer.extend(bytes);
-                encoder.decrypt_buffer(cx)
+                decoder.buffer.extend(bytes);
+                decoder.decrypt_buffer(cx)
             }
             Poll::Ready(None) => {
                 trace!("poll: over");
-                encoder.inner_ended = true;
-                encoder.decrypt_buffer(cx)
+                decoder.inner_ended = true;
+                decoder.decrypt_buffer(cx)
             }
             Poll::Ready(Some(Err(e))) => {
                 trace!("poll: error");
