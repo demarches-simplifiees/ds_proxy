@@ -66,10 +66,12 @@ impl<E> Decoder<E> {
                     self.chunk_size = header.chunk_size;
                     self.decipher_type = DecipherType::Encrypted;
                     self.buffer.advance(header::HEADER_SIZE);
+                    self.decrypt_buffer(cx)
                 }
                 Err(header::HeaderParsingError::WrongPrefix) => {
                     trace!("the file is not encrypted !");
                     self.decipher_type = DecipherType::Plaintext;
+                    self.decrypt_buffer(cx)
                 }
                 e => {
                     error!("{:?}", e);
@@ -77,7 +79,6 @@ impl<E> Decoder<E> {
                 }
             }
 
-            Pin::new(self).poll_next(cx)
         } else if self.inner_ended {
             trace!("the stream is over, so the file is not encrypted !");
 
