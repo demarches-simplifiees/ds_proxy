@@ -137,13 +137,13 @@ impl<E> Decoder<E> {
                     trace!("self.buffer.len() : {:?}", self.buffer.len());
                     trace!("self.chunk_size {:?}", self.chunk_size);
 
-                    let (decrypted1, _tag1) = stream.pull(&self.buffer.split(), None).expect("la aussi ca merde");
+                    let decrypted = stream.pull(&self.buffer.split(), None).expect("Unable to decrypt last chunk").0 ;
 
-                    Poll::Ready(Some(Ok(decrypted1.into())))
+                    Poll::Ready(Some(Ok(decrypted.into())))
                 } else {
+                    trace!("waiting for more data");
                     trace!("buffer len: {:?}", self.buffer.len());
                     trace!("chunk_size: {:?}", self.chunk_size);
-                    trace!("waiting for more data");
 
                     Pin::new(self).poll_next(cx)
                 }
