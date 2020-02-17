@@ -4,6 +4,11 @@ use std::process::{ Command, Child, Output };
 use std::path::Path;
 use encrypt::header::{PREFIX, PREFIX_SIZE};
 
+const PASSWORD: &'static str = "plop";
+const SALT: &'static str = "12345678901234567890123456789012";
+const HASH_FILE_ARG: &'static str = "--hash-file=tests/fixtures/password.hash";
+const CHUNK_SIZE: &'static str = "512"; //force multiple pass
+
 #[test]
 fn encrypt_and_decrypt() {
     let temp = assert_fs::TempDir::new().unwrap();
@@ -56,10 +61,6 @@ fn encrypt_and_decrypt() {
 fn decrypting_a_plaintext_file_yields_the_original_file() {
     let temp = assert_fs::TempDir::new().unwrap();
 
-    let password = "plop";
-    let salt = "12345678901234567890123456789012";
-    let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
-
     let original = "tests/fixtures/computer.svg";
     let encrypted = "tests/fixtures/computer.svg.enc";
     let decrypted = temp.child("computer.dec.svg");
@@ -70,9 +71,9 @@ fn decrypting_a_plaintext_file_yields_the_original_file() {
         .arg("decrypt")
         .arg(encrypted)
         .arg(decrypted_path)
-        .arg(hash_file_arg)
-        .env("DS_PASSWORD", password)
-        .env("DS_SALT", salt);
+        .arg(HASH_FILE_ARG)
+        .env("DS_PASSWORD", PASSWORD)
+        .env("DS_SALT", SALT);
 
     decrypt_cmd.assert().success();
 
@@ -133,8 +134,6 @@ fn the_app_crashes_with_an_invalid_password() {
     let temp = assert_fs::TempDir::new().unwrap();
 
     let password = "this is not the expected password";
-    let salt = "12345678901234567890123456789012";
-    let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
 
     let encrypted = "tests/fixtures/computer.svg.enc";
     let decrypted = temp.child("computer.dec.svg");
@@ -145,15 +144,14 @@ fn the_app_crashes_with_an_invalid_password() {
         .arg("proxy")
         .arg(encrypted)
         .arg(decrypted_path)
-        .arg(hash_file_arg)
+        .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", password)
-        .env("DS_SALT", salt);
+        .env("DS_SALT", SALT);
 
     decrypt_cmd.assert().failure();
 }
 
 use std::{thread, time};
-
 
 #[test]
 fn end_to_end_upload_and_download() {
@@ -163,13 +161,9 @@ fn end_to_end_upload_and_download() {
      - spawns a ds proxy that uses the node proxy as a storage backend
      - uploads a file using curl via the DS proxy
      - checks that said file is encrypted
-     - downloads the encrypted file via the proxy, and checks that its content matches the initial content
+     - decrypt the uploaded file by the decrypted command and check the result
+     - downloads the uploaded file via the proxy, and checks that its content matches the initial content
     */
-    let password = "plop";
-    let salt = "12345678901234567890123456789012";
-    let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
-    let chunk_size = "512"; //force multiple pass
-
     let original_path = "tests/fixtures/computer.svg";
     let original_bytes = std::fs::read(original_path).unwrap();
     let uploaded_path = "tests/fixtures/server-static/uploads/victory";
@@ -183,7 +177,7 @@ fn end_to_end_upload_and_download() {
             .expect(&format!("Unable to remove {} !", uploaded_path.to_owned()));
     }
 
-    let mut proxy_server = launch_proxy(password, hash_file_arg, salt, chunk_size);
+    let mut proxy_server = launch_proxy();
     let mut node_server = launch_node();
 
     thread::sleep(time::Duration::from_millis(1000));
@@ -194,7 +188,7 @@ fn end_to_end_upload_and_download() {
     let uploaded_bytes = std::fs::read(uploaded_path).expect("uploaded should exist !");
     assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
 
-    decrypt(uploaded_path, decrypted_path, hash_file_arg, password, salt, chunk_size);
+    decrypt(uploaded_path, decrypted_path);
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
     assert_eq!(original_bytes, decrypted_bytes);
 
@@ -210,16 +204,16 @@ fn end_to_end_upload_and_download() {
 }
 
 
-fn launch_proxy(password: &str, hash_file_arg: &str, salt: &str, chunk_size: &str) -> Child {
+fn launch_proxy() -> Child {
     Command::cargo_bin("ds_proxy")
         .unwrap()
         .arg("proxy")
         .arg("--address=localhost:4444")
         .arg("--upstream-url=http://localhost:3000")
-        .arg(hash_file_arg)
-        .env("DS_PASSWORD", password)
-        .env("DS_SALT", salt)
-        .env("DS_CHUNK_SIZE", chunk_size)
+        .arg(HASH_FILE_ARG)
+        .env("DS_PASSWORD", PASSWORD)
+        .env("DS_SALT", SALT)
+        .env("DS_CHUNK_SIZE", CHUNK_SIZE)
         .spawn()
         .expect("failed to execute ds_proxy")
 }
@@ -249,16 +243,16 @@ fn curl_get(url: &str) -> Output {
         .expect("failed to perform download")
 }
 
-fn decrypt(encrypted_path: &str, decrypted_path: &std::path::Path, hash_path: &str, password: &str, salt: &str, chunk_size: &str) -> assert_cmd::assert::Assert {
+fn decrypt(encrypted_path: &str, decrypted_path: &std::path::Path) -> assert_cmd::assert::Assert {
     Command::cargo_bin("ds_proxy")
         .unwrap()
         .arg("decrypt")
         .arg(encrypted_path)
         .arg(decrypted_path)
-        .arg(hash_path)
-        .env("DS_PASSWORD", password)
-        .env("DS_SALT", salt)
-        .env("DS_CHUNK_SIZE", chunk_size)
+        .arg(HASH_FILE_ARG)
+        .env("DS_PASSWORD", PASSWORD)
+        .env("DS_SALT", SALT)
+        .env("DS_CHUNK_SIZE", CHUNK_SIZE)
         .assert()
         .success()
 }
