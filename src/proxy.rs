@@ -113,6 +113,7 @@ async fn simple_proxy(
         })
 }
 
+#[actix_rt::main]
 pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
 

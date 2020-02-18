@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
-const PREFIX: &[u8] = b"J'apercus l'audacieux capitaine.";
-const PREFIX_SIZE: usize = 32;
+pub const PREFIX: &[u8] = b"J'apercus l'audacieux capitaine.";
+pub const PREFIX_SIZE: usize = 32;
 const VERSION_NB: usize = 1;
 const VERSION_NB_SIZE: usize = 8;
 const CHUNK_SIZE_SIZE: usize = 8; //usize size

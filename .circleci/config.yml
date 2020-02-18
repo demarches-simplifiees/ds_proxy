@@ -5,4 +5,13 @@
       - image: circleci/rust:1.40.0
     steps:
       - checkout
+      - run:
+          name: "Update Node.js and npm"
+          command: |
+            curl -sSL "https://nodejs.org/dist/v11.10.0/node-v11.10.0-linux-x64.tar.xz" | sudo tar --strip-components=2 -xJ -C /usr/local/bin/ node-v11.10.0-linux-x64/bin/node
+            curl https://www.npmjs.com/install.sh | sudo bash
+      - run:
+          name: "Install node depenencies"
+          command: |
+            cd tests/fixtures/server-static && npm install
       - run: cargo test
