@@ -9,8 +9,8 @@ build = "build.rs" # Cargo only supports one build script per project at the mom
 sodiumoxide = "0.2.2"
 futures = "0.3.1"
 futures-core = "0.3.1"
-actix-web = { version="2.0.0" }
-actix-rt = "1"
+actix-web = { version="2.0.0", features = ["openssl"] }
+actix-rt = { version="1" }
 bytes = "0.5.3"
 docopt = "1"
 serde = { version = "1", features = ["derive"] }
