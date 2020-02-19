@@ -132,7 +132,7 @@ impl<E> Decoder<E> {
 
                 self.buffer = chunks.remainder().into();
 
-                if decrypted.len() > 0 {
+                if !decrypted.is_empty() {
                     Poll::Ready(Some(Ok(decrypted)))
                 } else if self.inner_ended {
                     trace!("inner stream over, decrypting whats left");
