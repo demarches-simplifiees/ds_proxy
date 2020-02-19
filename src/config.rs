@@ -42,8 +42,9 @@ impl Config {
 
         let salt = match &args.flag_salt {
             Some(salt) => salt.to_string(),
-            None => env::var("DS_SALT")
-                .expect("Missing salt, use DS_SALT env or --salt cli argument"),
+            None => {
+                env::var("DS_SALT").expect("Missing salt, use DS_SALT env or --salt cli argument")
+            }
         };
 
         let chunk_size = match &args.flag_chunk_size {
@@ -57,7 +58,9 @@ impl Config {
         let upstream_base_url = if args.cmd_proxy {
             match &args.flag_upstream_url {
                 Some(upstream_url) => Some(upstream_url.to_string()),
-                None => Some(env::var("DS_UPSTREAM_URL").expect("Missing upstream_url, use DS_UPSTREAM_URL env or --upstream-url cli argument"))
+                None => Some(env::var("DS_UPSTREAM_URL").expect(
+                    "Missing upstream_url, use DS_UPSTREAM_URL env or --upstream-url cli argument",
+                )),
             }
         } else {
             None

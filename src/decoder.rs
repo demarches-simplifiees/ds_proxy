@@ -78,7 +78,6 @@ impl<E> Decoder<E> {
                     panic!()
                 }
             }
-
         } else if self.inner_ended {
             trace!("the stream is over, so the file is not encrypted !");
 
@@ -122,11 +121,18 @@ impl<E> Decoder<E> {
                 trace!("self.buffer.len() : {:?}", self.buffer.len());
                 trace!("self.chunk_size {:?}", self.chunk_size);
 
-                let mut chunks = self.buffer.chunks_exact(xchacha20poly1305::ABYTES + self.chunk_size);
+                let mut chunks = self
+                    .buffer
+                    .chunks_exact(xchacha20poly1305::ABYTES + self.chunk_size);
 
                 let decrypted: Bytes = chunks
                     .by_ref()
-                    .map (|encrypted_chunk| { stream.pull(encrypted_chunk, None).expect("Unable to decrypt chunk").0 })
+                    .map(|encrypted_chunk| {
+                        stream
+                            .pull(encrypted_chunk, None)
+                            .expect("Unable to decrypt chunk")
+                            .0
+                    })
                     .flatten()
                     .collect();
 
@@ -137,7 +143,10 @@ impl<E> Decoder<E> {
                 } else if self.inner_ended {
                     trace!("inner stream over, decrypting whats left");
 
-                    let decrypted = stream.pull(&self.buffer.split(), None).expect("Unable to decrypt last chunk").0 ;
+                    let decrypted = stream
+                        .pull(&self.buffer.split(), None)
+                        .expect("Unable to decrypt last chunk")
+                        .0;
 
                     Poll::Ready(Some(Ok(decrypted.into())))
                 } else {
