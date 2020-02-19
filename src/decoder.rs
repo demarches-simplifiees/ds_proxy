@@ -119,6 +119,8 @@ impl<E> Decoder<E> {
 
             Some(ref mut stream) => {
                 trace!("stream_decoder present !");
+                trace!("self.buffer.len() : {:?}", self.buffer.len());
+                trace!("self.chunk_size {:?}", self.chunk_size);
 
                 let mut chunks = self.buffer.chunks_exact(xchacha20poly1305::ABYTES + self.chunk_size);
 
@@ -134,16 +136,12 @@ impl<E> Decoder<E> {
                     Poll::Ready(Some(Ok(decrypted)))
                 } else if self.inner_ended {
                     trace!("inner stream over, decrypting whats left");
-                    trace!("self.buffer.len() : {:?}", self.buffer.len());
-                    trace!("self.chunk_size {:?}", self.chunk_size);
 
                     let decrypted = stream.pull(&self.buffer.split(), None).expect("Unable to decrypt last chunk").0 ;
 
                     Poll::Ready(Some(Ok(decrypted.into())))
                 } else {
                     trace!("waiting for more data");
-                    trace!("buffer len: {:?}", self.buffer.len());
-                    trace!("chunk_size: {:?}", self.chunk_size);
 
                     Pin::new(self).poll_next(cx)
                 }
