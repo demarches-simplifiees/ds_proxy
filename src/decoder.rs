@@ -174,7 +174,7 @@ impl<E> Stream for Decoder<E> {
                 decoder.decrypt_buffer(cx)
             }
             Poll::Ready(Some(Err(e))) => {
-                trace!("poll: error");
+                error!("poll: error");
                 Poll::Ready(Some(Err(e)))
             }
         }
