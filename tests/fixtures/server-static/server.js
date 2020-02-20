@@ -21,5 +21,15 @@ app.get('/chunked/*', function(req, res){
   readStream.pipe(res);
 });
 
+app.get('/get/500', function(req, res){
+  res.writeHead(500, {'Content-Type': 'text/plain'});
+  res.end('KO: 500');
+});
+
+app.get('/get/400', function(req, res){
+  res.writeHead(400, {'Content-Type': 'text/plain'});
+  res.end('KO: 400');
+});
+
 app.use(express.static(__dirname + '/uploads'));
 app.listen(3000);

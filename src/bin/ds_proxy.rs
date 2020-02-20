@@ -10,12 +10,14 @@ use log::info;
 use std::env;
 
 fn main() {
+    env_logger::init();
+
     if let Ok(url) = env::var("DS_PROXY_SENTRY_URL") {
         info!("Sentry will be notified on {}", url);
         let _guard = sentry::init(url);
         sentry::integrations::panic::register_panic_handler();
     }
-    env_logger::init();
+
     sodiumoxide::init().unwrap();
 
     let docopt: Docopt = Docopt::new(USAGE)
