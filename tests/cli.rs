@@ -1,8 +1,8 @@
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
-use std::process::{ Command, Child, Output };
-use std::path::Path;
 use encrypt::header::{PREFIX, PREFIX_SIZE};
+use std::path::Path;
+use std::process::{Child, Command, Output};
 
 const PASSWORD: &'static str = "plop";
 const SALT: &'static str = "12345678901234567890123456789012";
@@ -183,7 +183,9 @@ fn end_to_end_upload_and_download() {
     thread::sleep(time::Duration::from_millis(1000));
 
     let curl_upload = curl_put(original_path, "localhost:4444/victory");
-    if !curl_upload.status.success() { panic!("unable to upload file !"); }
+    if !curl_upload.status.success() {
+        panic!("unable to upload file !");
+    }
 
     let uploaded_bytes = std::fs::read(uploaded_path).expect("uploaded should exist !");
     assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
@@ -198,11 +200,14 @@ fn end_to_end_upload_and_download() {
     let curl_chunked_download = curl_get("localhost:4444/chunked/victory");
     assert_eq!(curl_chunked_download.stdout, original_bytes);
 
-    proxy_server.kill().expect("killing the proxy server should succeed !");
-    node_server.kill().expect("killing node's upload server should succeed !");
+    proxy_server
+        .kill()
+        .expect("killing the proxy server should succeed !");
+    node_server
+        .kill()
+        .expect("killing node's upload server should succeed !");
     temp.close().unwrap();
 }
-
 
 fn launch_proxy() -> Child {
     Command::cargo_bin("ds_proxy")

@@ -5,7 +5,7 @@ use actix_web::client::Client;
 use actix_web::guard;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures_core::stream::Stream;
-use log::{error};
+use log::error;
 use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
@@ -48,7 +48,6 @@ async fn forward(
         .await
         .map_err(Error::from)
         .map(|res| {
-
             if res.status().is_client_error() || res.status().is_server_error() {
                 error!("forward error {:?} {:?}", req, res);
             }
@@ -78,7 +77,6 @@ async fn fetch(
         .await
         .map_err(Error::from)
         .map(move |res| {
-
             if res.status().is_client_error() || res.status().is_server_error() {
                 error!("fetch error {:?} {:?}", req, res);
             }
@@ -114,7 +112,6 @@ async fn simple_proxy(
         .await
         .map_err(Error::from)
         .map(|res| {
-
             if res.status().is_client_error() || res.status().is_server_error() {
                 error!("simple proxy error {:?} {:?}", req, res);
             }
