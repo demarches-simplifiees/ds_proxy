@@ -139,6 +139,7 @@ pub async fn main(config: Config) -> std::io::Result<()> {
             .service(web::resource(".*").guard(guard::Put()).to(forward))
             .default_service(web::route().to(simple_proxy))
     })
+    .bind_uds("/tmp/actix-uds.socket")?
     .bind(address)?
     .run()
     .await
