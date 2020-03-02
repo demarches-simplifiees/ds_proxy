@@ -197,6 +197,9 @@ fn end_to_end_upload_and_download() {
     let curl_download = curl_get("localhost:4444/victory");
     assert_eq!(curl_download.stdout, original_bytes);
 
+    let curl_socket_download = curl_socket_get("localhost:4444/victory");
+    assert_eq!(curl_socket_download.stdout, original_bytes);
+
     let curl_chunked_download = curl_get("localhost:4444/chunked/victory");
     assert_eq!(curl_chunked_download.stdout, original_bytes);
 
@@ -243,6 +246,16 @@ fn curl_put(file_path: &str, url: &str) -> Output {
 fn curl_get(url: &str) -> Output {
     Command::new("curl")
         .arg("-XGET")
+        .arg(url)
+        .output()
+        .expect("failed to perform download")
+}
+
+fn curl_socket_get(url: &str) -> Output {
+    Command::new("curl")
+        .arg("-XGET")
+        .arg("--unix-socket")
+        .arg("/tmp/actix-uds.socket")
         .arg(url)
         .output()
         .expect("failed to perform download")
