@@ -246,6 +246,8 @@ fn launch_proxy() -> ChildGuard {
 fn launch_node() -> ChildGuard {
     let child = Command::new("node")
         .arg("tests/fixtures/server-static/server.js")
+        .arg("--latency=0")
+        .env("DEBUG", "express:*")
         .spawn()
         .expect("failed to execute node");
     ChildGuard { child, description: "node" }
