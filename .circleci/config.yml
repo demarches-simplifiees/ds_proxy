@@ -5,6 +5,11 @@
       - image: circleci/rust:1.40.0
     steps:
       - checkout
+      - run: rustup component add rustfmt
+      - run:
+          name: "Code linter"
+          command: |
+            cargo fmt -- --check
       - run:
           name: "Update Node.js and npm"
           command: |
