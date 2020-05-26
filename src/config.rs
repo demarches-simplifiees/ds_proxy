@@ -5,7 +5,6 @@ use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
-use std::error::Error;
 use std::net::{SocketAddr, ToSocketAddrs};
 
 pub type DsKey = Key;
@@ -102,7 +101,7 @@ impl Config {
 
 fn read_file_content(path_string: &str) -> String {
     match std::fs::read(path_string) {
-        Err(why) => panic!("couldn't open {}: {}", path_string, why.description()),
+        Err(why) => panic!("couldn't open {}: {}", path_string, why),
         Ok(file) => String::from_utf8(file).unwrap(),
     }
 }
