@@ -3,6 +3,9 @@ use assert_fs::prelude::*;
 use encrypt::header::{PREFIX, PREFIX_SIZE};
 use std::path::Path;
 use std::process::{Child, Command, Output};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use uuid::Uuid;
 
 const PASSWORD: &'static str = "plop";
 const SALT: &'static str = "12345678901234567890123456789012";
@@ -198,7 +201,7 @@ fn end_to_end_upload_and_download() {
 
     thread::sleep(time::Duration::from_millis(1000));
 
-    let curl_upload = curl_put(original_path, "localhost:4444/victory");
+    let curl_upload = curl_put(original_path, "127.0.0.1:4444/victory");
     if !curl_upload.status.success() {
         panic!("unable to upload file !");
     }
@@ -210,13 +213,13 @@ fn end_to_end_upload_and_download() {
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
     assert_eq!(original_bytes, decrypted_bytes);
 
-    let curl_download = curl_get("localhost:4444/victory");
+    let curl_download = curl_get("127.0.0.1:4444/victory");
     assert_eq!(curl_download.stdout, original_bytes);
 
-    let curl_socket_download = curl_socket_get("localhost:4444/victory");
+    let curl_socket_download = curl_socket_get("127.0.0.1:4444/victory");
     assert_eq!(curl_socket_download.stdout, original_bytes);
 
-    let curl_chunked_download = curl_get("localhost:4444/chunked/victory");
+    let curl_chunked_download = curl_get("127.0.0.1:4444/chunked/victory");
     assert_eq!(curl_chunked_download.stdout, original_bytes);
 
     proxy_server.child
@@ -228,12 +231,121 @@ fn end_to_end_upload_and_download() {
     temp.close().unwrap();
 }
 
+#[test]
+fn concurent_uploads() {
+    /*
+    This test:
+     - spawns a node server that stores uploaded files in tests/fixtures/server-static/uploads/
+     - spawns a ds proxy that uses the node proxy as a storage backend
+     - attempts to store 200 files, while the server has a high latency
+    */
+
+    //
+    // You may need to increase the open files limit before this works.
+    // On macOS:
+    //   ulimit -n 2048
+    //
+
+    const SERVER_LATENCY: Duration = Duration::from_secs(3);
+    const INTERVAL_BETWEEN_UPLOADS: Duration = Duration::from_millis(100);
+
+    let mut proxy_server = launch_proxy();
+    let mut node_server = launch_node_with_latency(Some(SERVER_LATENCY));
+    thread::sleep(Duration::from_secs(1));
+
+    // Start N threads (with a slight delay between each)
+    let mut threads = vec![];
+    let counter = Arc::new(Mutex::new(0));
+
+    for _ in 0..10 {
+        thread::sleep(INTERVAL_BETWEEN_UPLOADS);
+
+        let counter = Arc::clone(&counter);
+
+        let name = format!("thread {}", threads.len());
+        let handler = thread::Builder::new().name(name).spawn(move || {
+            {
+                let mut threads_count = counter.lock().unwrap();
+                *threads_count += 1;
+                println!("Number of threads: {}", threads_count);
+            }
+
+            let original_path = "tests/fixtures/computer.svg";
+            let original_bytes = std::fs::read(original_path).unwrap();
+
+            let stored_filename = Uuid::new_v4();
+            let uploaded_path = format!("tests/fixtures/server-static/uploads/{}", stored_filename);
+
+            let temp = assert_fs::TempDir::new().unwrap();
+            let decrypted_file = temp.child("computer.dec.svg");
+            let decrypted_path = decrypted_file.path();
+
+            let curl_upload = curl_put(original_path, &format!("127.0.0.1:4444/{}", stored_filename));
+            if !curl_upload.status.success() {
+                panic!("unable to upload file!");
+            }
+
+            let uploaded_bytes = std::fs::read(&uploaded_path).expect("uploaded should exist !");
+            assert!(uploaded_bytes.len() > 0);
+            assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
+
+            decrypt(&uploaded_path, decrypted_path);
+            let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
+            assert_eq!(original_bytes.len(), decrypted_bytes.len());
+            assert_eq!(original_bytes, decrypted_bytes);
+
+            let curl_download = curl_get(&format!("127.0.0.1:4444/{}", stored_filename));
+            assert_eq!(curl_download.stdout.len(), original_bytes.len());
+            assert_eq!(curl_download.stdout, original_bytes);
+
+            let curl_socket_download = curl_socket_get(&format!("127.0.0.1:4444/{}", stored_filename));
+            assert_eq!(curl_socket_download.stdout.len(), original_bytes.len());
+            assert_eq!(curl_socket_download.stdout, original_bytes);
+
+            let curl_chunked_download = curl_get(&format!("127.0.0.1:4444/chunked/{}", stored_filename));
+            assert_eq!(curl_chunked_download.stdout.len(), original_bytes.len());
+            assert_eq!(curl_chunked_download.stdout, original_bytes);
+
+            // Cleanup
+            temp.close().unwrap();
+            std::fs::remove_file(&uploaded_path)
+                .expect(&format!("Unable to remove uploaded file{}!", uploaded_path));
+
+            {
+                let mut threads_count = counter.lock().unwrap();
+                *threads_count -= 1;
+                println!("Number of threads: {}", threads_count);
+            }
+        }).unwrap();
+        threads.push(handler);
+    }
+
+    // Wait for all threads to be done.
+    for handler in threads {
+        match handler.join() {
+            Err(e) => println!("Error while waiting for thread completion: {:?}", e),
+            Ok(_) => (),
+        }
+    }
+
+    proxy_server.child
+        .kill()
+        .expect("killing the proxy server should succeed !");
+    node_server.child
+        .kill()
+        .expect("killing node's upload server should succeed !");
+}
+
+//
+// Test helpers
+//
+
 fn launch_proxy() -> ChildGuard {
     let child = Command::cargo_bin("ds_proxy")
         .unwrap()
         .arg("proxy")
-        .arg("--address=localhost:4444")
-        .arg("--upstream-url=http://localhost:3000")
+        .arg("--address=127.0.0.1:4444")
+        .arg("--upstream-url=http://127.0.0.1:3000")
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
@@ -244,17 +356,30 @@ fn launch_proxy() -> ChildGuard {
 }
 
 fn launch_node() -> ChildGuard {
-    let child = Command::new("node")
-        .arg("tests/fixtures/server-static/server.js")
-        .arg("--latency=0")
+    launch_node_with_latency(None)
+}
+
+fn launch_node_with_latency(latency: Option<Duration>) -> ChildGuard {
+    let mut command = Command::new("node");
+    command
         .env("DEBUG", "express:*")
-        .spawn()
+        .arg("tests/fixtures/server-static/server.js");
+
+    match latency {
+        Some(l) => {
+            command.arg(format!("--latency={}", l.as_millis()));
+        },
+        None => ()
+    }
+
+    let child = command.spawn()
         .expect("failed to execute node");
     ChildGuard { child, description: "node" }
 }
 
 fn curl_put(file_path: &str, url: &str) -> Output {
     Command::new("curl")
+        .arg("--ipv4")
         .arg("-XPUT")
         .arg(url)
         .arg("--data-binary")
@@ -265,6 +390,7 @@ fn curl_put(file_path: &str, url: &str) -> Output {
 
 fn curl_get(url: &str) -> Output {
     Command::new("curl")
+        .arg("--ipv4")
         .arg("-XGET")
         .arg(url)
         .output()
@@ -273,6 +399,7 @@ fn curl_get(url: &str) -> Output {
 
 fn curl_socket_get(url: &str) -> Output {
     Command::new("curl")
+        .arg("--ipv4")
         .arg("-XGET")
         .arg("--unix-socket")
         .arg("/tmp/actix-uds.socket")
