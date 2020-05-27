@@ -154,7 +154,7 @@ fn the_app_crashes_with_an_invalid_password() {
 use std::{thread, time};
 
 #[test]
-fn end_to_end_upload_and_download() {
+fn end_to_end_upload_and_download_node() {
     /*
     This test:
      - spawns a node server that stores uploaded files in tests/fixtures/server-static/uploads/
@@ -177,7 +177,7 @@ fn end_to_end_upload_and_download() {
             .expect(&format!("Unable to remove {} !", uploaded_path.to_owned()));
     }
 
-    let mut proxy_server = launch_proxy();
+    let mut proxy_server = launch_proxy(3000);
     let mut node_server = launch_node();
 
     thread::sleep(time::Duration::from_millis(1000));
@@ -212,12 +212,12 @@ fn end_to_end_upload_and_download() {
     temp.close().unwrap();
 }
 
-fn launch_proxy() -> Child {
+fn launch_proxy(upstream_port: i32) -> Child {
     Command::cargo_bin("ds_proxy")
         .unwrap()
         .arg("proxy")
         .arg("--address=localhost:4444")
-        .arg("--upstream-url=http://localhost:3000")
+        .arg(format!("--upstream-url=http://localhost:{}", upstream_port))
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
