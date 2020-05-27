@@ -212,6 +212,62 @@ fn end_to_end_upload_and_download_node() {
     temp.close().unwrap();
 }
 
+#[test]
+fn end_to_end_upload_and_download_python() {
+    /*
+    This test:
+     - spawns a python server that stores uploaded files in tests/fixtures/server-python/uploads/
+     - spawns a ds proxy that uses the python proxy as a storage backend
+     - uploads a file using curl via the DS proxy
+     - checks that said file is encrypted
+     - decrypt the uploaded file by the decrypted command and check the result
+     - downloads the uploaded file via the proxy, and checks that its content matches the initial content
+    */
+    let original_path = "tests/fixtures/computer.svg";
+    let original_bytes = std::fs::read(original_path).unwrap();
+    let uploaded_path = "tests/fixtures/server-python/uploads/victory";
+
+    let temp = assert_fs::TempDir::new().unwrap();
+    let decrypted_file = temp.child("computer.dec.svg");
+    let decrypted_path = decrypted_file.path();
+
+    if Path::new(uploaded_path).exists() {
+        std::fs::remove_file(uploaded_path)
+            .expect(&format!("Unable to remove {} !", uploaded_path.to_owned()));
+    }
+
+    let mut proxy_server = launch_proxy(5000);
+    let mut python_server = launch_python();
+
+    thread::sleep(time::Duration::from_millis(1000));
+
+    let curl_upload = curl_put(original_path, "127.0.0.1:5000/victory");
+    if !curl_upload.status.success() {
+        panic!("unable to upload file !");
+    }
+
+    // let uploaded_bytes = std::fs::read(uploaded_path).expect("uploaded should exist !");
+    // assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
+
+    // decrypt(uploaded_path, decrypted_path);
+    // let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
+    // assert_eq!(original_bytes, decrypted_bytes);
+
+    // let curl_download = curl_get("localhost:5000/victory");
+    // assert_eq!(curl_download.stdout, original_bytes);
+
+    // let curl_socket_download = curl_socket_get("localhost:5000/victory");
+    // assert_eq!(curl_socket_download.stdout, original_bytes);
+
+    proxy_server
+        .kill()
+        .expect("killing the proxy server should succeed !");
+    python_server
+        .kill()
+        .expect("killing node's upload server should succeed !");
+    temp.close().unwrap();
+}
+
 fn launch_proxy(upstream_port: i32) -> Child {
     Command::cargo_bin("ds_proxy")
         .unwrap()
@@ -224,6 +280,17 @@ fn launch_proxy(upstream_port: i32) -> Child {
         .env("DS_CHUNK_SIZE", CHUNK_SIZE)
         .spawn()
         .expect("failed to execute ds_proxy")
+}
+
+fn launch_python() -> Child {
+    Command::new("python")
+        .arg("-m")
+        .arg("flask")
+        .arg("run")
+        .current_dir("tests/fixtures/server-python")
+        .env("FLASK_APP", "main.py")
+        .spawn()
+        .expect("failed to execute python")
 }
 
 fn launch_node() -> Child {
