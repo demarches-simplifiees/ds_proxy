@@ -3,3 +3,4 @@
 .idea
 /tests/fixtures/server-static/node_modules
 /tests/fixtures/server-static/uploads/*
+/tests/fixtures/server-python/.env
