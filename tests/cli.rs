@@ -9,6 +9,28 @@ const SALT: &'static str = "12345678901234567890123456789012";
 const HASH_FILE_ARG: &'static str = "--hash-file=tests/fixtures/password.hash";
 const CHUNK_SIZE: &'static str = "512"; //force multiple pass
 
+// Ensure a child process is killed when it goes out of scope.
+// This avoids leaving running processes around when a test fails.
+struct ChildGuard {
+    child: Child,
+    description: &'static str,
+}
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        match self.child.kill() {
+            Err(e) => println!(
+                "ChildGuard: could not kill out-of-scope '{}' process: {}",
+                self.description, e
+            ),
+            Ok(_) => println!(
+                "ChildGuard: successfully killed out-of-scope '{}' process",
+                self.description
+            ),
+        }
+    }
+}
+
 #[test]
 fn encrypt_and_decrypt() {
     let temp = assert_fs::TempDir::new().unwrap();
@@ -204,16 +226,18 @@ fn end_to_end_upload_and_download() {
     assert_eq!(curl_chunked_download.stdout, original_bytes);
 
     proxy_server
+        .child
         .kill()
         .expect("killing the proxy server should succeed !");
     node_server
+        .child
         .kill()
         .expect("killing node's upload server should succeed !");
     temp.close().unwrap();
 }
 
-fn launch_proxy() -> Child {
-    Command::cargo_bin("ds_proxy")
+fn launch_proxy() -> ChildGuard {
+    let child = Command::cargo_bin("ds_proxy")
         .unwrap()
         .arg("proxy")
         .arg("--address=localhost:4444")
@@ -223,14 +247,22 @@ fn launch_proxy() -> Child {
         .env("DS_SALT", SALT)
         .env("DS_CHUNK_SIZE", CHUNK_SIZE)
         .spawn()
-        .expect("failed to execute ds_proxy")
+        .expect("failed to execute ds_proxy");
+    ChildGuard {
+        child,
+        description: "ds_proxy",
+    }
 }
 
-fn launch_node() -> Child {
-    Command::new("node")
+fn launch_node() -> ChildGuard {
+    let child = Command::new("node")
         .arg("tests/fixtures/server-static/server.js")
         .spawn()
-        .expect("failed to execute node")
+        .expect("failed to execute node");
+    ChildGuard {
+        child,
+        description: "node",
+    }
 }
 
 fn curl_put(file_path: &str, url: &str) -> Output {
