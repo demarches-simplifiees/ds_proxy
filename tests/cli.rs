@@ -199,9 +199,8 @@ fn end_to_end_upload_and_download() {
             .expect(&format!("Unable to remove {} !", uploaded_path.to_owned()));
     }
 
-    let mut proxy_server = launch_proxy();
-    let mut node_server = launch_node();
-
+    let mut proxy_server = launch_proxy(PrintServerLogs::No);
+    let mut node_server = launch_node(PrintServerLogs::No);
     thread::sleep(time::Duration::from_millis(1000));
 
     let curl_upload = curl_put(original_path, "localhost:4444/victory");
@@ -236,29 +235,54 @@ fn end_to_end_upload_and_download() {
     temp.close().unwrap();
 }
 
-fn launch_proxy() -> ChildGuard {
-    let child = Command::cargo_bin("ds_proxy")
-        .unwrap()
+
+//
+// Test helpers
+//
+
+#[allow(dead_code)]
+enum PrintServerLogs {
+    Yes,
+    No,
+}
+
+fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
+    let mut command = Command::cargo_bin("ds_proxy").unwrap();
+    command
         .arg("proxy")
         .arg("--address=localhost:4444")
         .arg("--upstream-url=http://localhost:3000")
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
-        .env("DS_CHUNK_SIZE", CHUNK_SIZE)
-        .spawn()
-        .expect("failed to execute ds_proxy");
+        .env("DS_CHUNK_SIZE", CHUNK_SIZE);
+
+    match log {
+        PrintServerLogs::Yes => {
+            command.env("RUST_LOG", "trace");
+        }
+        PrintServerLogs::No => (),
+    }
+
+    let child = command.spawn().expect("failed to execute ds_proxy");
     ChildGuard {
         child,
         description: "ds_proxy",
     }
 }
 
-fn launch_node() -> ChildGuard {
-    let child = Command::new("node")
-        .arg("tests/fixtures/server-static/server.js")
-        .spawn()
-        .expect("failed to execute node");
+fn launch_node(log: PrintServerLogs) -> ChildGuard {
+    let mut command = Command::new("node");
+    command.arg("tests/fixtures/server-static/server.js");
+
+    match log {
+        PrintServerLogs::Yes => {
+            command.env("DEBUG", "express:*");
+        }
+        PrintServerLogs::No => (),
+    }
+
+    let child = command.spawn().expect("failed to execute node");
     ChildGuard {
         child,
         description: "node",
