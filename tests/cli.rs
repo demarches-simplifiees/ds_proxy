@@ -272,6 +272,10 @@ fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
 }
 
 fn launch_node(log: PrintServerLogs) -> ChildGuard {
+    launch_node_with_latency(None, log)
+}
+
+fn launch_node_with_latency(latency: Option<Duration>, log: PrintServerLogs) -> ChildGuard {
     let mut command = Command::new("node");
     command.arg("tests/fixtures/server-static/server.js");
 
@@ -280,6 +284,13 @@ fn launch_node(log: PrintServerLogs) -> ChildGuard {
             command.env("DEBUG", "express:*");
         }
         PrintServerLogs::No => (),
+    }
+
+    match latency {
+        Some(l) => {
+            command.arg(format!("--latency={}", l.as_millis()));
+        }
+        None => (),
     }
 
     let child = command.spawn().expect("failed to execute node");
