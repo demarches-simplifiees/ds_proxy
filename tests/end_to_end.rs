@@ -1,6 +1,7 @@
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use encrypt::header::{PREFIX, PREFIX_SIZE};
+use serial_test::serial;
 use std::path::Path;
 use std::process::{Child, Command, Output};
 use std::sync::{Arc, Mutex};
@@ -14,6 +15,7 @@ const HASH_FILE_ARG: &'static str = "--hash-file=tests/fixtures/password.hash";
 const CHUNK_SIZE: &'static str = "512"; //force multiple pass
 
 #[test]
+#[serial(servers)]
 fn end_to_end_upload_and_download() {
     /*
     This test:
@@ -74,6 +76,7 @@ fn end_to_end_upload_and_download() {
 }
 
 #[test]
+#[serial(servers)]
 fn concurent_uploads() {
     /*
     This test:
