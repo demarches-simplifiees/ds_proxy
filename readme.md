@@ -25,6 +25,7 @@ avec les commandes suivantes:
 
 Vous pouvez également jouer les tests automatisés avec `cargo test` :
 
+    $ (cd tests/fixtures/server-static && yarn install)
     $ cargo test
 
 Afin de vous faciliter la vie, vous pouvez également regarder sur [AreWeIDEYet](https://areweideyet.com/) quels sont
@@ -47,7 +48,7 @@ On peut ensuite lancer le proxy:
 
     $ ./ds_proxy proxy localhost 8888 fichier_password
 
-Le fichier password contenant le mot de passe. 
+Le fichier password contenant le mot de passe.
 
 ## Comment contribuer ?
 
