@@ -130,7 +130,7 @@ dependencies = [
  "actix-rt",
  "actix-service",
  "actix-utils",
- "futures 0.3.4",
+ "futures 0.3.5",
  "log",
  "mio",
  "mio-uds",
@@ -159,7 +159,7 @@ dependencies = [
  "actix-rt",
  "actix-server",
  "actix-service",
- "futures 0.3.4",
+ "futures 0.3.5",
  "log",
  "net2",
 ]
@@ -191,7 +191,7 @@ dependencies = [
  "actix-utils",
  "derive_more",
  "either",
- "futures 0.3.4",
+ "futures 0.3.5",
  "log",
  "openssl",
  "tokio-openssl",
@@ -209,7 +209,7 @@ dependencies = [
  "bitflags",
  "bytes 0.5.4",
  "either",
- "futures 0.3.4",
+ "futures 0.3.5",
  "log",
  "pin-project",
  "slab",
@@ -771,7 +771,7 @@ dependencies = [
  "bytes 0.5.4",
  "docopt",
  "env_logger 0.6.2",
- "futures 0.3.4",
+ "futures 0.3.5",
  "futures-core",
  "log",
  "proptest",
@@ -954,9 +954,9 @@ checksum = "1b980f2816d6ee8673b6517b52cb0e808a180efc92e5c19d02cdda79066703ef"
 
 [[package]]
 name = "futures"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c329ae8753502fb44ae4fc2b622fa2a94652c41e795143765ba0927f92ab780"
+checksum = "1e05b85ec287aac0dc34db7d4a569323df697f9c55b99b15d6b4ef8cde49f613"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -995,9 +995,9 @@ dependencies = [
 
 [[package]]
 name = "futures-executor"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f674f3e1bcb15b37284a90cedf55afdba482ab061c407a9c0ebbd0f3109741ba"
+checksum = "10d6bb888be1153d3abeb9006b11b02cf5e9b209fda28693c31ae1e4e012e314"
 dependencies = [
  "futures-core",
  "futures-task",
@@ -2824,7 +2824,7 @@ dependencies = [
  "async-trait",
  "backtrace",
  "enum-as-inner",
- "futures 0.3.4",
+ "futures 0.3.5",
  "idna 0.2.0",
  "lazy_static",
  "log",
@@ -2843,7 +2843,7 @@ checksum = "0f23cdfdc3d8300b3c50c9e84302d3bd6d860fb9529af84ace6cf9665f181b77"
 dependencies = [
  "backtrace",
  "cfg-if",
- "futures 0.3.4",
+ "futures 0.3.5",
  "ipconfig",
  "lazy_static",
  "log",
