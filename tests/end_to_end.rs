@@ -16,6 +16,49 @@ const CHUNK_SIZE: &'static str = "512"; //force multiple pass
 
 #[test]
 #[serial(servers)]
+fn ping() {
+    /*
+    This test:
+     - spawns a ds proxy
+     - curl /ping and expect to fetch a 200
+     - add a maintenance file
+     - curl /ping and expect to fetch a 404 which should trigger a maintenance mode
+       on a upper stream proxy
+    */
+    let mut proxy_server = launch_proxy(PrintServerLogs::Yes);
+    thread::sleep(time::Duration::from_millis(1000));
+
+    let maintenance_file_path = "maintenance";
+
+    if Path::new(maintenance_file_path).exists() {
+        std::fs::remove_file(maintenance_file_path).expect(&format!(
+            "Unable to remove {} !",
+            maintenance_file_path.to_owned()
+        ));
+    }
+
+    assert_eq!(curl_get_status("localhost:4444/ping"), "200");
+
+    std::fs::File::create(maintenance_file_path).expect(&format!(
+        "Unable to create {} !",
+        maintenance_file_path.to_owned()
+    ));
+
+    assert_eq!(curl_get_status("localhost:4444/ping"), "404");
+
+    std::fs::remove_file(maintenance_file_path).expect(&format!(
+        "Unable to remove {} !",
+        maintenance_file_path.to_owned()
+    ));
+
+    proxy_server
+        .child
+        .kill()
+        .expect("killing the proxy server should succeed !");
+}
+
+#[test]
+#[serial(servers)]
 fn end_to_end_upload_and_download() {
     /*
     This test:
@@ -294,6 +337,22 @@ fn curl_get(url: &str) -> Output {
         .arg(url)
         .output()
         .expect("failed to perform download")
+}
+
+fn curl_get_status(url: &str) -> String {
+    let stdout = Command::new("curl")
+        .arg("-XGET")
+        .arg(url)
+        .arg("-o")
+        .arg("/dev/null")
+        .arg("-s")
+        .arg("-w")
+        .arg("%{http_code}")
+        .output()
+        .expect("failed to perform download")
+        .stdout;
+
+    std::str::from_utf8(&stdout).unwrap().to_string()
 }
 
 fn curl_socket_get(url: &str) -> Output {
