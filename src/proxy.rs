@@ -17,6 +17,25 @@ static HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
     actix_web::http::header::ETAG,
 ];
 
+async fn ping() -> HttpResponse {
+    let mut response = match std::env::current_dir() {
+        Ok(path_buff) => {
+            if path_buff.join("maintenance").exists() {
+                HttpResponse::NotFound()
+            } else {
+                HttpResponse::Ok()
+            }
+        }
+
+        // the server cannot even read a directory
+        Err(_) => HttpResponse::InternalServerError(),
+    };
+
+    response
+        .set_header(actix_web::http::header::CONTENT_TYPE, "application/json")
+        .body("{}")
+}
+
 async fn forward(
     req: HttpRequest,
     payload: web::Payload,
@@ -135,6 +154,7 @@ pub async fn main(config: Config) -> std::io::Result<()> {
             .data(actix_web::client::Client::new())
             .data(config.clone())
             .wrap(middleware::Logger::default())
+            .service(web::resource("/ping").guard(guard::Get()).to(ping))
             .service(web::resource(".*").guard(guard::Get()).to(fetch))
             .service(web::resource(".*").guard(guard::Put()).to(forward))
             .default_service(web::route().to(simple_proxy))
