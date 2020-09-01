@@ -15,7 +15,6 @@ fn main() {
     if let Ok(url) = env::var("DS_PROXY_SENTRY_URL") {
         info!("Sentry will be notified on {}", url);
         let _guard = sentry::init(url);
-        sentry::integrations::panic::register_panic_handler();
     }
 
     sodiumoxide::init().unwrap();
