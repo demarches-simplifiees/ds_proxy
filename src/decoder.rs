@@ -1,7 +1,5 @@
 use super::header;
-use bytes::buf::Buf;
-use bytes::Bytes;
-use bytes::BytesMut;
+use actix_web::web::{Bytes, BytesMut};
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use futures_core::stream::Stream;
@@ -65,7 +63,7 @@ impl<E> Decoder<E> {
                     trace!("the file is encrypted !");
                     self.chunk_size = header.chunk_size;
                     self.decipher_type = DecipherType::Encrypted;
-                    self.buffer.advance(header::HEADER_SIZE);
+                    let _ = self.buffer.split_to(header::HEADER_SIZE);
                     self.decrypt_buffer(cx)
                 }
                 Err(header::HeaderParsingError::WrongPrefix) => {

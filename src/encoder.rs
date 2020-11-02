@@ -1,7 +1,5 @@
 use super::header::{Header, HEADER_SIZE};
-use bytes::buf::Buf;
-use bytes::Bytes;
-use bytes::BytesMut;
+use actix_web::web::{Bytes, BytesMut};
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use futures_core::stream::Stream;
@@ -68,9 +66,8 @@ impl<E> Encoder<E> {
                     if self.chunk_size <= self.buffer.len() {
                         trace!("encoding a whole chunk");
                         let encoded = stream
-                            .push(&self.buffer[0..self.chunk_size], None, Tag::Message)
+                            .push(&self.buffer.split_to(self.chunk_size), None, Tag::Message)
                             .unwrap();
-                        self.buffer.advance(self.chunk_size);
                         Poll::Ready(Some(Ok(Bytes::from(encoded))))
                     } else {
                         trace!("the chunk is not complete");
@@ -78,9 +75,8 @@ impl<E> Encoder<E> {
                             trace!("the stream is closed, encoding whats left");
                             let rest = self.buffer.len();
                             let encoded = stream
-                                .push(&self.buffer[0..rest], None, Tag::Message)
+                                .push(&self.buffer.split_to(rest), None, Tag::Message)
                                 .unwrap();
-                            self.buffer.advance(rest);
                             Poll::Ready(Some(Ok(Bytes::from(encoded))))
                         } else {
                             trace!("waiting for more data");
