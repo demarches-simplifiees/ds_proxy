@@ -84,7 +84,7 @@ fn end_to_end_upload_and_download() {
 
     let mut proxy_server = launch_proxy(PrintServerLogs::No);
     let mut node_server = launch_node(PrintServerLogs::No);
-    thread::sleep(time::Duration::from_millis(2000));
+    thread::sleep(time::Duration::from_millis(4000));
 
     let curl_upload = curl_put(original_path, "localhost:4444/victory");
     if !curl_upload.status.success() {
@@ -138,7 +138,7 @@ fn concurent_uploads() {
 
     let mut proxy_server = launch_proxy(PrintServerLogs::No);
     let mut node_server = launch_node_with_latency(Some(SERVER_LATENCY), PrintServerLogs::No);
-    thread::sleep(Duration::from_secs(2));
+    thread::sleep(Duration::from_secs(4));
 
     // Spawn threads (with a slight delay between each)
     let mut child_threads = vec![];

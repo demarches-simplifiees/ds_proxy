@@ -6,8 +6,8 @@ mod tests {
     use encrypt::decoder::*;
     use encrypt::encoder::*;
 
+    use actix_web::web::{BufMut, Bytes, BytesMut};
     use actix_web::Error;
-    use bytes::{BufMut, Bytes, BytesMut};
     use futures::executor::block_on_stream;
 
     use proptest::prelude::*;

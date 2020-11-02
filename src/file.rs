@@ -1,8 +1,8 @@
 use super::config::*;
 use super::decoder::*;
 use super::encoder::*;
+use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
-use bytes::{BufMut, Bytes, BytesMut};
 use futures::executor::block_on_stream;
 
 pub fn encrypt(config: Config) {
