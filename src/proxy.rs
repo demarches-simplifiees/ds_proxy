@@ -101,8 +101,14 @@ async fn fetch(
             }
 
             let mut client_resp = HttpResponse::build(res.status());
+
+            if let Some(original_length)  = res.headers().get(actix_web::http::header::CONTENT_LENGTH) {
+                let content_length = original_length.to_str().unwrap().parse().unwrap();
+                client_resp.no_chunking(decrypted_content_length(content_length, config.chunk_size) as u64);
+            }
+
             for (header_name, header_value) in
-                res.headers().iter().filter(|(h, _)| *h != "connection")
+                res.headers().iter().filter(|(h, _)| !(*h == "connection" || *h == "content-length"))
             {
                 client_resp.header(header_name.clone(), header_value.clone());
             }
@@ -145,6 +151,18 @@ async fn simple_proxy(
         })
 }
 
+
+fn decrypted_content_length(encrypted_length: usize, chunk_length: usize) -> usize {
+    use super::header::HEADER_SIZE;
+    use sodiumoxide::crypto::secretstream::xchacha20poly1305::{HEADERBYTES, ABYTES};
+
+    // encrypted = HEADER_DS + HEADER_CRYPTO + n * ( ABYTES + CHUNK ) + (ABYTES + REMAIN)
+
+    let nb_chunk = ((encrypted_length - HEADER_SIZE - HEADERBYTES) as f64 / (ABYTES + chunk_length) as f64).ceil() as usize;
+
+    encrypted_length - HEADER_SIZE - HEADERBYTES - nb_chunk * ABYTES
+}
+
 #[actix_rt::main]
 pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
@@ -163,4 +181,15 @@ pub async fn main(config: Config) -> std::io::Result<()> {
     .bind(address)?
     .run()
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decrypt_content_length() {
+        assert_eq!(1233793024, decrypted_content_length(1235073281, 16 * 1024));
+        assert_eq!(5882, decrypted_content_length(6345, 256));
+    }
 }
