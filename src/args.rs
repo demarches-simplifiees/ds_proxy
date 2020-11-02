@@ -6,7 +6,7 @@ DS encryption proxy.
 Usage:
   ds_proxy encrypt <input-file> <output-file> [--password-file=<password-file>] [--hash-file=<hash-file>] [--salt=<salt>] [--chunk-size=<chunk-size>]
   ds_proxy decrypt <input-file> <output-file> [--password-file=<password-file>] [--hash-file=<hash-file>] [--salt=<salt>] [--chunk-size=<chunk-size>]
-  ds_proxy proxy [--address=<address>] [--password-file=<password-file>] [--hash-file=<hash-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--upstream-url=<upstream-url>] [--noop]
+  ds_proxy proxy [--address=<address>] [--password-file=<password-file>] [--hash-file=<hash-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--upstream-url=<upstream-url>] [--max-connections=<max-connections>] [--noop]
   ds_proxy (-h | --help)
   ds_proxy --version
 
@@ -26,6 +26,7 @@ pub struct Args {
     pub flag_password_file: Option<String>,
     pub flag_salt: Option<String>,
     pub flag_upstream_url: Option<String>,
+    pub flag_max_connections: Option<usize>,
     pub cmd_encrypt: bool,
     pub cmd_decrypt: bool,
     pub cmd_proxy: bool,

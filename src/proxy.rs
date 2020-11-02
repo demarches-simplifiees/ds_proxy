@@ -148,6 +148,7 @@ async fn simple_proxy(
 #[actix_rt::main]
 pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
+    let max_conn = config.max_connections;
 
     HttpServer::new(move || {
         App::new()
@@ -159,6 +160,7 @@ pub async fn main(config: Config) -> std::io::Result<()> {
             .service(web::resource(".*").guard(guard::Put()).to(forward))
             .default_service(web::route().to(simple_proxy))
     })
+    .max_connections(max_conn)
     .bind_uds("/tmp/actix-uds.socket")?
     .bind(address)?
     .run()
