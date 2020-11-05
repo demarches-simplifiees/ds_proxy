@@ -161,11 +161,17 @@ async fn simple_proxy(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
-    let options_url = config.create_url(&req.uri());
+    let url = config.create_url(&req.uri());
 
-    client
-        .request_from(options_url.as_str(), req.head())
-        .timeout(TIMEOUT_DURATION)
+    let mut proxied_req = client
+        .request_from(url.as_str(), req.head())
+        .timeout(TIMEOUT_DURATION);
+
+    for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
+        proxied_req.headers_mut().remove(header);
+    }
+
+    proxied_req
         .send_stream(payload)
         .await
         .map_err(Error::from)
@@ -175,11 +181,15 @@ async fn simple_proxy(
             }
 
             let mut client_resp = HttpResponse::build(res.status());
-            for (header_name, header_value) in
-                res.headers().iter().filter(|(h, _)| *h != "connection")
+
+            for (header_name, header_value) in res
+                .headers()
+                .iter()
+                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
             {
                 client_resp.header(header_name.clone(), header_value.clone());
             }
+
             client_resp.streaming(res)
         })
 }
