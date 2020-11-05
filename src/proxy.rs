@@ -26,6 +26,23 @@ static FORWARD_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
     header::CONTENT_LENGTH,
 ];
 
+static FETCH_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 1] = [
+    // Connection settings (keepalived) must not be resend
+    header::CONNECTION,
+];
+
+static FETCH_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 3] = [
+    // We cannot honor accept ranges as the initial key
+    // is located at the beginning of the stream and
+    // the content is chunked encrypted
+    header::ACCEPT_RANGES,
+    // Connection settings (keepalived) must not be resend
+    header::CONNECTION,
+    // Encryption changes the length of the content
+    // and we use chunk transfert-encoding
+    header::CONTENT_LENGTH,
+];
+
 async fn ping() -> HttpResponse {
     let mut response = match std::env::current_dir() {
         Ok(path_buff) => {
@@ -102,9 +119,15 @@ async fn fetch(
 ) -> Result<HttpResponse, Error> {
     let get_url = config.create_url(&req.uri());
 
-    client
+    let mut fetch_req = client
         .request_from(get_url.as_str(), req.head())
-        .timeout(TIMEOUT_DURATION)
+        .timeout(TIMEOUT_DURATION);
+
+    for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
+        fetch_req.headers_mut().remove(header);
+    }
+
+    fetch_req
         .send_stream(payload)
         .await
         .map_err(Error::from)
@@ -114,8 +137,11 @@ async fn fetch(
             }
 
             let mut client_resp = HttpResponse::build(res.status());
-            for (header_name, header_value) in
-                res.headers().iter().filter(|(h, _)| *h != "connection")
+
+            for (header_name, header_value) in res
+                .headers()
+                .iter()
+                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
             {
                 client_resp.header(header_name.clone(), header_value.clone());
             }
