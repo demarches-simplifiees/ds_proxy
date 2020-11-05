@@ -272,7 +272,7 @@ fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
     command
         .arg("proxy")
         .arg("--address=localhost:4444")
-        .arg("--upstream-url=http://localhost:3000")
+        .arg("--upstream-url=http://localhost:3333")
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
