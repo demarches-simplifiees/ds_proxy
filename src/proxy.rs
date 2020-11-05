@@ -3,6 +3,7 @@ use super::decoder::*;
 use super::encoder::*;
 use actix_web::client::Client;
 use actix_web::guard;
+use actix_web::http::header;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures_core::stream::Stream;
 use log::error;
@@ -12,9 +13,9 @@ const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
 
 // Encryption changes the value of those headers
 static HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
-    actix_web::http::header::CONTENT_LENGTH,
-    actix_web::http::header::CONTENT_TYPE,
-    actix_web::http::header::ETAG,
+    header::CONTENT_LENGTH,
+    header::CONTENT_TYPE,
+    header::ETAG,
 ];
 
 async fn ping() -> HttpResponse {
@@ -32,7 +33,7 @@ async fn ping() -> HttpResponse {
     };
 
     response
-        .set_header(actix_web::http::header::CONTENT_TYPE, "application/json")
+        .set_header(header::CONTENT_TYPE, "application/json")
         .body("{}")
 }
 
