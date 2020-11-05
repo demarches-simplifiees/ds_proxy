@@ -18,6 +18,7 @@ pub struct Config {
     pub noop: bool,
     pub key: DsKey,
     pub chunk_size: usize,
+    pub max_connections: usize,
     pub input_file: Option<String>,
     pub output_file: Option<String>,
     pub address: Option<SocketAddr>,
@@ -91,6 +92,7 @@ impl Config {
             input_file: args.arg_input_file.clone(),
             output_file: args.arg_output_file.clone(),
             address,
+            max_connections: args.flag_max_connections.unwrap_or(25_000),
         }
     }
 
