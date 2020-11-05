@@ -3,6 +3,7 @@ use super::decoder::*;
 use super::encoder::*;
 use actix_web::client::Client;
 use actix_web::guard;
+use actix_web::http::header;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures_core::stream::Stream;
 use log::error;
@@ -10,11 +11,36 @@ use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
 
-// Encryption changes the value of those headers
-static HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
-    actix_web::http::header::CONTENT_LENGTH,
-    actix_web::http::header::CONTENT_TYPE,
-    actix_web::http::header::ETAG,
+static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
+    // Connection settings (keepalived) must not be resend
+    header::CONNECTION,
+    // Encryption changes the length of the content
+    header::CONTENT_LENGTH,
+];
+
+static FORWARD_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
+    // Connection settings (keepalived) must not be resend
+    header::CONNECTION,
+    // Encryption changes the length of the content
+    // and we use chunk transfert-encoding
+    header::CONTENT_LENGTH,
+];
+
+static FETCH_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 1] = [
+    // Connection settings (keepalived) must not be resend
+    header::CONNECTION,
+];
+
+static FETCH_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 3] = [
+    // We cannot honor accept ranges as the initial key
+    // is located at the beginning of the stream and
+    // the content is chunked encrypted
+    header::ACCEPT_RANGES,
+    // Connection settings (keepalived) must not be resend
+    header::CONNECTION,
+    // Encryption changes the length of the content
+    // and we use chunk transfert-encoding
+    header::CONTENT_LENGTH,
 ];
 
 async fn ping() -> HttpResponse {
@@ -32,7 +58,7 @@ async fn ping() -> HttpResponse {
     };
 
     response
-        .set_header(actix_web::http::header::CONTENT_TYPE, "application/json")
+        .set_header(header::CONTENT_TYPE, "application/json")
         .body("{}")
 }
 
@@ -48,7 +74,7 @@ async fn forward(
         .request_from(put_url.as_str(), req.head())
         .timeout(TIMEOUT_DURATION);
 
-    for header in &HEADERS_TO_REMOVE {
+    for header in &FORWARD_REQUEST_HEADERS_TO_REMOVE {
         forwarded_req.headers_mut().remove(header);
     }
 
@@ -72,11 +98,15 @@ async fn forward(
             }
 
             let mut client_resp = HttpResponse::build(res.status());
-            for (header_name, header_value) in
-                res.headers().iter().filter(|(h, _)| *h != "connection")
+
+            for (header_name, header_value) in res
+                .headers()
+                .iter()
+                .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
             {
                 client_resp.header(header_name.clone(), header_value.clone());
             }
+
             client_resp.streaming(res)
         })
 }
@@ -89,9 +119,15 @@ async fn fetch(
 ) -> Result<HttpResponse, Error> {
     let get_url = config.create_url(&req.uri());
 
-    client
+    let mut fetch_req = client
         .request_from(get_url.as_str(), req.head())
-        .timeout(TIMEOUT_DURATION)
+        .timeout(TIMEOUT_DURATION);
+
+    for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
+        fetch_req.headers_mut().remove(header);
+    }
+
+    fetch_req
         .send_stream(payload)
         .await
         .map_err(Error::from)
@@ -101,8 +137,11 @@ async fn fetch(
             }
 
             let mut client_resp = HttpResponse::build(res.status());
-            for (header_name, header_value) in
-                res.headers().iter().filter(|(h, _)| *h != "connection")
+
+            for (header_name, header_value) in res
+                .headers()
+                .iter()
+                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
             {
                 client_resp.header(header_name.clone(), header_value.clone());
             }
@@ -122,11 +161,17 @@ async fn simple_proxy(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
-    let options_url = config.create_url(&req.uri());
+    let url = config.create_url(&req.uri());
 
-    client
-        .request_from(options_url.as_str(), req.head())
-        .timeout(TIMEOUT_DURATION)
+    let mut proxied_req = client
+        .request_from(url.as_str(), req.head())
+        .timeout(TIMEOUT_DURATION);
+
+    for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
+        proxied_req.headers_mut().remove(header);
+    }
+
+    proxied_req
         .send_stream(payload)
         .await
         .map_err(Error::from)
@@ -136,11 +181,15 @@ async fn simple_proxy(
             }
 
             let mut client_resp = HttpResponse::build(res.status());
-            for (header_name, header_value) in
-                res.headers().iter().filter(|(h, _)| *h != "connection")
+
+            for (header_name, header_value) in res
+                .headers()
+                .iter()
+                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
             {
                 client_resp.header(header_name.clone(), header_value.clone());
             }
+
             client_resp.streaming(res)
         })
 }
