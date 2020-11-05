@@ -18,6 +18,14 @@ static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
     header::CONTENT_LENGTH,
 ];
 
+static FORWARD_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
+    // Connection settings (keepalived) must not be resend
+    header::CONNECTION,
+    // Encryption changes the length of the content
+    // and we use chunk transfert-encoding
+    header::CONTENT_LENGTH,
+];
+
 async fn ping() -> HttpResponse {
     let mut response = match std::env::current_dir() {
         Ok(path_buff) => {
@@ -73,11 +81,15 @@ async fn forward(
             }
 
             let mut client_resp = HttpResponse::build(res.status());
-            for (header_name, header_value) in
-                res.headers().iter().filter(|(h, _)| *h != "connection")
+
+            for (header_name, header_value) in res
+                .headers()
+                .iter()
+                .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
             {
                 client_resp.header(header_name.clone(), header_value.clone());
             }
+
             client_resp.streaming(res)
         })
 }
