@@ -11,11 +11,11 @@ use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
 
-// Encryption changes the value of those headers
-static HEADERS_TO_REMOVE: [actix_web::http::header::HeaderName; 3] = [
+static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
+    // Connection settings (keepalived) must not be resend
+    header::CONNECTION,
+    // Encryption changes the length of the content
     header::CONTENT_LENGTH,
-    header::CONTENT_TYPE,
-    header::ETAG,
 ];
 
 async fn ping() -> HttpResponse {
@@ -49,7 +49,7 @@ async fn forward(
         .request_from(put_url.as_str(), req.head())
         .timeout(TIMEOUT_DURATION);
 
-    for header in &HEADERS_TO_REMOVE {
+    for header in &FORWARD_REQUEST_HEADERS_TO_REMOVE {
         forwarded_req.headers_mut().remove(header);
     }
 
