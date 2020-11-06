@@ -91,27 +91,26 @@ async fn forward(
         ))
     };
 
-    forwarded_req
+    let res = forwarded_req
         .send_stream(stream_to_send)
         .await
-        .map_err(Error::from)
-        .map(|res| {
-            if res.status().is_client_error() || res.status().is_server_error() {
-                error!("forward error {:?} {:?}", req, res);
-            }
+        .map_err(Error::from)?;
 
-            let mut client_resp = HttpResponse::build(res.status());
+    if res.status().is_client_error() || res.status().is_server_error() {
+        error!("forward error {:?} {:?}", req, res);
+    }
 
-            for (header_name, header_value) in res
-                .headers()
-                .iter()
-                .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
-            {
-                client_resp.header(header_name.clone(), header_value.clone());
-            }
+    let mut client_resp = HttpResponse::build(res.status());
 
-            client_resp.streaming(res)
-        })
+    for (header_name, header_value) in res
+        .headers()
+        .iter()
+        .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
+    {
+        client_resp.header(header_name.clone(), header_value.clone());
+    }
+
+    Ok(client_resp.streaming(res))
 }
 
 async fn fetch(
