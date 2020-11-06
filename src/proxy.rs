@@ -21,12 +21,9 @@ static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 3] = [
     header::EXPECT,
 ];
 
-static FORWARD_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
+static FORWARD_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 1] = [
     // Connection settings (keepalived) must not be resend
     header::CONNECTION,
-    // Encryption changes the length of the content
-    // and we use chunk transfert-encoding
-    header::CONTENT_LENGTH,
 ];
 
 static FETCH_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 1] = [
@@ -91,27 +88,26 @@ async fn forward(
         ))
     };
 
-    forwarded_req
+    let mut res = forwarded_req
         .send_stream(stream_to_send)
         .await
-        .map_err(Error::from)
-        .map(|res| {
-            if res.status().is_client_error() || res.status().is_server_error() {
-                error!("forward error {:?} {:?}", req, res);
-            }
+        .map_err(Error::from)?;
 
-            let mut client_resp = HttpResponse::build(res.status());
+    if res.status().is_client_error() || res.status().is_server_error() {
+        error!("forward error {:?} {:?}", req, res);
+    }
 
-            for (header_name, header_value) in res
-                .headers()
-                .iter()
-                .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
-            {
-                client_resp.header(header_name.clone(), header_value.clone());
-            }
+    let mut client_resp = HttpResponse::build(res.status());
 
-            client_resp.streaming(res)
-        })
+    for (header_name, header_value) in res
+        .headers()
+        .iter()
+        .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
+    {
+        client_resp.header(header_name.clone(), header_value.clone());
+    }
+
+    Ok(client_resp.body(res.body().await?))
 }
 
 async fn fetch(
