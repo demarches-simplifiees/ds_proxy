@@ -322,13 +322,18 @@ fn launch_node_with_latency(latency: Option<Duration>, log: PrintServerLogs) -> 
 }
 
 fn curl_put(file_path: &str, url: &str) -> Output {
-    Command::new("curl")
+    let cmd = Command::new("curl")
         .arg("-XPUT")
         .arg(url)
         .arg("--data-binary")
         .arg(format!("@{}", file_path))
         .output()
-        .expect("failed to perform upload")
+        .expect("failed to perform upload");
+
+    // add sleep to let node write the file on the disk
+    thread::sleep(time::Duration::from_millis(100));
+
+    cmd
 }
 
 fn curl_get(url: &str) -> Output {
