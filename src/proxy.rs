@@ -11,11 +11,14 @@ use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
 
-static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
+static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 3] = [
     // Connection settings (keepalived) must not be resend
     header::CONNECTION,
     // Encryption changes the length of the content
     header::CONTENT_LENGTH,
+    // The awc client does not handle expect header
+    // https://github.com/actix/actix-web/issues/1775
+    header::EXPECT,
 ];
 
 static FORWARD_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
