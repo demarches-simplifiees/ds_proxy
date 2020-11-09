@@ -11,11 +11,14 @@ use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
 
-static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 3] = [
+static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 4] = [
     // Connection settings (keepalived) must not be resend
     header::CONNECTION,
     // Encryption changes the length of the content
     header::CONTENT_LENGTH,
+    // Openstack checks the ETAG header as a md5 checksum of the data
+    // the encryption change the data and thus the etag
+    header::ETAG,
     // The awc client does not handle expect header
     // https://github.com/actix/actix-web/issues/1775
     header::EXPECT,
