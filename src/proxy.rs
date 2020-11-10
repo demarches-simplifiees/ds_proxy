@@ -3,10 +3,12 @@ use super::decipher_type::DecipherType;
 use super::decoder::*;
 use super::encoder::*;
 use super::header::HEADER_SIZE;
+use super::header_decoder::*;
 use actix_web::body::SizedStream;
 use actix_web::client::Client;
 use actix_web::guard;
 use actix_web::http::{header, HeaderMap};
+use actix_web::web::Bytes;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures::TryStreamExt;
 use futures_core::stream::Stream;
@@ -138,7 +140,7 @@ async fn forward(
 
 async fn fetch(
     req: HttpRequest,
-    payload: web::Payload,
+    body: web::Bytes,
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
@@ -152,32 +154,52 @@ async fn fetch(
         fetch_req.headers_mut().remove(header);
     }
 
-    fetch_req
-        .send_stream(payload)
-        .await
-        .map_err(Error::from)
-        .map(move |res| {
-            if res.status().is_client_error() || res.status().is_server_error() {
-                error!("fetch error {:?} {:?}", req, res);
-            }
+    let res = fetch_req.send_body(body).await.map_err(Error::from)?;
 
-            let mut client_resp = HttpResponse::build(res.status());
+    if res.status().is_client_error() || res.status().is_server_error() {
+        error!("fetch error {:?} {:?}", req, res);
+    }
 
-            for (header_name, header_value) in res
-                .headers()
-                .iter()
-                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
-            {
-                client_resp.header(header_name.clone(), header_value.clone());
-            }
+    let mut client_resp = HttpResponse::build(res.status());
 
+    for (header_name, header_value) in res
+        .headers()
+        .iter()
+        .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
+    {
+        client_resp.header(header_name.clone(), header_value.clone());
+    }
+
+    let original_length = content_length(res.headers());
+
+    if config.noop {
+        if let Some(length) = original_length {
+            Ok(client_resp.no_chunking(length as u64).streaming(res))
+        } else {
+            Ok(client_resp.streaming(res))
+        }
+    } else {
+        let mut boxy: Box<dyn Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(res);
+        let header_decoder = HeaderDecoder::new(&mut boxy);
+        let (cypher_type, buff) = header_decoder.await;
+
+        let decoder =
+            Decoder::new_from_cypher_and_buffer(config.key.clone(), boxy, cypher_type, buff);
+
+        let fetch_length = original_length.map(|content_length| {
             if config.noop {
-                client_resp.streaming(res)
+                content_length
             } else {
-                let decoder = Decoder::new(config.key.clone(), Box::new(res));
-                client_resp.streaming(decoder)
+                decrypted_content_length(content_length, cypher_type)
             }
-        })
+        });
+
+        if let Some(length) = fetch_length {
+            Ok(client_resp.no_chunking(length as u64).streaming(decoder))
+        } else {
+            Ok(client_resp.streaming(decoder))
+        }
+    }
 }
 
 async fn simple_proxy(

@@ -30,6 +30,22 @@ impl<E> Decoder<E> {
         }
     }
 
+    pub fn new_from_cypher_and_buffer(
+        key: Key,
+        s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
+        decipher_type: DecipherType,
+        b: Option<BytesMut>,
+    ) -> Decoder<E> {
+        Decoder {
+            inner: s,
+            inner_ended: false,
+            decipher_type: Some(decipher_type),
+            stream_decoder: None,
+            buffer: b.unwrap_or(BytesMut::new()),
+            key,
+        }
+    }
+
     pub fn decrypt_buffer(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
         if self.inner_ended && self.buffer.is_empty() {
             trace!("buffer empty and stream ended, stop");
