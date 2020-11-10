@@ -59,6 +59,45 @@ fn ping() {
 
 #[test]
 #[serial(servers)]
+fn download_witness_file() {
+    /*
+    This test:
+     - spawns a node server that stores uploaded files in tests/fixtures/server-static/uploads/
+     - spawns a ds proxy that uses the node proxy as a storage backend
+     - copy a witness file in the right directory to be downloaded
+     - downloads the uploaded file via the proxy, and checks that its content matches the initial content
+    */
+    let original_path = "tests/fixtures/computer.svg";
+    let original_bytes = std::fs::read(original_path).unwrap();
+
+    let encrypted_path = "tests/fixtures/computer.svg.enc";
+    let uploaded_path = "tests/fixtures/server-static/uploads/computer.svg.enc";
+
+    std::fs::copy(encrypted_path, uploaded_path).expect("copy failed");
+
+    let mut proxy_server = launch_proxy(PrintServerLogs::No);
+    let mut node_server = launch_node(PrintServerLogs::No);
+    thread::sleep(time::Duration::from_millis(4000));
+
+    let curl_download = curl_get("localhost:4444/computer.svg.enc");
+    if !curl_download.status.success() {
+        panic!("unable to download file !");
+    }
+
+    assert_eq!(curl_download.stdout, original_bytes);
+
+    proxy_server
+        .child
+        .kill()
+        .expect("killing the proxy server should succeed !");
+    node_server
+        .child
+        .kill()
+        .expect("killing node's upload server should succeed !");
+}
+
+#[test]
+#[serial(servers)]
 fn end_to_end_upload_and_download() {
     /*
     This test:
