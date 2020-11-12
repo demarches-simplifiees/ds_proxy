@@ -1,7 +1,10 @@
+use actix_web::client::Client;
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
+use encrypt::header::HEADER_SIZE;
 use encrypt::header::{PREFIX, PREFIX_SIZE};
 use serial_test::serial;
+use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use std::path::Path;
 use std::process::{Child, Command, Output};
 use std::sync::{Arc, Mutex};
@@ -12,7 +15,7 @@ use uuid::Uuid;
 const PASSWORD: &'static str = "plop";
 const SALT: &'static str = "12345678901234567890123456789012";
 const HASH_FILE_ARG: &'static str = "--hash-file=tests/fixtures/password.hash";
-const CHUNK_SIZE: &'static str = "512"; //force multiple pass
+const CHUNK_SIZE: usize = 512;
 
 #[test]
 #[serial(servers)]
@@ -57,9 +60,92 @@ fn ping() {
         .expect("killing the proxy server should succeed !");
 }
 
-#[test]
+#[actix_rt::test]
 #[serial(servers)]
-fn download_witness_file() {
+async fn test_content_length_and_transfert_encoding() {
+    let _proxy_server = launch_proxy(PrintServerLogs::No);
+    let _node_server = launch_node(PrintServerLogs::No);
+    thread::sleep(time::Duration::from_millis(4000));
+
+    let tmp_dir = assert_fs::TempDir::new().unwrap();
+
+    // multiple of chunk size
+    let nb_chunk = 2;
+    let original_length = nb_chunk * CHUNK_SIZE;
+    let content = vec![0; original_length];
+
+    let expected_encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + CHUNK_SIZE);
+
+    let (uploaded_length, downloaded_length) =
+        uploaded_and_downloaded_content_length(&content).await;
+
+    assert_eq!(expected_encrypted_length, uploaded_length);
+    assert_eq!(original_length, downloaded_length);
+
+    // not a multiple of chunk size
+    let nb_chunk = 2;
+    let original_length = nb_chunk * CHUNK_SIZE + 1;
+    let content = vec![0; original_length];
+
+    let expected_encrypted_length =
+        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + CHUNK_SIZE) + ABYTES + 1;
+
+    let (uploaded_length, downloaded_length) =
+        uploaded_and_downloaded_content_length(&content).await;
+
+    assert_eq!(expected_encrypted_length, uploaded_length);
+    assert_eq!(original_length, downloaded_length);
+
+    tmp_dir.close().unwrap();
+}
+
+use serde::{Deserialize, Serialize};
+#[derive(Serialize, Deserialize, Debug)]
+struct TestHeaders {
+    #[serde(rename = "content-length")]
+    content_length: String,
+}
+
+async fn uploaded_and_downloaded_content_length(content: &[u8]) -> (usize, usize) {
+    let client = Client::new();
+
+    client
+        .put("http://localhost:4444/file")
+        .send_body(actix_web::dev::Body::from_slice(content))
+        .await
+        .unwrap();
+
+    let mut response = client
+        .get("http://localhost:3333/last_put_headers")
+        .send()
+        .await
+        .unwrap();
+
+    let deserialized: TestHeaders =
+        serde_json::from_slice(&response.body().await.unwrap()).unwrap();
+
+    let response = client
+        .get("http://localhost:4444/file")
+        .send()
+        .await
+        .unwrap();
+
+    let downloaded_length = response
+        .headers()
+        .get(actix_web::http::header::CONTENT_LENGTH)
+        .and_then(|l| l.to_str().ok())
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap();
+
+    (
+        deserialized.content_length.parse::<usize>().unwrap(),
+        downloaded_length,
+    )
+}
+
+#[actix_rt::test]
+#[serial(servers)]
+async fn download_witness_file() {
     /*
     This test:
      - spawns a node server that stores uploaded files in tests/fixtures/server-static/uploads/
@@ -85,6 +171,30 @@ fn download_witness_file() {
     }
 
     assert_eq!(curl_download.stdout, original_bytes);
+
+    use actix_web::client::Client;
+    let client = Client::new();
+
+    let response = client
+        .get("http://localhost:4444/computer.svg.enc")
+        .send()
+        .await
+        .unwrap();
+
+    let content_length = response
+        .headers()
+        .get(actix_web::http::header::CONTENT_LENGTH)
+        .and_then(|l| l.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap();
+
+    let metadata = std::fs::metadata(original_path).unwrap();
+    assert_eq!(metadata.len(), content_length);
+
+    let transfert_encoding = response
+        .headers()
+        .get(actix_web::http::header::TRANSFER_ENCODING);
+    assert_eq!(None, transfert_encoding);
 
     proxy_server
         .child
@@ -315,7 +425,7 @@ fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
-        .env("DS_CHUNK_SIZE", CHUNK_SIZE);
+        .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string());
 
     match log {
         PrintServerLogs::Yes => {
@@ -418,7 +528,7 @@ fn decrypt(encrypted_path: &str, decrypted_path: &std::path::Path) -> assert_cmd
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
-        .env("DS_CHUNK_SIZE", CHUNK_SIZE)
+        .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string())
         .assert()
         .success()
 }

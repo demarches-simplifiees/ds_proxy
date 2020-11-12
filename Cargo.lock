@@ -991,6 +991,7 @@ dependencies = [
  "sentry",
  "sentry-actix",
  "serde",
+ "serde_json",
  "serial_test",
  "sodiumoxide",
  "uuid 0.8.1",

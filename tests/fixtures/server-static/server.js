@@ -5,9 +5,13 @@ var express = require('express');
 var app = express();
 const { Readable } = require('stream');
 
+let last_put_headers = {};
+
 // FIXME: actix-web always way 5s for the PUT route response.
 // See https://github.com/betagouv/ds_proxy/issues/36
 app.put('*', function(req, res) {
+  last_put_headers = req.headers;
+
   req.pipe(fs.createWriteStream(__dirname + '/uploads/' +req.url));
 
   res.writeHead(200, {'Content-Type': 'text/plain'});
@@ -30,6 +34,10 @@ if (latencyArg) {
     app.use(latencyMiddleware);
   }
 }
+
+app.get('/last_put_headers', function(req, res){
+  res.json(last_put_headers);
+});
 
 app.get('/chunked/*', function(req, res){
   const path = req.url.substr(8)
