@@ -1,4 +1,5 @@
 use super::config::Config;
+use super::decipher_type::DecipherType;
 use super::decoder::*;
 use super::encoder::*;
 use super::header::HEADER_SIZE;
@@ -236,6 +237,33 @@ fn encrypted_content_length(clear_length: usize, chunk_size: usize) -> usize {
     }
 }
 
+fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType) -> usize {
+    match decipher {
+        DecipherType::Encrypted { chunk_size } => {
+            // encrypted = header_ds + header_crypto + n ( abytes + chunk ) + a (abytes + remainder)
+            // with remainder < chunk and a = 0 if remainder = 0, a = 1 otherwise
+            //
+            //  encrypted - header_ds - header_crypto = n ( abytes + chunk ) + a (abytes + remainder)
+            //
+            //  integer_part ((encrypted - header_ds - header_crypto) / ( abytes + chunk ))
+            //    = integer_part ( n + a (abytes + remainder) / (abytes + chunk) )
+            //    = n
+
+            let nb_chunk = (encrypted_length - HEADER_SIZE - HEADERBYTES) / (ABYTES + chunk_size);
+            let remainder_exists =
+                (encrypted_length - HEADER_SIZE - HEADERBYTES) % (ABYTES + chunk_size) != 0;
+
+            if remainder_exists {
+                encrypted_length - HEADER_SIZE - HEADERBYTES - (nb_chunk + 1) * ABYTES
+            } else {
+                encrypted_length - HEADER_SIZE - HEADERBYTES - nb_chunk * ABYTES
+            }
+        }
+
+        DecipherType::Plaintext => encrypted_length,
+    }
+}
+
 #[actix_rt::main]
 pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
@@ -261,6 +289,54 @@ pub async fn main(config: Config) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_decrypt_content_length_without_remainder() {
+        let original_length = 32;
+        let chunk_size = 16;
+        let nb_chunk = 32 / 16;
+        let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
+
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted {
+                chunk_size: chunk_size,
+            },
+        );
+
+        assert_eq!(original_length, decrypted_length);
+    }
+
+    #[test]
+    fn test_decrypt_content_length_with_remainder() {
+        let original_length = 33;
+        let chunk_size = 16;
+        let nb_chunk = 32 / 16;
+        let encrypted_length =
+            HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
+
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted {
+                chunk_size: chunk_size,
+            },
+        );
+
+        assert_eq!(original_length, decrypted_length);
+    }
+
+    #[test]
+    fn test_decrypt_content_length_with_another_exemple() {
+        let original_length = 5882;
+        let encrypted_length = 6345;
+
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted { chunk_size: 256 },
+        );
+
+        assert_eq!(original_length, decrypted_length);
+    }
 
     #[test]
     fn test_encrypted_content_length_without_remainder() {
