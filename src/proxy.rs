@@ -3,7 +3,7 @@ use super::decoder::*;
 use super::encoder::*;
 use actix_web::client::Client;
 use actix_web::guard;
-use actix_web::http::header;
+use actix_web::http::{header, HeaderMap};
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures_core::stream::Stream;
 use log::error;
@@ -194,6 +194,13 @@ async fn simple_proxy(
 
             client_resp.streaming(res)
         })
+}
+
+fn content_length(headers: &HeaderMap) -> Option<usize> {
+    headers
+        .get(header::CONTENT_LENGTH)
+        .and_then(|l| l.to_str().ok())
+        .and_then(|s| s.parse::<usize>().ok())
 }
 
 #[actix_rt::main]
