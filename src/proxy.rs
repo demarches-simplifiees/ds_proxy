@@ -1,12 +1,19 @@
 use super::config::Config;
+use super::decipher_type::DecipherType;
 use super::decoder::*;
 use super::encoder::*;
+use super::header::HEADER_SIZE;
+use super::header_decoder::*;
+use actix_web::body::SizedStream;
 use actix_web::client::Client;
 use actix_web::guard;
-use actix_web::http::header;
+use actix_web::http::{header, HeaderMap};
+use actix_web::web::Bytes;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use futures::TryStreamExt;
 use futures_core::stream::Stream;
 use log::error;
+use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
@@ -77,6 +84,14 @@ async fn forward(
         .request_from(put_url.as_str(), req.head())
         .timeout(TIMEOUT_DURATION);
 
+    let forward_length: Option<usize> = content_length(req.headers()).map(|content_length| {
+        if config.noop {
+            content_length
+        } else {
+            encrypted_content_length(content_length, config.chunk_size)
+        }
+    });
+
     for header in &FORWARD_REQUEST_HEADERS_TO_REMOVE {
         forwarded_req.headers_mut().remove(header);
     }
@@ -91,10 +106,20 @@ async fn forward(
         ))
     };
 
-    let mut res = forwarded_req
-        .send_stream(stream_to_send)
-        .await
-        .map_err(Error::from)?;
+    let mut res = if let Some(length) = forward_length {
+        forwarded_req
+            .send_body(SizedStream::new(
+                length as u64,
+                stream_to_send.map_err(Error::from),
+            ))
+            .await
+            .map_err(Error::from)?
+    } else {
+        forwarded_req
+            .send_stream(stream_to_send.map_err(Error::from))
+            .await
+            .map_err(Error::from)?
+    };
 
     if res.status().is_client_error() || res.status().is_server_error() {
         error!("forward error {:?} {:?}", req, res);
@@ -115,7 +140,7 @@ async fn forward(
 
 async fn fetch(
     req: HttpRequest,
-    payload: web::Payload,
+    body: web::Bytes,
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
@@ -129,32 +154,52 @@ async fn fetch(
         fetch_req.headers_mut().remove(header);
     }
 
-    fetch_req
-        .send_stream(payload)
-        .await
-        .map_err(Error::from)
-        .map(move |res| {
-            if res.status().is_client_error() || res.status().is_server_error() {
-                error!("fetch error {:?} {:?}", req, res);
-            }
+    let res = fetch_req.send_body(body).await.map_err(Error::from)?;
 
-            let mut client_resp = HttpResponse::build(res.status());
+    if res.status().is_client_error() || res.status().is_server_error() {
+        error!("fetch error {:?} {:?}", req, res);
+    }
 
-            for (header_name, header_value) in res
-                .headers()
-                .iter()
-                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
-            {
-                client_resp.header(header_name.clone(), header_value.clone());
-            }
+    let mut client_resp = HttpResponse::build(res.status());
 
+    for (header_name, header_value) in res
+        .headers()
+        .iter()
+        .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
+    {
+        client_resp.header(header_name.clone(), header_value.clone());
+    }
+
+    let original_length = content_length(res.headers());
+
+    if config.noop {
+        if let Some(length) = original_length {
+            Ok(client_resp.no_chunking(length as u64).streaming(res))
+        } else {
+            Ok(client_resp.streaming(res))
+        }
+    } else {
+        let mut boxy: Box<dyn Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(res);
+        let header_decoder = HeaderDecoder::new(&mut boxy);
+        let (cypher_type, buff) = header_decoder.await;
+
+        let decoder =
+            Decoder::new_from_cypher_and_buffer(config.key.clone(), boxy, cypher_type, buff);
+
+        let fetch_length = original_length.map(|content_length| {
             if config.noop {
-                client_resp.streaming(res)
+                content_length
             } else {
-                let decoder = Decoder::new(config.key.clone(), Box::new(res));
-                client_resp.streaming(decoder)
+                decrypted_content_length(content_length, cypher_type)
             }
-        })
+        });
+
+        if let Some(length) = fetch_length {
+            Ok(client_resp.no_chunking(length as u64).streaming(decoder))
+        } else {
+            Ok(client_resp.streaming(decoder))
+        }
+    }
 }
 
 async fn simple_proxy(
@@ -196,6 +241,51 @@ async fn simple_proxy(
         })
 }
 
+fn content_length(headers: &HeaderMap) -> Option<usize> {
+    headers
+        .get(header::CONTENT_LENGTH)
+        .and_then(|l| l.to_str().ok())
+        .and_then(|s| s.parse::<usize>().ok())
+}
+
+fn encrypted_content_length(clear_length: usize, chunk_size: usize) -> usize {
+    let nb_chunk = clear_length / chunk_size;
+    let remainder = clear_length % chunk_size;
+
+    if remainder == 0 {
+        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size)
+    } else {
+        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + ABYTES + remainder
+    }
+}
+
+fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType) -> usize {
+    match decipher {
+        DecipherType::Encrypted { chunk_size } => {
+            // encrypted = header_ds + header_crypto + n ( abytes + chunk ) + a (abytes + remainder)
+            // with remainder < chunk and a = 0 if remainder = 0, a = 1 otherwise
+            //
+            //  encrypted - header_ds - header_crypto = n ( abytes + chunk ) + a (abytes + remainder)
+            //
+            //  integer_part ((encrypted - header_ds - header_crypto) / ( abytes + chunk ))
+            //    = integer_part ( n + a (abytes + remainder) / (abytes + chunk) )
+            //    = n
+
+            let nb_chunk = (encrypted_length - HEADER_SIZE - HEADERBYTES) / (ABYTES + chunk_size);
+            let remainder_exists =
+                (encrypted_length - HEADER_SIZE - HEADERBYTES) % (ABYTES + chunk_size) != 0;
+
+            if remainder_exists {
+                encrypted_length - HEADER_SIZE - HEADERBYTES - (nb_chunk + 1) * ABYTES
+            } else {
+                encrypted_length - HEADER_SIZE - HEADERBYTES - nb_chunk * ABYTES
+            }
+        }
+
+        DecipherType::Plaintext => encrypted_length,
+    }
+}
+
 #[actix_rt::main]
 pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
@@ -216,4 +306,96 @@ pub async fn main(config: Config) -> std::io::Result<()> {
     .bind(address)?
     .run()
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decrypt_content_length_without_remainder() {
+        let original_length = 32;
+        let chunk_size = 16;
+        let nb_chunk = 32 / 16;
+        let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
+
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted {
+                chunk_size: chunk_size,
+            },
+        );
+
+        assert_eq!(original_length, decrypted_length);
+    }
+
+    #[test]
+    fn test_decrypt_content_length_with_remainder() {
+        let original_length = 33;
+        let chunk_size = 16;
+        let nb_chunk = 32 / 16;
+        let encrypted_length =
+            HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
+
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted {
+                chunk_size: chunk_size,
+            },
+        );
+
+        assert_eq!(original_length, decrypted_length);
+    }
+
+    #[test]
+    fn test_decrypt_content_length_with_another_exemple() {
+        let original_length = 5882;
+        let encrypted_length = 6345;
+
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted { chunk_size: 256 },
+        );
+
+        assert_eq!(original_length, decrypted_length);
+    }
+
+    #[test]
+    fn test_encrypted_content_length_without_remainder() {
+        let original_length = 32;
+        let chunk_size = 16;
+        let nb_chunk = 32 / 16;
+        let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
+
+        assert_eq!(
+            encrypted_length,
+            encrypted_content_length(original_length, chunk_size)
+        );
+    }
+
+    #[test]
+    fn test_encrypted_content_length_with_remainder() {
+        let original_length = 33;
+        let chunk_size = 16;
+        let nb_chunk = 32 / 16;
+        let encrypted_length =
+            HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
+
+        assert_eq!(
+            encrypted_length,
+            encrypted_content_length(original_length, chunk_size)
+        );
+    }
+
+    #[test]
+    fn test_encrypted_content_length_with_another_exemple() {
+        let original_length = 5882;
+        let encrypted_length = 6345;
+        let chunk_size = 256;
+
+        assert_eq!(
+            encrypted_length,
+            encrypted_content_length(original_length, chunk_size)
+        );
+    }
 }

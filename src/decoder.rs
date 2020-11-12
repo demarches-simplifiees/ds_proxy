@@ -1,3 +1,4 @@
+use super::decipher_type::DecipherType;
 use super::header;
 use actix_web::web::{Bytes, BytesMut};
 use core::pin::Pin;
@@ -11,17 +12,10 @@ use std::convert::TryFrom;
 pub struct Decoder<E> {
     inner: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
     inner_ended: bool,
-    decipher_type: DecipherType,
+    decipher_type: Option<DecipherType>,
     stream_decoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
     buffer: BytesMut,
-    chunk_size: usize,
     key: Key,
-}
-
-enum DecipherType {
-    DontKnowYet,
-    Encrypted,
-    Plaintext,
 }
 
 impl<E> Decoder<E> {
@@ -29,10 +23,25 @@ impl<E> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,
-            decipher_type: DecipherType::DontKnowYet,
+            decipher_type: None,
             stream_decoder: None,
             buffer: BytesMut::new(),
-            chunk_size: 0,
+            key,
+        }
+    }
+
+    pub fn new_from_cypher_and_buffer(
+        key: Key,
+        s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
+        decipher_type: DecipherType,
+        b: Option<BytesMut>,
+    ) -> Decoder<E> {
+        Decoder {
+            inner: s,
+            inner_ended: false,
+            decipher_type: Some(decipher_type),
+            stream_decoder: None,
+            buffer: b.unwrap_or(BytesMut::new()),
             key,
         }
     }
@@ -42,12 +51,14 @@ impl<E> Decoder<E> {
             trace!("buffer empty and stream ended, stop");
             Poll::Ready(None)
         } else {
-            match &self.decipher_type {
-                DecipherType::DontKnowYet => self.read_header(cx),
+            match self.decipher_type {
+                None => self.read_header(cx),
 
-                DecipherType::Encrypted => self.decrypt(cx),
+                Some(DecipherType::Encrypted { chunk_size }) => self.decrypt(cx, &chunk_size),
 
-                DecipherType::Plaintext => Poll::Ready(Some(Ok(self.buffer.split().freeze()))),
+                Some(DecipherType::Plaintext) => {
+                    Poll::Ready(Some(Ok(self.buffer.split().freeze())))
+                }
             }
         }
     }
@@ -61,14 +72,15 @@ impl<E> Decoder<E> {
             match header::Header::try_from(&self.buffer[0..header::HEADER_SIZE]) {
                 Ok(header) => {
                     trace!("the file is encrypted !");
-                    self.chunk_size = header.chunk_size;
-                    self.decipher_type = DecipherType::Encrypted;
+                    self.decipher_type = Some(DecipherType::Encrypted {
+                        chunk_size: header.chunk_size,
+                    });
                     let _ = self.buffer.split_to(header::HEADER_SIZE);
                     self.decrypt_buffer(cx)
                 }
                 Err(header::HeaderParsingError::WrongPrefix) => {
                     trace!("the file is not encrypted !");
-                    self.decipher_type = DecipherType::Plaintext;
+                    self.decipher_type = Some(DecipherType::Plaintext);
                     self.decrypt_buffer(cx)
                 }
                 e => {
@@ -85,7 +97,7 @@ impl<E> Decoder<E> {
         }
     }
 
-    fn decrypt(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
+    fn decrypt(&mut self, cx: &mut Context, chunk_size: &usize) -> Poll<Option<Result<Bytes, E>>> {
         match self.stream_decoder {
             None => {
                 trace!("no stream_decoder");
@@ -117,11 +129,10 @@ impl<E> Decoder<E> {
             Some(ref mut stream) => {
                 trace!("stream_decoder present !");
                 trace!("self.buffer.len() : {:?}", self.buffer.len());
-                trace!("self.chunk_size {:?}", self.chunk_size);
 
                 let mut chunks = self
                     .buffer
-                    .chunks_exact(xchacha20poly1305::ABYTES + self.chunk_size);
+                    .chunks_exact(xchacha20poly1305::ABYTES + chunk_size);
 
                 let decrypted: Bytes = chunks
                     .by_ref()

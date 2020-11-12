@@ -25,4 +25,5 @@ assert_fs = "1"
 proptest = "0"
 rand = "0"
 serial_test = "0"
+serde_json = "*"
 uuid = { version = "0", features = ["v4"] }
