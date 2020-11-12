@@ -1,12 +1,14 @@
 use super::config::Config;
 use super::decoder::*;
 use super::encoder::*;
+use super::header::HEADER_SIZE;
 use actix_web::client::Client;
 use actix_web::guard;
 use actix_web::http::{header, HeaderMap};
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use futures_core::stream::Stream;
 use log::error;
+use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use std::time::Duration;
 
 const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
@@ -203,6 +205,17 @@ fn content_length(headers: &HeaderMap) -> Option<usize> {
         .and_then(|s| s.parse::<usize>().ok())
 }
 
+fn encrypted_content_length(clear_length: usize, chunk_size: usize) -> usize {
+    let nb_chunk = clear_length / chunk_size;
+    let remainder = clear_length % chunk_size;
+
+    if remainder == 0 {
+        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size)
+    } else {
+        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + ABYTES + remainder
+    }
+}
+
 #[actix_rt::main]
 pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
@@ -223,4 +236,48 @@ pub async fn main(config: Config) -> std::io::Result<()> {
     .bind(address)?
     .run()
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_encrypted_content_length_without_remainder() {
+        let original_length = 32;
+        let chunk_size = 16;
+        let nb_chunk = 32 / 16;
+        let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
+
+        assert_eq!(
+            encrypted_length,
+            encrypted_content_length(original_length, chunk_size)
+        );
+    }
+
+    #[test]
+    fn test_encrypted_content_length_with_remainder() {
+        let original_length = 33;
+        let chunk_size = 16;
+        let nb_chunk = 32 / 16;
+        let encrypted_length =
+            HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
+
+        assert_eq!(
+            encrypted_length,
+            encrypted_content_length(original_length, chunk_size)
+        );
+    }
+
+    #[test]
+    fn test_encrypted_content_length_with_another_exemple() {
+        let original_length = 5882;
+        let encrypted_length = 6345;
+        let chunk_size = 256;
+
+        assert_eq!(
+            encrypted_length,
+            encrypted_content_length(original_length, chunk_size)
+        );
+    }
 }
