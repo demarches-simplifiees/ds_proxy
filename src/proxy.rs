@@ -2,10 +2,12 @@ use super::config::Config;
 use super::decoder::*;
 use super::encoder::*;
 use super::header::HEADER_SIZE;
+use actix_web::body::SizedStream;
 use actix_web::client::Client;
 use actix_web::guard;
 use actix_web::http::{header, HeaderMap};
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use futures::TryStreamExt;
 use futures_core::stream::Stream;
 use log::error;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
@@ -79,6 +81,14 @@ async fn forward(
         .request_from(put_url.as_str(), req.head())
         .timeout(TIMEOUT_DURATION);
 
+    let forward_length: Option<usize> = content_length(req.headers()).map(|content_length| {
+        if config.noop {
+            content_length
+        } else {
+            encrypted_content_length(content_length, config.chunk_size)
+        }
+    });
+
     for header in &FORWARD_REQUEST_HEADERS_TO_REMOVE {
         forwarded_req.headers_mut().remove(header);
     }
@@ -93,10 +103,20 @@ async fn forward(
         ))
     };
 
-    let mut res = forwarded_req
-        .send_stream(stream_to_send)
-        .await
-        .map_err(Error::from)?;
+    let mut res = if let Some(length) = forward_length {
+        forwarded_req
+            .send_body(SizedStream::new(
+                length as u64,
+                stream_to_send.map_err(Error::from),
+            ))
+            .await
+            .map_err(Error::from)?
+    } else {
+        forwarded_req
+            .send_stream(stream_to_send.map_err(Error::from))
+            .await
+            .map_err(Error::from)?
+    };
 
     if res.status().is_client_error() || res.status().is_server_error() {
         error!("forward error {:?} {:?}", req, res);
