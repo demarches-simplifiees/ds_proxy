@@ -81,3 +81,25 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn header_decoder() {
+        use actix_web::Error;
+
+        let clear: &[u8] = b"something not encrypted";
+
+        let source: Result<Bytes, Error> = Ok(Bytes::from(&clear[..]));
+        let source_stream = futures::stream::once(Box::pin(async { source }));
+
+        let mut boxy: Box<dyn Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(source_stream);
+
+        let result = futures::executor::block_on(HeaderDecoder::new(&mut boxy));
+
+        assert_eq!(DecipherType::Plaintext, result.0);
+        assert_eq!(Some(BytesMut::from(&clear[..])), result.1);
+    }
+}
