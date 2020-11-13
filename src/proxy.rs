@@ -182,17 +182,11 @@ async fn fetch(
         let mut boxy: Box<dyn Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(res);
         let header_decoder = HeaderDecoder::new(&mut boxy);
         let (cypher_type, buff) = header_decoder.await;
+        let fetch_length = original_length
+            .map(|content_length| decrypted_content_length(content_length, cypher_type));
 
         let decoder =
             Decoder::new_from_cypher_and_buffer(config.key.clone(), boxy, cypher_type, buff);
-
-        let fetch_length = original_length.map(|content_length| {
-            if config.noop {
-                content_length
-            } else {
-                decrypted_content_length(content_length, cypher_type)
-            }
-        });
 
         if let Some(length) = fetch_length {
             Ok(client_resp.no_chunking(length as u64).streaming(decoder))
