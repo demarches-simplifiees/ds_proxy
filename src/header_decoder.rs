@@ -39,7 +39,7 @@ where
             }
             Poll::Ready(None) => {
                 trace!("poll: over");
-                Poll::Ready((DecipherType::Plaintext, None))
+                Poll::Ready((DecipherType::Plaintext, Some(decoder.buffer.clone())))
             }
             Poll::Ready(Some(Err(e))) => {
                 error!("poll: error {:?}", e);
@@ -75,7 +75,8 @@ where
                         }
                     }
                 } else {
-                    Poll::Pending
+                    trace!("not enough byte to decide decypher type");
+                    Pin::new(decoder).poll(cx)
                 }
             }
         }
