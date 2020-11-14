@@ -16,7 +16,9 @@ use log::error;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use std::time::Duration;
 
-const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(5);
+const UPLOAD_TIMEOUT: Duration = Duration::from_secs(3 * 60);
 
 static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 4] = [
     // Connection settings (keepalived) must not be resend
@@ -82,7 +84,7 @@ async fn forward(
 
     let mut forwarded_req = client
         .request_from(put_url.as_str(), req.head())
-        .timeout(TIMEOUT_DURATION);
+        .timeout(UPLOAD_TIMEOUT);
 
     let forward_length: Option<usize> = content_length(req.headers()).map(|content_length| {
         if config.noop {
@@ -150,9 +152,7 @@ async fn fetch(
 ) -> Result<HttpResponse, Error> {
     let get_url = config.create_url(&req.uri());
 
-    let mut fetch_req = client
-        .request_from(get_url.as_str(), req.head())
-        .timeout(TIMEOUT_DURATION);
+    let mut fetch_req = client.request_from(get_url.as_str(), req.head());
 
     for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
         fetch_req.headers_mut().remove(header);
@@ -211,9 +211,7 @@ async fn simple_proxy(
 ) -> Result<HttpResponse, Error> {
     let url = config.create_url(&req.uri());
 
-    let mut proxied_req = client
-        .request_from(url.as_str(), req.head())
-        .timeout(TIMEOUT_DURATION);
+    let mut proxied_req = client.request_from(url.as_str(), req.head());
 
     for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
         proxied_req.headers_mut().remove(header);
@@ -297,7 +295,16 @@ pub async fn main(config: Config) -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .data(actix_web::client::Client::new())
+            .data(
+                actix_web::client::ClientBuilder::new()
+                    .connector(
+                        actix_web::client::Connector::new()
+                            .timeout(CONNECT_TIMEOUT) // max time to connect to remote host including dns name resolution
+                            .finish(),
+                    )
+                    .timeout(RESPONSE_TIMEOUT) // the total time before a response must be received
+                    .finish(),
+            )
             .data(config.clone())
             .wrap(middleware::Logger::default())
             .service(web::resource("/ping").guard(guard::Get()).to(ping))
