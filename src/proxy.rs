@@ -96,7 +96,7 @@ async fn forward(
         forwarded_req.headers_mut().remove(header);
     }
 
-    let stream_to_send: Box<dyn Stream<Item = _> + Unpin> = if config.noop {
+    let stream: Box<dyn Stream<Item = _> + Unpin> = if config.noop {
         Box::new(payload)
     } else {
         Box::new(Encoder::new(
@@ -106,23 +106,27 @@ async fn forward(
         ))
     };
 
-    let mut res = if let Some(length) = forward_length {
+    let req_copy = req.clone();
+    let stream_to_send = stream.map_err(move |e| {
+        error!("forward error with stream {:?}, {:?}", e, req_copy);
+        Error::from(e)
+    });
+
+    let res_e = if let Some(length) = forward_length {
         forwarded_req
-            .send_body(SizedStream::new(
-                length as u64,
-                stream_to_send.map_err(Error::from),
-            ))
+            .send_body(SizedStream::new(length as u64, stream_to_send))
             .await
-            .map_err(Error::from)?
     } else {
-        forwarded_req
-            .send_stream(stream_to_send.map_err(Error::from))
-            .await
-            .map_err(Error::from)?
+        forwarded_req.send_stream(stream_to_send).await
     };
 
+    let mut res = res_e.map_err(|e| {
+        error!("forward fwk error {:?}, {:?}", e, req);
+        Error::from(e)
+    })?;
+
     if res.status().is_client_error() || res.status().is_server_error() {
-        error!("forward error {:?} {:?}", req, res);
+        error!("forward status error {:?} {:?}", req, res);
     }
 
     let mut client_resp = HttpResponse::build(res.status());
@@ -154,10 +158,13 @@ async fn fetch(
         fetch_req.headers_mut().remove(header);
     }
 
-    let res = fetch_req.send_body(body).await.map_err(Error::from)?;
+    let res = fetch_req.send_body(body).await.map_err(|e| {
+        error!("fetch fwk error {:?}, {:?}", e, req);
+        Error::from(e)
+    })?;
 
     if res.status().is_client_error() || res.status().is_server_error() {
-        error!("fetch error {:?} {:?}", req, res);
+        error!("fetch status error {:?} {:?}", req, res);
     }
 
     let mut client_resp = HttpResponse::build(res.status());
@@ -215,10 +222,13 @@ async fn simple_proxy(
     proxied_req
         .send_stream(payload)
         .await
-        .map_err(Error::from)
+        .map_err(|e| {
+            error!("simple proxy fwk error {:?}, {:?}", e, req);
+            Error::from(e)
+        })
         .map(|res| {
             if res.status().is_client_error() || res.status().is_server_error() {
-                error!("simple proxy error {:?} {:?}", req, res);
+                error!("simple proxy status error {:?} {:?}", req, res);
             }
 
             let mut client_resp = HttpResponse::build(res.status());
