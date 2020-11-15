@@ -84,6 +84,7 @@ async fn forward(
 
     let mut forwarded_req = client
         .request_from(put_url.as_str(), req.head())
+        .force_close()
         .timeout(UPLOAD_TIMEOUT);
 
     let forward_length: Option<usize> = content_length(req.headers()).map(|content_length| {
@@ -152,7 +153,9 @@ async fn fetch(
 ) -> Result<HttpResponse, Error> {
     let get_url = config.create_url(&req.uri());
 
-    let mut fetch_req = client.request_from(get_url.as_str(), req.head());
+    let mut fetch_req = client
+        .request_from(get_url.as_str(), req.head())
+        .force_close();
 
     for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
         fetch_req.headers_mut().remove(header);
@@ -211,7 +214,7 @@ async fn simple_proxy(
 ) -> Result<HttpResponse, Error> {
     let url = config.create_url(&req.uri());
 
-    let mut proxied_req = client.request_from(url.as_str(), req.head());
+    let mut proxied_req = client.request_from(url.as_str(), req.head()).force_close();
 
     for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
         proxied_req.headers_mut().remove(header);
