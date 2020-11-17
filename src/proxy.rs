@@ -254,6 +254,10 @@ fn content_length(headers: &HeaderMap) -> Option<usize> {
 }
 
 fn encrypted_content_length(clear_length: usize, chunk_size: usize) -> usize {
+    if clear_length == 0 {
+        return 0;
+    }
+
     let nb_chunk = clear_length / chunk_size;
     let remainder = clear_length % chunk_size;
 
@@ -265,6 +269,10 @@ fn encrypted_content_length(clear_length: usize, chunk_size: usize) -> usize {
 }
 
 fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType) -> usize {
+    if encrypted_length == 0 {
+        return 0;
+    }
+
     match decipher {
         DecipherType::Encrypted { chunk_size } => {
             // encrypted = header_ds + header_crypto + n ( abytes + chunk ) + a (abytes + remainder)
@@ -327,6 +335,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_decrypt_content_length_from_0() {
+        let original_length = 0;
+        let chunk_size = 16;
+        let encrypted_length = 0;
+
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted {
+                chunk_size: chunk_size,
+            },
+        );
+
+        assert_eq!(original_length, decrypted_length);
+    }
+
+    #[test]
     fn test_decrypt_content_length_without_remainder() {
         let original_length = 32;
         let chunk_size = 16;
@@ -372,6 +396,18 @@ mod tests {
         );
 
         assert_eq!(original_length, decrypted_length);
+    }
+
+    #[test]
+    fn test_encrypted_content_length_from_0() {
+        let original_length = 0;
+        let chunk_size = 16;
+        let encrypted_length = 0;
+
+        assert_eq!(
+            encrypted_length,
+            encrypted_content_length(original_length, chunk_size)
+        );
     }
 
     #[test]
