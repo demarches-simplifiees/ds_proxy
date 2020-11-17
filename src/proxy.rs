@@ -304,6 +304,8 @@ pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
     let max_conn = config.max_connections;
 
+    use actix_http;
+
     HttpServer::new(move || {
         App::new()
             .data(
@@ -324,6 +326,7 @@ pub async fn main(config: Config) -> std::io::Result<()> {
             .default_service(web::route().to(simple_proxy))
     })
     .max_connections(max_conn)
+    .keep_alive(actix_http::KeepAlive::Disabled)
     .bind_uds("/tmp/actix-uds.socket")?
     .bind(address)?
     .run()
