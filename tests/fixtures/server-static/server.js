@@ -12,10 +12,20 @@ let last_put_headers = {};
 app.put('*', function(req, res) {
   last_put_headers = req.headers;
 
-  req.pipe(fs.createWriteStream(__dirname + '/uploads/' +req.url));
+  writeStream = fs.createWriteStream(__dirname + '/uploads/' +req.url);
 
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.end('OK!');
+  req.pipe(writeStream);
+
+ // After all the data is saved, respond Ok
+  req.on('end', function () {
+    res.writeHead(200, {"content-type":"text/html"});
+    res.end('Ok!');
+  });
+
+  // This is here incase any errors occur
+  writeStream.on('error', function (err) {
+    console.log(err);
+  });
 });
 
 // Add extra latency to all requests
