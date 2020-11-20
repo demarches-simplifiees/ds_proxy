@@ -18,7 +18,7 @@ use std::time::Duration;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(5);
-const UPLOAD_TIMEOUT: Duration = Duration::from_secs(3 * 60);
+const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 
 static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 4] = [
     // Connection settings (keepalived) must not be resend
