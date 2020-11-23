@@ -17,7 +17,7 @@ use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use std::time::Duration;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
-const RESPONSE_TIMEOUT: Duration = Duration::from_secs(5);
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 
 static FORWARD_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 4] = [
