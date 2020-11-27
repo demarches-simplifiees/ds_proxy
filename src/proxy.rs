@@ -38,9 +38,10 @@ static FORWARD_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 1] = [
     header::CONNECTION,
 ];
 
-static FETCH_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 1] = [
+static FETCH_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
     // Connection settings (keepalived) must not be resend
     header::CONNECTION,
+    header::RANGE,
 ];
 
 static FETCH_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 3] = [
