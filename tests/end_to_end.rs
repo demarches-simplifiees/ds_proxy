@@ -250,6 +250,9 @@ fn end_to_end_upload_and_download() {
     let curl_download = curl_get("localhost:4444/victory");
     assert_eq!(curl_download.stdout, original_bytes);
 
+    let curl_range_download = curl_range_get("localhost:4444/victory", 0, 10);
+    assert_eq!(curl_range_download.stdout, &original_bytes[0..11]);
+
     let curl_socket_download = curl_socket_get("localhost:4444/victory");
     assert_eq!(curl_socket_download.stdout, original_bytes);
 
@@ -489,6 +492,19 @@ fn curl_get(url: &str) -> Output {
     Command::new("curl")
         .arg("-XGET")
         .arg(url)
+        .output()
+        .expect("failed to perform download")
+}
+
+fn curl_range_get(url: &str, range_start: usize, range_end: usize) -> Output {
+    let range_arg = format!("Range: bytes={}-{}", range_start, range_end);
+
+    Command::new("curl")
+        .arg("-XGET")
+        .arg(url)
+        .arg("-H")
+        .arg(range_arg)
+        .arg("-vv")
         .output()
         .expect("failed to perform download")
 }

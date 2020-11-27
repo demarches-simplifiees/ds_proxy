@@ -4,6 +4,8 @@ use super::decoder::*;
 use super::encoder::*;
 use super::header::HEADER_SIZE;
 use super::header_decoder::*;
+use super::partial_extractor::*;
+use actix_files::HttpRange;
 use actix_web::body::SizedStream;
 use actix_web::client::Client;
 use actix_web::guard;
@@ -44,11 +46,7 @@ static FETCH_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
     header::RANGE,
 ];
 
-static FETCH_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 3] = [
-    // We cannot honor accept ranges as the initial key
-    // is located at the beginning of the stream and
-    // the content is chunked encrypted
-    header::ACCEPT_RANGES,
+static FETCH_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
     // Connection settings (keepalived) must not be resend
     header::CONNECTION,
     // Encryption changes the length of the content
@@ -158,6 +156,11 @@ async fn fetch(
         .request_from(get_url.as_str(), req.head())
         .force_close();
 
+    let raw_range = req
+        .headers()
+        .get(header::RANGE)
+        .and_then(|l| l.to_str().ok());
+
     for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
         fetch_req.headers_mut().remove(header);
     }
@@ -200,7 +203,33 @@ async fn fetch(
             Decoder::new_from_cypher_and_buffer(config.key.clone(), boxy, cypher_type, buff);
 
         if let Some(length) = fetch_length {
-            Ok(client_resp.no_chunking(length as u64).streaming(decoder))
+            use std::convert::TryInto;
+
+            let range = match raw_range {
+                Some(r) => Some(HttpRange::parse(r, length.try_into().unwrap())),
+                _ => None,
+            };
+
+            match range {
+                Some(Ok(v)) => {
+                    let r = v.first().unwrap();
+
+                    let range_start = r.start.try_into().unwrap();
+                    let range_end = (r.start + r.length - 1).try_into().unwrap();
+
+                    let pe = PartialExtractor::new(Box::new(decoder), range_start, range_end);
+
+                    client_resp.header(
+                        header::CONTENT_RANGE,
+                        format!("bytes {}-{}/{}", range_start, range_end, length),
+                    );
+
+                    return Ok(client_resp.no_chunking(r.length as u64).streaming(pe));
+                }
+                _ => {
+                    return Ok(client_resp.no_chunking(length as u64).streaming(decoder));
+                }
+            }
         } else {
             Ok(client_resp.streaming(decoder))
         }
