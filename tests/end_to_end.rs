@@ -1,8 +1,8 @@
 use actix_web::client::Client;
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
-use encrypt::header::HEADER_SIZE;
-use encrypt::header::{PREFIX, PREFIX_SIZE};
+use ds_proxy::header::HEADER_SIZE;
+use ds_proxy::header::{PREFIX, PREFIX_SIZE};
 use serial_test::serial;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use std::path::Path;

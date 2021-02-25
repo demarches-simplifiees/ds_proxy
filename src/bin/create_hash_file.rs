@@ -1,4 +1,4 @@
-extern crate encrypt;
+extern crate ds_proxy;
 extern crate sodiumoxide;
 
 use docopt::Docopt;

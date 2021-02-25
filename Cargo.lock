@@ -888,6 +888,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ds_proxy"
+version = "0.1.0"
+dependencies = [
+ "actix-http",
+ "actix-rt",
+ "actix-web 3.2.0",
+ "assert_cmd",
+ "assert_fs",
+ "bytes 0.6.0",
+ "docopt",
+ "env_logger",
+ "futures 0.3.7",
+ "futures-core",
+ "log",
+ "proptest",
+ "rand 0.7.3",
+ "sentry",
+ "sentry-actix",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "sodiumoxide",
+ "uuid 0.8.1",
+]
+
+[[package]]
 name = "dtoa"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -970,32 +996,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f62bc5e388624f1a13da83b479275dbec9663a876e414df80decf7d2cdab6670"
 dependencies = [
  "cfg-if 1.0.0",
-]
-
-[[package]]
-name = "encrypt"
-version = "0.1.0"
-dependencies = [
- "actix-http",
- "actix-rt",
- "actix-web 3.2.0",
- "assert_cmd",
- "assert_fs",
- "bytes 0.6.0",
- "docopt",
- "env_logger",
- "futures 0.3.7",
- "futures-core",
- "log",
- "proptest",
- "rand 0.7.3",
- "sentry",
- "sentry-actix",
- "serde",
- "serde_json",
- "serial_test",
- "sodiumoxide",
- "uuid 0.8.1",
 ]
 
 [[package]]
