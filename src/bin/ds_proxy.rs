@@ -1,11 +1,11 @@
-extern crate encrypt;
+extern crate ds_proxy;
 extern crate env_logger;
 extern crate log;
 extern crate sodiumoxide;
 
 use docopt::Docopt;
-use encrypt::args::{Args, USAGE};
-use encrypt::config::Config;
+use ds_proxy::args::{Args, USAGE};
+use ds_proxy::config::Config;
 use log::info;
 use std::env;
 
@@ -32,10 +32,10 @@ fn main() {
             info!("proxy in dry mode")
         }
 
-        encrypt::proxy::main(config).unwrap();
+        ds_proxy::proxy::main(config).unwrap();
     } else if args.cmd_encrypt {
-        encrypt::file::encrypt(config);
+        ds_proxy::file::encrypt(config);
     } else if args.cmd_decrypt {
-        encrypt::file::decrypt(config);
+        ds_proxy::file::decrypt(config);
     }
 }

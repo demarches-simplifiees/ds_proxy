@@ -1,10 +1,10 @@
-extern crate encrypt;
+extern crate ds_proxy;
 
 #[cfg(test)]
 mod tests {
-    use encrypt::config::create_key;
-    use encrypt::decoder::*;
-    use encrypt::encoder::*;
+    use ds_proxy::config::create_key;
+    use ds_proxy::decoder::*;
+    use ds_proxy::encoder::*;
 
     use actix_web::web::{BufMut, Bytes, BytesMut};
     use actix_web::Error;
