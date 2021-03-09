@@ -28,7 +28,7 @@ fn ping() {
      - curl /ping and expect to fetch a 404 which should trigger a maintenance mode
        on a upper stream proxy
     */
-    let mut proxy_server = launch_proxy(PrintServerLogs::Yes);
+    let mut proxy_server = launch_proxy(PrintServerLogs::No);
     thread::sleep(time::Duration::from_millis(2000));
 
     let maintenance_file_path = "maintenance";
