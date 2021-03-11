@@ -6,4 +6,5 @@ pub mod encoder;
 pub mod file;
 pub mod header;
 pub mod header_decoder;
+pub mod partial_extractor;
 pub mod proxy;
