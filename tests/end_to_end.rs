@@ -1,10 +1,11 @@
-use actix_web::client::Client;
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use ds_proxy::header::HEADER_SIZE;
 use ds_proxy::header::{PREFIX, PREFIX_SIZE};
 use serial_test::serial;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
+use std::fs::File;
+use std::io::Write;
 use std::path::Path;
 use std::process::{Child, Command, Output};
 use std::sync::{Arc, Mutex};
@@ -151,28 +152,16 @@ async fn download_witness_file() {
 
     assert_eq!(curl_download.stdout, original_bytes);
 
-    use actix_web::client::Client;
-    let client = Client::new();
-
-    let response = client
-        .get("http://localhost:4444/computer.svg.enc")
-        .send()
-        .await
-        .unwrap();
-
-    let content_length = response
-        .headers()
-        .get(actix_web::http::header::CONTENT_LENGTH)
-        .and_then(|l| l.to_str().ok())
-        .and_then(|s| s.parse::<u64>().ok())
-        .unwrap();
+    let content_length = curl_get_content_length_header("http://localhost:4444/computer.svg.enc");
 
     let metadata = std::fs::metadata(original_path).unwrap();
-    assert_eq!(metadata.len(), content_length);
+    assert_eq!(metadata.len(), content_length as u64);
 
-    let transfert_encoding = response
-        .headers()
-        .get(actix_web::http::header::TRANSFER_ENCODING);
+    let headers = curl_get_headers("http://localhost:4444/computer.svg.enc");
+    let transfert_encoding = headers
+        .split("\r\n")
+        .find(|x| x.starts_with("transfer-encoding"));
+
     assert_eq!(None, transfert_encoding);
 
     proxy_server
