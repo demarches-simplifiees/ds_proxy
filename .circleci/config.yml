@@ -2,7 +2,7 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: circleci/rust:1.46.0
+      - image: cimg/rust:1.57.0
     steps:
       - checkout
       - run: rustup component add rustfmt
@@ -12,18 +12,22 @@ jobs:
             cargo fmt -- --check
   test:
     docker:
-      - image: circleci/rust:1.46.0
+      - image: cimg/rust:1.57.0
     steps:
       - checkout
       - run:
           name: "Update Node.js and npm"
           command: |
-            curl -sSL "https://nodejs.org/dist/v11.10.0/node-v11.10.0-linux-x64.tar.xz" | sudo tar --strip-components=2 -xJ -C /usr/local/bin/ node-v11.10.0-linux-x64/bin/node
+            curl -sSL "https://nodejs.org/dist/v15.14.0/node-v15.14.0-linux-x64.tar.xz" | sudo tar --strip-components=2 -xJ -C /usr/local/bin/ node-v15.14.0-linux-x64/bin/node
             curl https://www.npmjs.com/install.sh | sudo bash
       - run:
           name: "Install node dependencies"
           command: |
             cd tests/fixtures/server-static && npm install
+      - run:
+          name: "Install openssl"
+          command: |
+            sudo apt-get update && sudo apt-get install libssl-dev
       - run: cargo test
 
 workflows:
