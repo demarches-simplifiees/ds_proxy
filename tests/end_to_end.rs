@@ -1,10 +1,11 @@
-use actix_web::client::Client;
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use ds_proxy::header::HEADER_SIZE;
 use ds_proxy::header::{PREFIX, PREFIX_SIZE};
 use serial_test::serial;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
+use std::fs::File;
+use std::io::Write;
 use std::path::Path;
 use std::process::{Child, Command, Output};
 use std::sync::{Arc, Mutex};
@@ -107,39 +108,18 @@ struct TestHeaders {
 }
 
 async fn uploaded_and_downloaded_content_length(content: &[u8]) -> (usize, usize) {
-    let client = Client::new();
+    let mut f = File::create("/tmp/foo").expect("Unable to create file");
+    f.write_all(content).expect("Unable to write data");
 
-    client
-        .put("http://localhost:4444/file")
-        .send_body(actix_web::dev::Body::from_slice(content))
-        .await
-        .unwrap();
+    curl_put("/tmp/foo", "localhost:4444/file");
 
-    let mut response = client
-        .get("http://localhost:3333/last_put_headers")
-        .send()
-        .await
-        .unwrap();
+    let last_put_headers = curl_get("localhost:4444/last_put_headers").stdout;
 
-    let deserialized: TestHeaders =
-        serde_json::from_slice(&response.body().await.unwrap()).unwrap();
-
-    let response = client
-        .get("http://localhost:4444/file")
-        .send()
-        .await
-        .unwrap();
-
-    let downloaded_length = response
-        .headers()
-        .get(actix_web::http::header::CONTENT_LENGTH)
-        .and_then(|l| l.to_str().ok())
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap();
+    let deserialized: TestHeaders = serde_json::from_slice(&last_put_headers).unwrap();
 
     (
         deserialized.content_length.parse::<usize>().unwrap(),
-        downloaded_length,
+        curl_get_content_length_header("http://localhost:4444/file"),
     )
 }
 
@@ -172,28 +152,16 @@ async fn download_witness_file() {
 
     assert_eq!(curl_download.stdout, original_bytes);
 
-    use actix_web::client::Client;
-    let client = Client::new();
-
-    let response = client
-        .get("http://localhost:4444/computer.svg.enc")
-        .send()
-        .await
-        .unwrap();
-
-    let content_length = response
-        .headers()
-        .get(actix_web::http::header::CONTENT_LENGTH)
-        .and_then(|l| l.to_str().ok())
-        .and_then(|s| s.parse::<u64>().ok())
-        .unwrap();
+    let content_length = curl_get_content_length_header("http://localhost:4444/computer.svg.enc");
 
     let metadata = std::fs::metadata(original_path).unwrap();
-    assert_eq!(metadata.len(), content_length);
+    assert_eq!(metadata.len(), content_length as u64);
 
-    let transfert_encoding = response
-        .headers()
-        .get(actix_web::http::header::TRANSFER_ENCODING);
+    let headers = curl_get_headers("http://localhost:4444/computer.svg.enc");
+    let transfert_encoding = headers
+        .split("\r\n")
+        .find(|x| x.starts_with("transfer-encoding"));
+
     assert_eq!(None, transfert_encoding);
 
     proxy_server
@@ -486,6 +454,31 @@ fn curl_put(file_path: &str, url: &str) -> Output {
     thread::sleep(time::Duration::from_millis(100));
 
     cmd
+}
+
+fn curl_get_content_length_header(url: &str) -> usize {
+    let response = curl_get_headers(url);
+
+    response
+        .split("\r\n")
+        .find(|x| x.starts_with("content-length"))
+        .unwrap()
+        .replace("content-length: ", "")
+        .parse::<usize>()
+        .ok()
+        .unwrap()
+}
+
+fn curl_get_headers(url: &str) -> std::string::String {
+    let response = Command::new("curl")
+        .arg("-I")
+        .arg("-XGET")
+        .arg(url)
+        .output()
+        .expect("failed to perform download")
+        .stdout;
+
+    String::from_utf8_lossy(&response).to_string()
 }
 
 fn curl_get(url: &str) -> Output {

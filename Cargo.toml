@@ -6,26 +6,26 @@ edition = "2018"
 build = "build.rs" # Cargo only supports one build script per project at the moment
 
 [dependencies]
-sodiumoxide = "0"
-futures = "0"
-futures-core = "0"
-actix-web = { version="3", features = ["openssl"] }
-actix-rt = "1"
+sodiumoxide = "*"
+futures = "*"
+futures-core = "*"
+actix-web = { version="*", features = ["openssl"] }
+actix-rt = "*"
 actix-http = "*"
 actix-files = "*"
-bytes = "0"
-docopt = "1"
-serde = { version = "1", features = ["derive"] }
-log = "0"
-env_logger = "0"
-sentry = "0"
-sentry-actix = "0"
+bytes = "*"
+docopt = "*"
+serde = { version = "*", features = ["derive"] }
+log = "*"
+env_logger = "*"
+sentry = "*"
+sentry-actix = "*"
 
 [dev-dependencies]
-assert_cmd = "1"
-assert_fs = "1"
-proptest = "0"
-rand = "0"
-serial_test = "0"
+assert_cmd = "*"
+assert_fs = "*"
+proptest = "*"
+rand = "*"
+serial_test = "*"
 serde_json = "*"
-uuid = { version = "0", features = ["v4"] }
+uuid = { version = "*", features = ["v4"] }

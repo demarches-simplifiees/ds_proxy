@@ -329,7 +329,7 @@ fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType) -> 
     }
 }
 
-#[actix_rt::main]
+#[actix_web::main]
 pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
     let max_conn = config.max_connections;
