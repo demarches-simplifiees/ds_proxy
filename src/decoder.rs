@@ -41,7 +41,7 @@ impl<E> Decoder<E> {
             inner_ended: false,
             decipher_type: Some(decipher_type),
             stream_decoder: None,
-            buffer: b.unwrap_or(BytesMut::new()),
+            buffer: b.unwrap_or_default(),
             key,
         }
     }

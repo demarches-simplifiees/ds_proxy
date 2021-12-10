@@ -2,9 +2,9 @@ use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use std::process::Command;
 
-const PASSWORD: &'static str = "plop";
-const SALT: &'static str = "12345678901234567890123456789012";
-const HASH_FILE_ARG: &'static str = "--hash-file=tests/fixtures/password.hash";
+const PASSWORD: &str = "plop";
+const SALT: &str = "12345678901234567890123456789012";
+const HASH_FILE_ARG: &str = "--hash-file=tests/fixtures/password.hash";
 
 #[test]
 fn encrypt_and_decrypt() {

@@ -13,9 +13,9 @@ use std::time::Duration;
 use std::{thread, time};
 use uuid::Uuid;
 
-const PASSWORD: &'static str = "plop";
-const SALT: &'static str = "12345678901234567890123456789012";
-const HASH_FILE_ARG: &'static str = "--hash-file=tests/fixtures/password.hash";
+const PASSWORD: &str = "plop";
+const SALT: &str = "12345678901234567890123456789012";
+const HASH_FILE_ARG: &str = "--hash-file=tests/fixtures/password.hash";
 const CHUNK_SIZE: usize = 512;
 
 #[test]
@@ -35,25 +35,19 @@ fn ping() {
     let maintenance_file_path = "maintenance";
 
     if Path::new(maintenance_file_path).exists() {
-        std::fs::remove_file(maintenance_file_path).expect(&format!(
-            "Unable to remove {} !",
-            maintenance_file_path.to_owned()
-        ));
+        std::fs::remove_file(maintenance_file_path).unwrap_or_else(|_| panic!("Unable to remove {} !",
+            maintenance_file_path.to_owned()));
     }
 
     assert_eq!(curl_get_status("localhost:4444/ping"), "200");
 
-    std::fs::File::create(maintenance_file_path).expect(&format!(
-        "Unable to create {} !",
-        maintenance_file_path.to_owned()
-    ));
+    std::fs::File::create(maintenance_file_path).unwrap_or_else(|_| panic!("Unable to create {} !",
+        maintenance_file_path.to_owned()));
 
     assert_eq!(curl_get_status("localhost:4444/ping"), "404");
 
-    std::fs::remove_file(maintenance_file_path).expect(&format!(
-        "Unable to remove {} !",
-        maintenance_file_path.to_owned()
-    ));
+    std::fs::remove_file(maintenance_file_path).unwrap_or_else(|_| panic!("Unable to remove {} !",
+        maintenance_file_path.to_owned()));
 
     proxy_server
         .child
@@ -196,7 +190,7 @@ fn end_to_end_upload_and_download() {
 
     if Path::new(uploaded_path).exists() {
         std::fs::remove_file(uploaded_path)
-            .expect(&format!("Unable to remove {} !", uploaded_path.to_owned()));
+            .unwrap_or_else(|_| panic!("Unable to remove {} !", uploaded_path.to_owned()));
     }
 
     let mut proxy_server = launch_proxy(PrintServerLogs::No);
@@ -303,7 +297,7 @@ fn concurent_uploads() {
 
                 let uploaded_bytes =
                     std::fs::read(&uploaded_path).expect("uploaded should exist !");
-                assert!(uploaded_bytes.len() > 0);
+                assert!(!uploaded_bytes.is_empty());
                 assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
 
                 decrypt(&uploaded_path, decrypted_path);
@@ -327,7 +321,7 @@ fn concurent_uploads() {
                 // Cleanup
                 temp.close().unwrap();
                 std::fs::remove_file(&uploaded_path)
-                    .expect(&format!("Unable to remove uploaded file{}!", uploaded_path));
+                    .unwrap_or_else(|_| panic!("Unable to remove uploaded file{}!", uploaded_path));
 
                 {
                     let mut threads_count = counter.lock().unwrap();
@@ -427,11 +421,8 @@ fn launch_node_with_latency(latency: Option<Duration>, log: PrintServerLogs) -> 
         PrintServerLogs::No => (),
     }
 
-    match latency {
-        Some(l) => {
-            command.arg(format!("--latency={}", l.as_millis()));
-        }
-        None => (),
+    if let Some(l) = latency {
+        command.arg(format!("--latency={}", l.as_millis()));
     }
 
     let child = command.spawn().expect("failed to execute node");
