@@ -35,19 +35,19 @@ fn ping() {
     let maintenance_file_path = "maintenance";
 
     if Path::new(maintenance_file_path).exists() {
-        std::fs::remove_file(maintenance_file_path).unwrap_or_else(|_| panic!("Unable to remove {} !",
-            maintenance_file_path.to_owned()));
+        std::fs::remove_file(maintenance_file_path)
+            .unwrap_or_else(|_| panic!("Unable to remove {} !", maintenance_file_path.to_owned()));
     }
 
     assert_eq!(curl_get_status("localhost:4444/ping"), "200");
 
-    std::fs::File::create(maintenance_file_path).unwrap_or_else(|_| panic!("Unable to create {} !",
-        maintenance_file_path.to_owned()));
+    std::fs::File::create(maintenance_file_path)
+        .unwrap_or_else(|_| panic!("Unable to create {} !", maintenance_file_path.to_owned()));
 
     assert_eq!(curl_get_status("localhost:4444/ping"), "404");
 
-    std::fs::remove_file(maintenance_file_path).unwrap_or_else(|_| panic!("Unable to remove {} !",
-        maintenance_file_path.to_owned()));
+    std::fs::remove_file(maintenance_file_path)
+        .unwrap_or_else(|_| panic!("Unable to remove {} !", maintenance_file_path.to_owned()));
 
     proxy_server
         .child

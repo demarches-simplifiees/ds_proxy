@@ -373,12 +373,8 @@ mod tests {
         let chunk_size = 16;
         let encrypted_length = 0;
 
-        let decrypted_length = decrypted_content_length(
-            encrypted_length,
-            DecipherType::Encrypted {
-                chunk_size,
-            },
-        );
+        let decrypted_length =
+            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
 
         assert_eq!(original_length, decrypted_length);
     }
@@ -390,12 +386,8 @@ mod tests {
         let nb_chunk = 32 / 16;
         let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
 
-        let decrypted_length = decrypted_content_length(
-            encrypted_length,
-            DecipherType::Encrypted {
-                chunk_size,
-            },
-        );
+        let decrypted_length =
+            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
 
         assert_eq!(original_length, decrypted_length);
     }
@@ -408,12 +400,8 @@ mod tests {
         let encrypted_length =
             HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
 
-        let decrypted_length = decrypted_content_length(
-            encrypted_length,
-            DecipherType::Encrypted {
-                chunk_size,
-            },
-        );
+        let decrypted_length =
+            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
 
         assert_eq!(original_length, decrypted_length);
     }
