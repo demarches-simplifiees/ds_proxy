@@ -19,7 +19,7 @@ mod tests {
 
         let clear: &[u8] = b"something not encrypted";
 
-        let source: Result<Bytes, Error> = Ok(Bytes::from(&clear[..]));
+        let source: Result<Bytes, Error> = Ok(Bytes::from(clear));
         let source_stream = futures::stream::once(Box::pin(async { source }));
 
         let decoder = Decoder::new(key, Box::new(source_stream));
@@ -50,7 +50,7 @@ mod tests {
             let source_stream  = futures::stream::once(Box::pin(async { source }));
 
             let encoder = Encoder::new(key.clone(), chunk_size, Box::new(source_stream));
-            let decoder = Decoder::new(key.clone(), Box::new(encoder));
+            let decoder = Decoder::new(key, Box::new(encoder));
 
             let buf = block_on_stream(decoder)
                 .map(|r| r.unwrap())

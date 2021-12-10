@@ -117,12 +117,12 @@ fn ensure_valid_password(password: &str, hash: &str) {
 }
 
 pub fn create_key(salt: String, password: String) -> Result<Key, &'static str> {
-    if let Some(salt) = Salt::from_slice(&salt.as_bytes()[..]) {
+    if let Some(salt) = Salt::from_slice(salt.as_bytes()) {
         let mut raw_key = [0u8; KEYBYTES];
 
         pwhash::derive_key(
             &mut raw_key,
-            &password.as_bytes(),
+            password.as_bytes(),
             &salt,
             pwhash::OPSLIMIT_INTERACTIVE,
             pwhash::MEMLIMIT_INTERACTIVE,
@@ -146,6 +146,6 @@ mod tests {
 
         let key_ok = create_key(salt, password);
 
-        assert_eq!(true, key_ok.is_ok());
+        assert!(key_ok.is_ok());
     }
 }

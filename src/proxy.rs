@@ -79,7 +79,7 @@ async fn forward(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
-    let put_url = config.create_url(&req.uri());
+    let put_url = config.create_url(req.uri());
 
     let mut forwarded_req = client
         .request_from(put_url.as_str(), req.head())
@@ -136,7 +136,7 @@ async fn forward(
     for (header_name, header_value) in res
         .headers()
         .iter()
-        .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
+        .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(h))
     {
         client_resp.header(header_name.clone(), header_value.clone());
     }
@@ -150,7 +150,7 @@ async fn fetch(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
-    let get_url = config.create_url(&req.uri());
+    let get_url = config.create_url(req.uri());
 
     let mut fetch_req = client
         .request_from(get_url.as_str(), req.head())
@@ -179,7 +179,7 @@ async fn fetch(
     for (header_name, header_value) in res
         .headers()
         .iter()
-        .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
+        .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
     {
         client_resp.header(header_name.clone(), header_value.clone());
     }
@@ -242,7 +242,7 @@ async fn simple_proxy(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
-    let url = config.create_url(&req.uri());
+    let url = config.create_url(req.uri());
 
     let mut proxied_req = client.request_from(url.as_str(), req.head()).force_close();
 
@@ -267,7 +267,7 @@ async fn simple_proxy(
             for (header_name, header_value) in res
                 .headers()
                 .iter()
-                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(&h))
+                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
             {
                 client_resp.header(header_name.clone(), header_value.clone());
             }
@@ -373,12 +373,8 @@ mod tests {
         let chunk_size = 16;
         let encrypted_length = 0;
 
-        let decrypted_length = decrypted_content_length(
-            encrypted_length,
-            DecipherType::Encrypted {
-                chunk_size: chunk_size,
-            },
-        );
+        let decrypted_length =
+            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
 
         assert_eq!(original_length, decrypted_length);
     }
@@ -390,12 +386,8 @@ mod tests {
         let nb_chunk = 32 / 16;
         let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
 
-        let decrypted_length = decrypted_content_length(
-            encrypted_length,
-            DecipherType::Encrypted {
-                chunk_size: chunk_size,
-            },
-        );
+        let decrypted_length =
+            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
 
         assert_eq!(original_length, decrypted_length);
     }
@@ -408,12 +400,8 @@ mod tests {
         let encrypted_length =
             HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
 
-        let decrypted_length = decrypted_content_length(
-            encrypted_length,
-            DecipherType::Encrypted {
-                chunk_size: chunk_size,
-            },
-        );
+        let decrypted_length =
+            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
 
         assert_eq!(original_length, decrypted_length);
     }
