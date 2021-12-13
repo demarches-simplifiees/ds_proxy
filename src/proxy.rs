@@ -70,7 +70,7 @@ async fn ping() -> HttpResponse {
     };
 
     response
-        .set_header(header::CONTENT_TYPE, "application/json")
+        .insert_header((header::CONTENT_TYPE, "application/json"))
         .body("{}")
 }
 
@@ -134,12 +134,12 @@ async fn forward(
 
     let mut client_resp = HttpResponse::build(res.status());
 
-    for (header_name, header_value) in res
+    for header in res
         .headers()
         .iter()
         .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(h))
     {
-        client_resp.header(header_name.clone(), header_value.clone());
+        client_resp.append_header(header);
     }
 
     Ok(client_resp.body(res.body().await?))
@@ -177,12 +177,12 @@ async fn fetch(
 
     let mut client_resp = HttpResponse::build(res.status());
 
-    for (header_name, header_value) in res
+    for header in res
         .headers()
         .iter()
         .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
     {
-        client_resp.header(header_name.clone(), header_value.clone());
+        client_resp.append_header(header);
     }
 
     let original_length = content_length(res.headers());
@@ -220,10 +220,10 @@ async fn fetch(
 
                     let pe = PartialExtractor::new(Box::new(decoder), range_start, range_end);
 
-                    client_resp.header(
+                    client_resp.append_header((
                         header::CONTENT_RANGE,
                         format!("bytes {}-{}/{}", range_start, range_end, length),
-                    );
+                    ));
 
                     return Ok(client_resp.no_chunking(r.length as u64).streaming(pe));
                 }
@@ -265,12 +265,12 @@ async fn simple_proxy(
 
             let mut client_resp = HttpResponse::build(res.status());
 
-            for (header_name, header_value) in res
+            for header in res
                 .headers()
                 .iter()
                 .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
             {
-                client_resp.header(header_name.clone(), header_value.clone());
+                client_resp.append_header(header);
             }
 
             client_resp.streaming(res)
