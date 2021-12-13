@@ -206,10 +206,7 @@ async fn fetch(
         if let Some(length) = fetch_length {
             use std::convert::TryInto;
 
-            let range = match raw_range {
-                Some(r) => Some(HttpRange::parse(r, length.try_into().unwrap())),
-                _ => None,
-            };
+            let range = raw_range.map(|r| HttpRange::parse(r, length.try_into().unwrap()));
 
             match range {
                 Some(Ok(v)) => {
