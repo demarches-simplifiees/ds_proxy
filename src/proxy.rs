@@ -125,7 +125,7 @@ async fn forward(
 
     let mut res = res_e.map_err(|e| {
         error!("forward fwk error {:?}, {:?}", e, req);
-        Error::from(e)
+        actix_web::error::ErrorBadGateway(e)
     })?;
 
     if res.status().is_client_error() || res.status().is_server_error() {
@@ -168,7 +168,7 @@ async fn fetch(
 
     let res = fetch_req.send_body(body).await.map_err(|e| {
         error!("fetch fwk error {:?}, {:?}", e, req);
-        Error::from(e)
+        actix_web::error::ErrorBadGateway(e)
     })?;
 
     if res.status().is_client_error() || res.status().is_server_error() {
@@ -253,7 +253,7 @@ async fn simple_proxy(
         .await
         .map_err(|e| {
             error!("simple proxy fwk error {:?}, {:?}", e, req);
-            Error::from(e)
+            actix_web::error::ErrorBadGateway(e)
         })
         .map(|res| {
             if res.status().is_client_error() || res.status().is_server_error() {
