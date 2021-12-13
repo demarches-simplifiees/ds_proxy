@@ -335,25 +335,21 @@ pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
     let max_conn = config.max_connections;
 
-    use actix_http;
-
     HttpServer::new(move || {
         App::new()
-            .data(
-                actix_web::client::ClientBuilder::new()
+            .app_data(web::Data::new(
+                awc::Client::builder()
                     .connector(
-                        actix_web::client::Connector::new()
-                            .timeout(CONNECT_TIMEOUT) // max time to connect to remote host including dns name resolution
-                            .finish(),
+                        awc::Connector::new().timeout(CONNECT_TIMEOUT), // max time to connect to remote host including dns name resolution
                     )
                     .timeout(RESPONSE_TIMEOUT) // the total time before a response must be received
                     .finish(),
-            )
-            .data(config.clone())
+            ))
+            .app_data(web::Data::new(config.clone()))
             .wrap(middleware::Logger::default())
             .service(web::resource("/ping").guard(guard::Get()).to(ping))
-            .service(web::resource(".*").guard(guard::Get()).to(fetch))
-            .service(web::resource(".*").guard(guard::Put()).to(forward))
+            .service(web::resource("{tail}*").guard(guard::Get()).to(fetch))
+            .service(web::resource("{tail}*").guard(guard::Put()).to(forward))
             .default_service(web::route().to(simple_proxy))
     })
     .max_connections(max_conn)
