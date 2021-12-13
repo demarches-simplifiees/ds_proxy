@@ -7,11 +7,12 @@ use super::header_decoder::*;
 use super::partial_extractor::*;
 use actix_files::HttpRange;
 use actix_web::body::SizedStream;
-use actix_web::client::Client;
 use actix_web::guard;
-use actix_web::http::{header, HeaderMap};
+use actix_web::http::{header, header::HeaderMap};
 use actix_web::web::Bytes;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use awc::Client;
+
 use futures::TryStreamExt;
 use futures_core::stream::Stream;
 use log::error;
