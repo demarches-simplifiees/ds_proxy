@@ -356,7 +356,6 @@ pub async fn main(config: Config) -> std::io::Result<()> {
             .default_service(web::route().to(simple_proxy))
     })
     .max_connections(max_conn)
-    .workers(20)
     .keep_alive(actix_http::KeepAlive::Disabled)
     .bind_uds("/tmp/actix-uds.socket")?
     .bind(address)?
