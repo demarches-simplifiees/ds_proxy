@@ -167,8 +167,11 @@ async fn fetch(
     }
 
     let res = fetch_req.send_body(body).await.map_err(|e| {
-        error!("fetch fwk error {:?}, {:?}", e, req);
-        actix_web::error::ErrorBadGateway(e)
+        error!("fetch error {:?}, {:?}", e, req);
+        match e {
+            awc::error::SendRequestError::Timeout => actix_web::error::ErrorGatewayTimeout(e),
+            _ => actix_web::error::ErrorBadGateway(e),
+        }
     })?;
 
     if res.status().is_client_error() || res.status().is_server_error() {
