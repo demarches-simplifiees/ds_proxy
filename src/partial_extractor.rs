@@ -19,8 +19,8 @@ impl<E> PartialExtractor<E> {
     ) -> PartialExtractor<E> {
         PartialExtractor {
             inner: s,
-            start: start,
-            end: end,
+            start,
+            end,
             position: 0,
         }
     }

@@ -7,11 +7,12 @@ use super::header_decoder::*;
 use super::partial_extractor::*;
 use actix_files::HttpRange;
 use actix_web::body::SizedStream;
-use actix_web::client::Client;
 use actix_web::guard;
-use actix_web::http::{header, HeaderMap};
+use actix_web::http::{header, header::HeaderMap};
 use actix_web::web::Bytes;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
+use awc::Client;
+
 use futures::TryStreamExt;
 use futures_core::stream::Stream;
 use log::error;
@@ -69,7 +70,7 @@ async fn ping() -> HttpResponse {
     };
 
     response
-        .set_header(header::CONTENT_TYPE, "application/json")
+        .insert_header((header::CONTENT_TYPE, "application/json"))
         .body("{}")
 }
 
@@ -124,7 +125,7 @@ async fn forward(
 
     let mut res = res_e.map_err(|e| {
         error!("forward fwk error {:?}, {:?}", e, req);
-        Error::from(e)
+        actix_web::error::ErrorBadGateway(e)
     })?;
 
     if res.status().is_client_error() || res.status().is_server_error() {
@@ -133,12 +134,12 @@ async fn forward(
 
     let mut client_resp = HttpResponse::build(res.status());
 
-    for (header_name, header_value) in res
+    for header in res
         .headers()
         .iter()
         .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(h))
     {
-        client_resp.header(header_name.clone(), header_value.clone());
+        client_resp.append_header(header);
     }
 
     Ok(client_resp.body(res.body().await?))
@@ -166,8 +167,11 @@ async fn fetch(
     }
 
     let res = fetch_req.send_body(body).await.map_err(|e| {
-        error!("fetch fwk error {:?}, {:?}", e, req);
-        Error::from(e)
+        error!("fetch error {:?}, {:?}", e, req);
+        match e {
+            awc::error::SendRequestError::Timeout => actix_web::error::ErrorGatewayTimeout(e),
+            _ => actix_web::error::ErrorBadGateway(e),
+        }
     })?;
 
     if res.status().is_client_error() || res.status().is_server_error() {
@@ -176,12 +180,12 @@ async fn fetch(
 
     let mut client_resp = HttpResponse::build(res.status());
 
-    for (header_name, header_value) in res
+    for header in res
         .headers()
         .iter()
         .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
     {
-        client_resp.header(header_name.clone(), header_value.clone());
+        client_resp.append_header(header);
     }
 
     let original_length = content_length(res.headers());
@@ -205,10 +209,7 @@ async fn fetch(
         if let Some(length) = fetch_length {
             use std::convert::TryInto;
 
-            let range = match raw_range {
-                Some(r) => Some(HttpRange::parse(r, length.try_into().unwrap())),
-                _ => None,
-            };
+            let range = raw_range.map(|r| HttpRange::parse(r, length.try_into().unwrap()));
 
             match range {
                 Some(Ok(v)) => {
@@ -219,10 +220,10 @@ async fn fetch(
 
                     let pe = PartialExtractor::new(Box::new(decoder), range_start, range_end);
 
-                    client_resp.header(
+                    client_resp.append_header((
                         header::CONTENT_RANGE,
                         format!("bytes {}-{}/{}", range_start, range_end, length),
-                    );
+                    ));
 
                     return Ok(client_resp.no_chunking(r.length as u64).streaming(pe));
                 }
@@ -255,7 +256,7 @@ async fn simple_proxy(
         .await
         .map_err(|e| {
             error!("simple proxy fwk error {:?}, {:?}", e, req);
-            Error::from(e)
+            actix_web::error::ErrorBadGateway(e)
         })
         .map(|res| {
             if res.status().is_client_error() || res.status().is_server_error() {
@@ -264,12 +265,12 @@ async fn simple_proxy(
 
             let mut client_resp = HttpResponse::build(res.status());
 
-            for (header_name, header_value) in res
+            for header in res
                 .headers()
                 .iter()
                 .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
             {
-                client_resp.header(header_name.clone(), header_value.clone());
+                client_resp.append_header(header);
             }
 
             client_resp.streaming(res)
@@ -334,25 +335,21 @@ pub async fn main(config: Config) -> std::io::Result<()> {
     let address = config.address.unwrap();
     let max_conn = config.max_connections;
 
-    use actix_http;
-
     HttpServer::new(move || {
         App::new()
-            .data(
-                actix_web::client::ClientBuilder::new()
+            .app_data(web::Data::new(
+                awc::Client::builder()
                     .connector(
-                        actix_web::client::Connector::new()
-                            .timeout(CONNECT_TIMEOUT) // max time to connect to remote host including dns name resolution
-                            .finish(),
+                        awc::Connector::new().timeout(CONNECT_TIMEOUT), // max time to connect to remote host including dns name resolution
                     )
                     .timeout(RESPONSE_TIMEOUT) // the total time before a response must be received
                     .finish(),
-            )
-            .data(config.clone())
+            ))
+            .app_data(web::Data::new(config.clone()))
             .wrap(middleware::Logger::default())
             .service(web::resource("/ping").guard(guard::Get()).to(ping))
-            .service(web::resource(".*").guard(guard::Get()).to(fetch))
-            .service(web::resource(".*").guard(guard::Put()).to(forward))
+            .service(web::resource("{tail}*").guard(guard::Get()).to(fetch))
+            .service(web::resource("{tail}*").guard(guard::Put()).to(forward))
             .default_service(web::route().to(simple_proxy))
     })
     .max_connections(max_conn)
