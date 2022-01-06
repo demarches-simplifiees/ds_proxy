@@ -117,9 +117,9 @@ async fn uploaded_and_downloaded_content_length(content: &[u8]) -> (usize, usize
     )
 }
 
-#[actix_rt::test]
+#[test]
 #[serial(servers)]
-async fn download_witness_file() {
+fn download_witness_file() {
     /*
     This test:
      - spawns a node server that stores uploaded files in tests/fixtures/server-static/uploads/
