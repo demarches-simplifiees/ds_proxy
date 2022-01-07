@@ -3,8 +3,7 @@ extern crate ds_proxy;
 #[cfg(test)]
 mod tests {
     use ds_proxy::config::create_key;
-    use ds_proxy::decoder::*;
-    use ds_proxy::encoder::*;
+    use ds_proxy::crypto::*;
 
     use actix_web::web::{BufMut, Bytes, BytesMut};
     use actix_web::Error;

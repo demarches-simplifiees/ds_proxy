@@ -1,6 +1,5 @@
 use super::config::*;
-use super::decoder::*;
-use super::encoder::*;
+use super::crypto::*;
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
 use futures::executor::block_on_stream;
