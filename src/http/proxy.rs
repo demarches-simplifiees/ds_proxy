@@ -1,5 +1,5 @@
-use super::config::Config;
-use super::crypto::*;
+use super::super::config::Config;
+use super::super::crypto::*;
 use super::partial_extractor::*;
 use actix_files::HttpRange;
 use actix_web::body::SizedStream;

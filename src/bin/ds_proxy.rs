@@ -32,7 +32,7 @@ fn main() {
             info!("proxy in dry mode")
         }
 
-        ds_proxy::proxy::main(config).unwrap();
+        ds_proxy::http::main(config).unwrap();
     } else if args.cmd_encrypt {
         ds_proxy::file::encrypt(config);
     } else if args.cmd_decrypt {
