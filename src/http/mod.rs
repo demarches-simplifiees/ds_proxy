@@ -1,4 +1,5 @@
+mod handlers;
 mod proxy;
-mod partial_extractor;
+mod utils;
 
 pub use self::proxy::main;
