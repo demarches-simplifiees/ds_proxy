@@ -33,7 +33,7 @@ impl<E> Encoder<E> {
         }
     }
 
-    pub fn encrypt_buffer(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
+    fn encrypt_buffer(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
         if self.buffer.is_empty() {
             trace!("buffer empty, stop");
             Poll::Ready(None)

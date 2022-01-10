@@ -46,7 +46,7 @@ impl<E> Decoder<E> {
         }
     }
 
-    pub fn decrypt_buffer(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
+    fn decrypt_buffer(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
         if self.inner_ended && self.buffer.is_empty() {
             trace!("buffer empty and stream ended, stop");
             Poll::Ready(None)
