@@ -1,13 +1,5 @@
-use super::super::super::config::Config;
-use super::super::super::crypto::*;
-use super::super::utils::*;
+use super::*;
 use actix_web::body::SizedStream;
-use actix_web::http::header;
-use actix_web::{web, Error, HttpRequest, HttpResponse};
-use awc::Client;
-use futures::TryStreamExt;
-use futures_core::stream::Stream;
-use log::error;
 use std::time::Duration;
 
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 60);

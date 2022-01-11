@@ -8,7 +8,16 @@ pub use forward::forward;
 pub use ping::ping;
 pub use simple_proxy::simple_proxy;
 
+// shared import between handlers
+use super::super::config::Config;
+use super::super::crypto::*;
+use super::utils::*;
 use actix_web::http::header;
+use actix_web::{web, Error, HttpRequest, HttpResponse};
+use awc::Client;
+use futures::TryStreamExt;
+use futures_core::stream::Stream;
+use log::error;
 
 pub static FETCH_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
     // Connection settings (keepalived) must not be resend

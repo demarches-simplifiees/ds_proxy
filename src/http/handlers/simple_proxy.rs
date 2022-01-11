@@ -1,8 +1,4 @@
-use super::super::super::config::Config;
 use super::*;
-use actix_web::{web, Error, HttpRequest, HttpResponse};
-use awc::Client;
-use log::error;
 
 pub async fn simple_proxy(
     req: HttpRequest,
