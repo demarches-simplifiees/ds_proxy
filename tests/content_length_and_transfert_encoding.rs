@@ -1,0 +1,71 @@
+use serial_test::serial;
+use std::{thread, time};
+use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
+use ds_proxy::crypto::header::*;
+use std::fs::File;
+use std::io::Write;
+
+mod helpers;
+pub use helpers::*;
+
+#[actix_rt::test]
+#[serial(servers)]
+async fn test_content_length_and_transfert_encoding() {
+    let _proxy_server = launch_proxy(PrintServerLogs::No);
+    let _node_server = launch_node(PrintServerLogs::No);
+    thread::sleep(time::Duration::from_millis(4000));
+
+    let tmp_dir = assert_fs::TempDir::new().unwrap();
+
+    // multiple of chunk size
+    let nb_chunk = 2;
+    let original_length = nb_chunk * CHUNK_SIZE;
+    let content = vec![0; original_length];
+
+    let expected_encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + CHUNK_SIZE);
+
+    let (uploaded_length, downloaded_length) =
+        uploaded_and_downloaded_content_length(&content).await;
+
+    assert_eq!(expected_encrypted_length, uploaded_length);
+    assert_eq!(original_length, downloaded_length);
+
+    // not a multiple of chunk size
+    let nb_chunk = 2;
+    let original_length = nb_chunk * CHUNK_SIZE + 1;
+    let content = vec![0; original_length];
+
+    let expected_encrypted_length =
+        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + CHUNK_SIZE) + ABYTES + 1;
+
+    let (uploaded_length, downloaded_length) =
+        uploaded_and_downloaded_content_length(&content).await;
+
+    assert_eq!(expected_encrypted_length, uploaded_length);
+    assert_eq!(original_length, downloaded_length);
+
+    tmp_dir.close().unwrap();
+}
+
+async fn uploaded_and_downloaded_content_length(content: &[u8]) -> (usize, usize) {
+    let mut f = File::create("/tmp/foo").expect("Unable to create file");
+    f.write_all(content).expect("Unable to write data");
+
+    curl_put("/tmp/foo", "localhost:4444/file");
+
+    let last_put_headers = curl_get("localhost:4444/last_put_headers").stdout;
+
+    let deserialized: TestHeaders = serde_json::from_slice(&last_put_headers).unwrap();
+
+    (
+        deserialized.content_length.parse::<usize>().unwrap(),
+        curl_get_content_length_header("http://localhost:4444/file"),
+    )
+}
+
+use serde::{Deserialize, Serialize};
+#[derive(Serialize, Deserialize, Debug)]
+struct TestHeaders {
+    #[serde(rename = "content-length")]
+    content_length: String,
+}
