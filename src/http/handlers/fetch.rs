@@ -1,15 +1,7 @@
-use super::super::super::config::Config;
-use super::super::super::crypto::*;
-use super::super::utils::partial_extractor::*;
-use super::super::utils::*;
 use super::*;
+use crate::http::utils::partial_extractor::*;
 use actix_files::HttpRange;
-use actix_web::http::header;
 use actix_web::web::Bytes;
-use actix_web::{web, Error, HttpRequest, HttpResponse};
-use awc::Client;
-use futures_core::stream::Stream;
-use log::error;
 
 pub async fn fetch(
     req: HttpRequest,
