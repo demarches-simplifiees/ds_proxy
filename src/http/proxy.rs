@@ -7,6 +7,9 @@ use actix_web::{
 };
 
 use super::handlers::*;
+use super::middlewares::*;
+use actix_web::dev::Service;
+use futures::FutureExt;
 use std::time::Duration;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
@@ -39,7 +42,12 @@ pub async fn main(config: Config) -> std::io::Result<()> {
             .service(
                 scope("/local")
                     .service(resource("encrypt/{name}").guard(Put()).to(encrypt_to_file))
-                    .service(resource("fetch/{name}").guard(Get()).to(fetch_file)),
+                    .service(
+                        resource("fetch/{name}")
+                            .guard(Get())
+                            .wrap_fn(|req, srv| srv.call(req).map(erase_file))
+                            .to(fetch_file),
+                    ),
             )
     })
     .max_connections(max_conn)
