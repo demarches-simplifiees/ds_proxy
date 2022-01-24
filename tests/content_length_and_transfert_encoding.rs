@@ -1,7 +1,6 @@
-use serial_test::serial;
-use std::{thread, time};
-use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use ds_proxy::crypto::header::*;
+use serial_test::serial;
+use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use std::fs::File;
 use std::io::Write;
 
@@ -10,10 +9,8 @@ pub use helpers::*;
 
 #[actix_rt::test]
 #[serial(servers)]
-async fn test_content_length_and_transfert_encoding() {
-    let _proxy_server = launch_proxy(PrintServerLogs::No);
-    let _node_server = launch_node(PrintServerLogs::No);
-    thread::sleep(time::Duration::from_millis(4000));
+async fn content_length_and_transfert_encoding() {
+    let _proxy_and_node = ProxyAndNode::start();
 
     let tmp_dir = assert_fs::TempDir::new().unwrap();
 

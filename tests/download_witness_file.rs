@@ -1,5 +1,4 @@
 use serial_test::serial;
-use std::{thread, time};
 
 mod helpers;
 pub use helpers::*;
@@ -22,9 +21,7 @@ fn download_witness_file() {
 
     std::fs::copy(encrypted_path, uploaded_path).expect("copy failed");
 
-    let mut proxy_server = launch_proxy(PrintServerLogs::No);
-    let mut node_server = launch_node(PrintServerLogs::No);
-    thread::sleep(time::Duration::from_millis(4000));
+    let _proxy_and_node = ProxyAndNode::start();
 
     let curl_download = curl_get("localhost:4444/computer.svg.enc");
     if !curl_download.status.success() {
@@ -44,14 +41,4 @@ fn download_witness_file() {
         .find(|x| x.starts_with("transfer-encoding"));
 
     assert_eq!(None, transfert_encoding);
-
-    proxy_server
-        .child
-        .kill()
-        .expect("killing the proxy server should succeed !");
-    node_server
-        .child
-        .kill()
-        .expect("killing node's upload server should succeed !");
 }
-

@@ -1,8 +1,7 @@
-use serial_test::serial;
-use std::{thread, time};
-use std::path::Path;
-use ds_proxy::crypto::header::*;
 use assert_fs::prelude::*;
+use ds_proxy::crypto::header::*;
+use serial_test::serial;
+use std::path::Path;
 
 mod helpers;
 pub use helpers::*;
@@ -32,9 +31,7 @@ fn upload_and_download() {
             .unwrap_or_else(|_| panic!("Unable to remove {} !", uploaded_path.to_owned()));
     }
 
-    let mut proxy_server = launch_proxy(PrintServerLogs::No);
-    let mut node_server = launch_node(PrintServerLogs::No);
-    thread::sleep(time::Duration::from_millis(4000));
+    let _proxy_and_node = ProxyAndNode::start();
 
     let curl_upload = curl_put(original_path, "localhost:4444/victory");
     if !curl_upload.status.success() {
@@ -60,14 +57,5 @@ fn upload_and_download() {
     let curl_chunked_download = curl_get("localhost:4444/chunked/victory");
     assert_eq!(curl_chunked_download.stdout, original_bytes);
 
-    proxy_server
-        .child
-        .kill()
-        .expect("killing the proxy server should succeed !");
-    node_server
-        .child
-        .kill()
-        .expect("killing node's upload server should succeed !");
     temp.close().unwrap();
 }
-

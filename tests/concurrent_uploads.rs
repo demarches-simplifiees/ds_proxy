@@ -1,8 +1,8 @@
-use serial_test::serial;
-use std::{thread};
-use ds_proxy::crypto::header::*;
 use assert_fs::prelude::*;
+use ds_proxy::crypto::header::*;
+use serial_test::serial;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -27,9 +27,8 @@ fn concurent_uploads() {
     const DELAY_BETWEEN_TREADS: Duration = Duration::from_millis(10);
     const SERVER_LATENCY: Duration = Duration::from_millis(100);
 
-    let mut proxy_server = launch_proxy(PrintServerLogs::No);
-    let mut node_server = launch_node_with_latency(Some(SERVER_LATENCY), PrintServerLogs::No);
-    thread::sleep(Duration::from_secs(4));
+    let _proxy_and_node =
+        ProxyAndNode::start_with_options(Some(SERVER_LATENCY), PrintServerLogs::No);
 
     // Spawn threads (with a slight delay between each)
     let mut child_threads = vec![];
@@ -115,13 +114,4 @@ fn concurent_uploads() {
     for child_thread in child_threads {
         child_thread.join().expect("A child thread panicked");
     }
-
-    proxy_server
-        .child
-        .kill()
-        .expect("killing the proxy server should succeed !");
-    node_server
-        .child
-        .kill()
-        .expect("killing node's upload server should succeed !");
 }
