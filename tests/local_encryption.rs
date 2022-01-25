@@ -19,3 +19,13 @@ fn local_encryption() {
 
     assert_eq!(buf, original_bytes);
 }
+
+#[test]
+#[serial(servers)]
+fn fetch_missing_file() {
+    let _proxy_and_node = ProxyAndNode::start();
+    assert_eq!(
+        curl_get_status("localhost:4444/local/fetch/missing_file"),
+        "404"
+    );
+}
