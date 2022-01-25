@@ -29,6 +29,10 @@ pub fn curl_put(file_path: &str, url: &str) -> Output {
     // add sleep to let node write the file on the disk
     thread::sleep(time::Duration::from_millis(100));
 
+    if !cmd.status.success() {
+        panic!("unable to upload file {}", url);
+    }
+
     cmd
 }
 

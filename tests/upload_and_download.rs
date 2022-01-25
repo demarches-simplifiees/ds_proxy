@@ -33,10 +33,7 @@ fn upload_and_download() {
 
     let _proxy_and_node = ProxyAndNode::start();
 
-    let curl_upload = curl_put(original_path, "localhost:4444/victory");
-    if !curl_upload.status.success() {
-        panic!("unable to upload file !");
-    }
+    curl_put(original_path, "localhost:4444/victory");
 
     let uploaded_bytes = std::fs::read(uploaded_path).expect("uploaded should exist !");
     assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
