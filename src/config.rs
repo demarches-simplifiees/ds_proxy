@@ -97,7 +97,8 @@ impl Config {
     }
 
     pub fn create_backend_url(&self, req: &HttpRequest) -> String {
-        format!("{}{}", self.upstream_base_url.clone().unwrap(), req.uri())
+        let name = req.match_info().get("name").unwrap();
+        format!("{}/{}", self.upstream_base_url.clone().unwrap(), name)
     }
 }
 
