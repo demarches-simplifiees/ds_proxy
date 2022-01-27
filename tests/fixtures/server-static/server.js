@@ -1,22 +1,25 @@
-var http = require('http');
-var fs = require('fs');
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
-var express = require('express');
-var app = express();
+const express = require('express');
+const app = express();
 const { Readable } = require('stream');
 
 let last_put_headers = {};
 
-// FIXME: actix-web always way 5s for the PUT route response.
-// See https://github.com/betagouv/ds_proxy/issues/36
 app.put('*', function(req, res) {
   last_put_headers = req.headers;
 
-  writeStream = fs.createWriteStream(__dirname + '/uploads/' +req.url);
+  const filePath = path.join(__dirname, 'uploads', req.url)
+  const fileDirectory = path.dirname(filePath);
 
+  fs.mkdirSync(fileDirectory, { recursive: true })
+
+  writeStream = fs.createWriteStream(filePath);
   req.pipe(writeStream);
 
- // After all the data is saved, respond Ok
+  // After all the data is saved, respond Ok
   req.on('end', function () {
     res.writeHead(200, {"content-type":"text/html"});
     res.end('Ok!');

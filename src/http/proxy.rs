@@ -26,9 +26,15 @@ pub async fn main(config: Config) -> std::io::Result<()> {
             .app_data(web::Data::new(config.clone()))
             .wrap(middleware::Logger::default())
             .service(web::resource("/ping").guard(guard::Get()).to(ping))
-            .service(web::resource("{tail}*").guard(guard::Get()).to(fetch))
-            .service(web::resource("{tail}*").guard(guard::Put()).to(forward))
-            .default_service(web::route().to(simple_proxy))
+            .service(
+                web::scope("/backend")
+                    .service(web::resource("{name}*").guard(guard::Get()).to(fetch))
+                    .service(web::resource("{name}*").guard(guard::Put()).to(forward))
+                    .service(web::resource("{name}*").to(simple_proxy)),
+            )
+            .service(web::resource("{name}*").guard(guard::Get()).to(fetch))
+            .service(web::resource("{name}*").guard(guard::Put()).to(forward))
+            .service(web::resource("{name}*").to(simple_proxy))
     })
     .max_connections(max_conn)
     .keep_alive(actix_http::KeepAlive::Disabled)
