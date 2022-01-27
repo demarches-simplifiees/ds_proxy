@@ -1,5 +1,5 @@
 use super::args;
-use actix_web::http::Uri;
+use actix_web::HttpRequest;
 use sodiumoxide::crypto::pwhash;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
@@ -96,8 +96,8 @@ impl Config {
         }
     }
 
-    pub fn create_url(&self, uri: &Uri) -> String {
-        format!("{}{}", self.upstream_base_url.clone().unwrap(), uri)
+    pub fn create_backend_url(&self, req: &HttpRequest) -> String {
+        format!("{}{}", self.upstream_base_url.clone().unwrap(), req.uri())
     }
 }
 

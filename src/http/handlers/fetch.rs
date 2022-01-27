@@ -9,7 +9,7 @@ pub async fn fetch(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
-    let get_url = config.create_url(req.uri());
+    let get_url = config.create_backend_url(&req);
 
     let mut fetch_req = client
         .request_from(get_url.as_str(), req.head())
