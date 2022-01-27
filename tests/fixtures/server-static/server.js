@@ -1,5 +1,6 @@
 const http = require('http');
 const fs = require('fs');
+const path = require('path');
 
 const express = require('express');
 const app = express();
@@ -10,11 +11,15 @@ let last_put_headers = {};
 app.put('*', function(req, res) {
   last_put_headers = req.headers;
 
-  writeStream = fs.createWriteStream(__dirname + '/uploads/' +req.url);
+  const filePath = path.join(__dirname, 'uploads', req.url)
+  const fileDirectory = path.dirname(filePath);
 
+  fs.mkdirSync(fileDirectory, { recursive: true })
+
+  writeStream = fs.createWriteStream(filePath);
   req.pipe(writeStream);
 
- // After all the data is saved, respond Ok
+  // After all the data is saved, respond Ok
   req.on('end', function () {
     res.writeHead(200, {"content-type":"text/html"});
     res.end('Ok!');
