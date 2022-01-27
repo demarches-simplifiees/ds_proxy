@@ -1,14 +1,12 @@
-var http = require('http');
-var fs = require('fs');
+const http = require('http');
+const fs = require('fs');
 
-var express = require('express');
-var app = express();
+const express = require('express');
+const app = express();
 const { Readable } = require('stream');
 
 let last_put_headers = {};
 
-// FIXME: actix-web always way 5s for the PUT route response.
-// See https://github.com/betagouv/ds_proxy/issues/36
 app.put('*', function(req, res) {
   last_put_headers = req.headers;
 
