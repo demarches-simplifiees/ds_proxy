@@ -70,29 +70,6 @@ fn decrypt_witness_file() {
 }
 
 #[test]
-fn decrypting_a_plaintext_file_yields_the_original_file() {
-    let temp = TempDir::new().unwrap();
-
-    let decrypted = temp.child("computer.dec.svg");
-    let decrypted_path = decrypted.path();
-
-    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
-    decrypt_cmd
-        .arg("decrypt")
-        .arg(ENCRYPTED_COMPUTER_SVG_PATH)
-        .arg(decrypted_path)
-        .arg(HASH_FILE_ARG)
-        .env("DS_PASSWORD", PASSWORD)
-        .env("DS_SALT", SALT)
-        .assert()
-        .success();
-
-    let decrypted_bytes = read(decrypted_path).unwrap();
-
-    assert_eq!(decrypted_bytes, COMPUTER_SVG_BYTES);
-}
-
-#[test]
 fn the_app_crashes_on_a_missing_password() {
     let temp = TempDir::new().unwrap();
 
