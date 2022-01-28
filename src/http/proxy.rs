@@ -27,7 +27,7 @@ pub async fn main(config: Config) -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .service(web::resource("/ping").guard(guard::Get()).to(ping))
             .service(
-                web::scope("/backend")
+                web::scope("/upstream")
                     .service(web::resource("{name}*").guard(guard::Get()).to(fetch))
                     .service(web::resource("{name}*").guard(guard::Put()).to(forward))
                     .service(web::resource("{name}*").to(simple_proxy)),

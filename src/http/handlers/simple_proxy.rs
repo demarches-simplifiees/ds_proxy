@@ -6,7 +6,7 @@ pub async fn simple_proxy(
     client: web::Data<Client>,
     config: web::Data<Config>,
 ) -> Result<HttpResponse, Error> {
-    let url = config.create_backend_url(&req);
+    let url = config.create_upstream_url(&req);
 
     let mut proxied_req = client.request_from(url.as_str(), req.head()).force_close();
 

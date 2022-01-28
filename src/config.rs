@@ -97,7 +97,7 @@ impl Config {
         }
     }
 
-    pub fn create_backend_url(&self, req: &HttpRequest) -> String {
+    pub fn create_upstream_url(&self, req: &HttpRequest) -> String {
         let base = Url::parse(self.upstream_base_url.as_ref().unwrap()).unwrap();
         let mut url = base.join(&req.match_info()["name"]).unwrap();
 
@@ -159,24 +159,24 @@ mod tests {
     }
 
     #[test]
-    fn test_create_backend_url() {
+    fn test_create_upstream_url() {
         let req = TestRequest::default()
             .uri("https://proxy.com/bucket/file.zip?p1=ok1&p2=ok2")
             .param("name", "bucket/file.zip") // hack to force parsing
             .to_http_request();
 
         assert_eq!(
-            default_config("https://upstream.com").create_backend_url(&req),
+            default_config("https://upstream.com").create_upstream_url(&req),
             "https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2"
         );
 
         assert_eq!(
-            default_config("https://upstream.com/").create_backend_url(&req),
+            default_config("https://upstream.com/").create_upstream_url(&req),
             "https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2"
         );
 
         assert_eq!(
-            default_config("https://upstream.com/sub_folder/").create_backend_url(&req),
+            default_config("https://upstream.com/sub_folder/").create_upstream_url(&req),
             "https://upstream.com/sub_folder/bucket/file.zip?p1=ok1&p2=ok2"
         );
 
@@ -186,7 +186,7 @@ mod tests {
             .to_http_request();
 
         assert_eq!(
-            default_config("https://upstream.com").create_backend_url(&req),
+            default_config("https://upstream.com").create_upstream_url(&req),
             "https://upstream.com/bucket/file.zip"
         );
     }
