@@ -131,6 +131,13 @@ impl Config {
 
         url.to_string()
     }
+
+    pub fn local_encryption_path_for(&self, req: &HttpRequest) -> PathBuf {
+        let name = req.match_info().get("name").unwrap();
+        let mut filepath = self.local_encryption_directory.clone();
+        filepath.push(name);
+        filepath
+    }
 }
 
 fn read_file_content(path_string: &str) -> String {

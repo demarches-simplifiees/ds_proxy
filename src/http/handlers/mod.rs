@@ -1,9 +1,13 @@
+mod encrypt_to_file;
 mod fetch;
+mod fetch_file;
 mod forward;
 mod ping;
 mod simple_proxy;
 
+pub use encrypt_to_file::encrypt_to_file;
 pub use fetch::fetch;
+pub use fetch_file::fetch_file;
 pub use forward::forward;
 pub use ping::ping;
 pub use simple_proxy::simple_proxy;

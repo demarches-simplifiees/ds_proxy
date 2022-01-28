@@ -36,6 +36,11 @@ pub async fn main(config: Config) -> std::io::Result<()> {
                     .service(resource("{name}*").guard(Put()).to(forward))
                     .service(resource("{name}*").to(simple_proxy)),
             )
+            .service(
+                scope("/local")
+                    .service(resource("encrypt/{name}").guard(Put()).to(encrypt_to_file))
+                    .service(resource("fetch/{name}").guard(Get()).to(fetch_file)),
+            )
     })
     .max_connections(max_conn)
     .keep_alive(actix_http::KeepAlive::Disabled)
