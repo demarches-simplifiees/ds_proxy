@@ -20,6 +20,7 @@ log = "*"
 env_logger = "*"
 sentry = "*"
 sentry-actix = "*"
+url = "*"
 
 [dev-dependencies]
 assert_cmd = "*"
