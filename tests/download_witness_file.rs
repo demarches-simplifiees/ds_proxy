@@ -23,19 +23,20 @@ fn download_witness_file() {
 
     let _proxy_and_node = ProxyAndNode::start();
 
-    let curl_download = curl_get("localhost:4444/computer.svg.enc");
+    let curl_download = curl_get("localhost:4444/upstream/computer.svg.enc");
     if !curl_download.status.success() {
         panic!("unable to download file !");
     }
 
     assert_eq!(curl_download.stdout, original_bytes);
 
-    let content_length = curl_get_content_length_header("http://localhost:4444/computer.svg.enc");
+    let content_length =
+        curl_get_content_length_header("http://localhost:4444/upstream/computer.svg.enc");
 
     let metadata = std::fs::metadata(original_path).unwrap();
     assert_eq!(metadata.len(), content_length as u64);
 
-    let headers = curl_get_headers("http://localhost:4444/computer.svg.enc");
+    let headers = curl_get_headers("http://localhost:4444/upstream/computer.svg.enc");
     let transfert_encoding = headers
         .split("\r\n")
         .find(|x| x.starts_with("transfer-encoding"));

@@ -33,7 +33,7 @@ fn upload_and_download() {
 
     let _proxy_and_node = ProxyAndNode::start();
 
-    curl_put(original_path, "localhost:4444/victory");
+    curl_put(original_path, "localhost:4444/upstream/victory");
 
     let uploaded_bytes = std::fs::read(uploaded_path).expect("uploaded should exist !");
     assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
@@ -42,16 +42,16 @@ fn upload_and_download() {
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
     assert_eq!(original_bytes, decrypted_bytes);
 
-    let curl_download = curl_get("localhost:4444/victory");
+    let curl_download = curl_get("localhost:4444/upstream/victory");
     assert_eq!(curl_download.stdout, original_bytes);
 
-    let curl_range_download = curl_range_get("localhost:4444/victory", 0, 10);
+    let curl_range_download = curl_range_get("localhost:4444/upstream/victory", 0, 10);
     assert_eq!(curl_range_download.stdout, &original_bytes[0..11]);
 
-    let curl_socket_download = curl_socket_get("localhost:4444/victory");
+    let curl_socket_download = curl_socket_get("localhost:4444/upstream/victory");
     assert_eq!(curl_socket_download.stdout, original_bytes);
 
-    let curl_chunked_download = curl_get("localhost:4444/chunked/victory");
+    let curl_chunked_download = curl_get("localhost:4444/upstream/chunked/victory");
     assert_eq!(curl_chunked_download.stdout, original_bytes);
 
     temp.close().unwrap();

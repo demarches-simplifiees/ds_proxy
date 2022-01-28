@@ -48,15 +48,15 @@ async fn uploaded_and_downloaded_content_length(content: &[u8]) -> (usize, usize
     let mut f = File::create("/tmp/foo").expect("Unable to create file");
     f.write_all(content).expect("Unable to write data");
 
-    curl_put("/tmp/foo", "localhost:4444/file");
+    curl_put("/tmp/foo", "localhost:4444/upstream/file");
 
-    let last_put_headers = curl_get("localhost:4444/last_put_headers").stdout;
+    let last_put_headers = curl_get("localhost:4444/upstream/last_put_headers").stdout;
 
     let deserialized: TestHeaders = serde_json::from_slice(&last_put_headers).unwrap();
 
     (
         deserialized.content_length.parse::<usize>().unwrap(),
-        curl_get_content_length_header("http://localhost:4444/file"),
+        curl_get_content_length_header("http://localhost:4444/upstream/file"),
     )
 }
 
