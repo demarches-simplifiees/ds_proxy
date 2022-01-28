@@ -2,6 +2,9 @@ use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use std::process::Command;
 
+mod helpers;
+pub use helpers::*;
+
 const PASSWORD: &str = "plop";
 const SALT: &str = "12345678901234567890123456789012";
 const HASH_FILE_ARG: &str = "--hash-file=tests/fixtures/password.hash";
@@ -15,7 +18,6 @@ fn encrypt_and_decrypt() {
     let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
     let chunk_size = "512"; //force multiple pass
 
-    let original = "tests/fixtures/computer.svg";
     let encrypted = temp.child("computer.svg.enc");
     let decrypted = temp.child("computer.dec.svg");
 
@@ -25,7 +27,7 @@ fn encrypt_and_decrypt() {
     let mut encrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     encrypt_cmd
         .arg("encrypt")
-        .arg(original)
+        .arg(COMPUTER_SVG_PATH)
         .arg(encrypted_path)
         .arg(hash_file_arg)
         .env("DS_PASSWORD", password)
@@ -46,12 +48,11 @@ fn encrypt_and_decrypt() {
 
     decrypt_cmd.assert().success();
 
-    let original_bytes = std::fs::read(original).unwrap();
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
 
     temp.close().unwrap();
 
-    assert_eq!(original_bytes, decrypted_bytes);
+    assert_eq!(COMPUTER_SVG_BYTES, decrypted_bytes);
 }
 
 #[test]
@@ -62,15 +63,13 @@ fn decrypt_witness_file() {
     let salt = "12345678901234567890123456789012";
     let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
 
-    let original = "tests/fixtures/computer.svg";
-    let encrypted = "tests/fixtures/computer.svg.enc";
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
     let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     decrypt_cmd
         .arg("decrypt")
-        .arg(encrypted)
+        .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(hash_file_arg)
         .env("DS_PASSWORD", password)
@@ -78,27 +77,24 @@ fn decrypt_witness_file() {
 
     decrypt_cmd.assert().success();
 
-    let original_bytes = std::fs::read(original).unwrap();
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
 
     temp.close().unwrap();
 
-    assert_eq!(original_bytes, decrypted_bytes);
+    assert_eq!(decrypted_bytes, COMPUTER_SVG_BYTES);
 }
 
 #[test]
 fn decrypting_a_plaintext_file_yields_the_original_file() {
     let temp = assert_fs::TempDir::new().unwrap();
 
-    let original = "tests/fixtures/computer.svg";
-    let encrypted = "tests/fixtures/computer.svg.enc";
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
     let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     decrypt_cmd
         .arg("decrypt")
-        .arg(encrypted)
+        .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", PASSWORD)
@@ -106,12 +102,11 @@ fn decrypting_a_plaintext_file_yields_the_original_file() {
 
     decrypt_cmd.assert().success();
 
-    let original_bytes = std::fs::read(original).unwrap();
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
 
     temp.close().unwrap();
 
-    assert_eq!(original_bytes, decrypted_bytes);
+    assert_eq!(decrypted_bytes, COMPUTER_SVG_BYTES);
 }
 
 #[test]
@@ -121,14 +116,13 @@ fn the_app_crashes_on_a_missing_password() {
     let salt = "12345678901234567890123456789012";
     let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
 
-    let encrypted = "tests/fixtures/computer.svg.enc";
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
     let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     decrypt_cmd
         .arg("proxy")
-        .arg(encrypted)
+        .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(hash_file_arg)
         .env("DS_SALT", salt);
@@ -143,14 +137,13 @@ fn the_app_crashes_on_a_missing_hash() {
     let password = "plop";
     let hash_file_arg = "--hash-file=tests/fixtures/password.hash";
 
-    let encrypted = "tests/fixtures/computer.svg.enc";
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
     let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     decrypt_cmd
         .arg("proxy")
-        .arg(encrypted)
+        .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(hash_file_arg)
         .env("DS_PASSWORD", password);
@@ -164,14 +157,13 @@ fn the_app_crashes_with_an_invalid_password() {
 
     let password = "this is not the expected password";
 
-    let encrypted = "tests/fixtures/computer.svg.enc";
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
     let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     decrypt_cmd
         .arg("proxy")
-        .arg(encrypted)
+        .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", password)

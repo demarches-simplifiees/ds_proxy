@@ -7,9 +7,6 @@ use std::path::Path;
 #[test]
 #[serial(servers)]
 fn local_encryption() {
-    let original_path = "tests/fixtures/computer.svg";
-    let original_bytes = std::fs::read(original_path).unwrap();
-
     let uploaded_path = Path::new("/tmp/ds_proxy/local_encryption/archive.zip");
 
     if uploaded_path.exists() {
@@ -19,7 +16,10 @@ fn local_encryption() {
 
     let _proxy_and_node = ProxyAndNode::start();
 
-    curl_put(original_path, "localhost:4444/local/encrypt/archive.zip");
+    curl_put(
+        COMPUTER_SVG_PATH,
+        "localhost:4444/local/encrypt/archive.zip",
+    );
 
     assert!(uploaded_path.exists());
 
@@ -29,7 +29,7 @@ fn local_encryption() {
 
     let buf = decrypt_bytes(Bytes::from(curl_download.stdout));
 
-    assert_eq!(buf, original_bytes);
+    assert_eq!(buf, COMPUTER_SVG_BYTES);
 }
 
 #[test]

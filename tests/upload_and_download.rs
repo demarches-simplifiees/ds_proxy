@@ -18,8 +18,6 @@ fn upload_and_download() {
      - decrypt the uploaded file by the decrypted command and check the result
      - downloads the uploaded file via the proxy, and checks that its content matches the initial content
     */
-    let original_path = "tests/fixtures/computer.svg";
-    let original_bytes = std::fs::read(original_path).unwrap();
     let uploaded_path = "tests/fixtures/server-static/uploads/victory";
 
     let temp = assert_fs::TempDir::new().unwrap();
@@ -33,26 +31,26 @@ fn upload_and_download() {
 
     let _proxy_and_node = ProxyAndNode::start();
 
-    curl_put(original_path, "localhost:4444/upstream/victory");
+    curl_put(COMPUTER_SVG_PATH, "localhost:4444/upstream/victory");
 
     let uploaded_bytes = std::fs::read(uploaded_path).expect("uploaded should exist !");
     assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
 
     decrypt(uploaded_path, decrypted_path);
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
-    assert_eq!(original_bytes, decrypted_bytes);
+    assert_eq!(decrypted_bytes, COMPUTER_SVG_BYTES);
 
     let curl_download = curl_get("localhost:4444/upstream/victory");
-    assert_eq!(curl_download.stdout, original_bytes);
+    assert_eq!(curl_download.stdout, COMPUTER_SVG_BYTES);
 
     let curl_range_download = curl_range_get("localhost:4444/upstream/victory", 0, 10);
-    assert_eq!(curl_range_download.stdout, &original_bytes[0..11]);
+    assert_eq!(curl_range_download.stdout, &COMPUTER_SVG_BYTES[0..11]);
 
     let curl_socket_download = curl_socket_get("localhost:4444/upstream/victory");
-    assert_eq!(curl_socket_download.stdout, original_bytes);
+    assert_eq!(curl_socket_download.stdout, COMPUTER_SVG_BYTES);
 
     let curl_chunked_download = curl_get("localhost:4444/upstream/chunked/victory");
-    assert_eq!(curl_chunked_download.stdout, original_bytes);
+    assert_eq!(curl_chunked_download.stdout, COMPUTER_SVG_BYTES);
 
     temp.close().unwrap();
 }

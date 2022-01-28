@@ -49,9 +49,6 @@ fn concurent_uploads() {
                     println!("Number of threads: {}", threads_count);
                 }
 
-                let original_path = "tests/fixtures/computer.svg";
-                let original_bytes = std::fs::read(original_path).unwrap();
-
                 let stored_filename = Uuid::new_v4();
                 let stored_file_url = format!("localhost:4444/upstream/{}", stored_filename);
                 let uploaded_path =
@@ -61,7 +58,7 @@ fn concurent_uploads() {
                 let decrypted_file = temp.child("computer.dec.svg");
                 let decrypted_path = decrypted_file.path();
 
-                curl_put(original_path, &stored_file_url);
+                curl_put(COMPUTER_SVG_PATH, &stored_file_url);
 
                 let uploaded_bytes =
                     std::fs::read(&uploaded_path).expect("uploaded should exist !");
@@ -70,23 +67,23 @@ fn concurent_uploads() {
 
                 decrypt(&uploaded_path, decrypted_path);
                 let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
-                assert_eq!(original_bytes.len(), decrypted_bytes.len());
-                assert_eq!(original_bytes, decrypted_bytes);
+                assert_eq!(COMPUTER_SVG_BYTES.len(), decrypted_bytes.len());
+                assert_eq!(COMPUTER_SVG_BYTES, decrypted_bytes);
 
                 let curl_download = curl_get(&stored_file_url);
-                assert_eq!(curl_download.stdout.len(), original_bytes.len());
-                assert_eq!(curl_download.stdout, original_bytes);
+                assert_eq!(curl_download.stdout.len(), COMPUTER_SVG_BYTES.len());
+                assert_eq!(curl_download.stdout, COMPUTER_SVG_BYTES);
 
                 let curl_socket_download = curl_socket_get(&stored_file_url);
-                assert_eq!(curl_socket_download.stdout.len(), original_bytes.len());
-                assert_eq!(curl_socket_download.stdout, original_bytes);
+                assert_eq!(curl_socket_download.stdout.len(), COMPUTER_SVG_BYTES.len());
+                assert_eq!(curl_socket_download.stdout, COMPUTER_SVG_BYTES);
 
                 let curl_chunked_download = curl_get(&format!(
                     "localhost:4444/upstream/chunked/{}",
                     stored_filename
                 ));
-                assert_eq!(curl_chunked_download.stdout.len(), original_bytes.len());
-                assert_eq!(curl_chunked_download.stdout, original_bytes);
+                assert_eq!(curl_chunked_download.stdout.len(), COMPUTER_SVG_BYTES.len());
+                assert_eq!(curl_chunked_download.stdout, COMPUTER_SVG_BYTES);
 
                 // Cleanup
                 temp.close().unwrap();

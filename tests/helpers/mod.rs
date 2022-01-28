@@ -19,6 +19,14 @@ pub const SALT: &str = "12345678901234567890123456789012";
 pub const HASH_FILE_ARG: &str = "--hash-file=tests/fixtures/password.hash";
 pub const CHUNK_SIZE: usize = 512;
 
+pub const COMPUTER_SVG_PATH: &str = "tests/fixtures/computer.svg";
+pub const COMPUTER_SVG_BYTES: Bytes =
+    Bytes::from_static(include_bytes!("../fixtures/computer.svg"));
+
+pub const ENCRYPTED_COMPUTER_SVG_PATH: &str = "tests/fixtures/computer.svg.enc";
+pub const ENCRYPTED_COMPUTER_SVG_BYTES: Bytes =
+    Bytes::from_static(include_bytes!("../fixtures/computer.svg.enc"));
+
 #[allow(dead_code)]
 pub struct ProxyAndNode {
     proxy: ChildGuard,
