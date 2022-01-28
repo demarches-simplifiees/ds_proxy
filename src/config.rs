@@ -6,6 +6,7 @@ use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
+use url::Url;
 
 pub type DsKey = Key;
 
@@ -97,8 +98,14 @@ impl Config {
     }
 
     pub fn create_backend_url(&self, req: &HttpRequest) -> String {
-        let name = req.match_info().get("name").unwrap();
-        format!("{}/{}", self.upstream_base_url.clone().unwrap(), name)
+        let base = Url::parse(self.upstream_base_url.as_ref().unwrap()).unwrap();
+        let mut url = base.join(&req.match_info()["name"]).unwrap();
+
+        if !req.query_string().is_empty() {
+            url.set_query(Some(req.query_string()));
+        }
+
+        url.to_string()
     }
 }
 
@@ -139,6 +146,7 @@ pub fn create_key(salt: String, password: String) -> Result<Key, &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use actix_web::test::TestRequest;
 
     #[test]
     fn test_key_creation() {
@@ -148,5 +156,54 @@ mod tests {
         let key_ok = create_key(salt, password);
 
         assert!(key_ok.is_ok());
+    }
+
+    #[test]
+    fn test_create_backend_url() {
+        let req = TestRequest::default()
+            .uri("https://proxy.com/bucket/file.zip?p1=ok1&p2=ok2")
+            .param("name", "bucket/file.zip") // hack to force parsing
+            .to_http_request();
+
+        assert_eq!(
+            default_config("https://upstream.com").create_backend_url(&req),
+            "https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2"
+        );
+
+        assert_eq!(
+            default_config("https://upstream.com/").create_backend_url(&req),
+            "https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2"
+        );
+
+        assert_eq!(
+            default_config("https://upstream.com/sub_folder/").create_backend_url(&req),
+            "https://upstream.com/sub_folder/bucket/file.zip?p1=ok1&p2=ok2"
+        );
+
+        let req = TestRequest::default()
+            .uri("https://proxy.com/bucket/file.zip")
+            .param("name", "bucket/file.zip") // hack to force parsing
+            .to_http_request();
+
+        assert_eq!(
+            default_config("https://upstream.com").create_backend_url(&req),
+            "https://upstream.com/bucket/file.zip"
+        );
+    }
+
+    fn default_config(upstream_base_url: &str) -> Config {
+        let password = "Correct Horse Battery Staple".to_string();
+        let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
+
+        Config {
+            key: create_key(salt, password).unwrap(),
+            chunk_size: DEFAULT_CHUNK_SIZE,
+            upstream_base_url: Some(upstream_base_url.to_string()),
+            noop: false,
+            input_file: None,
+            output_file: None,
+            address: "127.0.0.1:1234".to_socket_addrs().unwrap().next(),
+            max_connections: 1,
+        }
     }
 }
