@@ -61,15 +61,7 @@ fn concurent_uploads() {
                 let decrypted_file = temp.child("computer.dec.svg");
                 let decrypted_path = decrypted_file.path();
 
-                let curl_upload = curl_put(original_path, &stored_file_url);
-                if !curl_upload.status.success() {
-                    panic!("unable to upload file!");
-                }
-
-                let curl_upload = curl_put(original_path, &stored_file_url);
-                if !curl_upload.status.success() {
-                    panic!("unable to upload file!");
-                }
+                curl_put(original_path, &stored_file_url);
 
                 let uploaded_bytes =
                     std::fs::read(&uploaded_path).expect("uploaded should exist !");
