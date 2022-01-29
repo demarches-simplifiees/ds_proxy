@@ -1,7 +1,6 @@
 use assert_fs::prelude::*;
 use ds_proxy::crypto::header::*;
 use serial_test::serial;
-use std::path::Path;
 
 mod helpers;
 pub use helpers::*;
@@ -24,10 +23,7 @@ fn upload_and_download() {
     let decrypted_file = temp.child("computer.dec.svg");
     let decrypted_path = decrypted_file.path();
 
-    if Path::new(uploaded_path).exists() {
-        std::fs::remove_file(uploaded_path)
-            .unwrap_or_else(|_| panic!("Unable to remove {} !", uploaded_path.to_owned()));
-    }
+    ensure_is_absent(uploaded_path);
 
     let _proxy_and_node = ProxyAndNode::start();
 

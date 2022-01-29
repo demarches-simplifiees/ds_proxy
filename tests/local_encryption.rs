@@ -9,10 +9,7 @@ use std::path::Path;
 fn local_encryption() {
     let uploaded_path = Path::new("/tmp/ds_proxy/local_encryption/archive.zip");
 
-    if uploaded_path.exists() {
-        std::fs::remove_file(uploaded_path)
-            .unwrap_or_else(|_| panic!("Unable to remove {} !", uploaded_path.display()));
-    }
+    ensure_is_absent(uploaded_path.to_str().unwrap());
 
     let _proxy_and_node = ProxyAndNode::start();
 

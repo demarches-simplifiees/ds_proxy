@@ -87,8 +87,7 @@ fn concurent_uploads() {
 
                 // Cleanup
                 temp.close().unwrap();
-                std::fs::remove_file(&uploaded_path)
-                    .unwrap_or_else(|_| panic!("Unable to remove uploaded file{}!", uploaded_path));
+                ensure_is_absent(&uploaded_path);
 
                 {
                     let mut threads_count = counter.lock().unwrap();

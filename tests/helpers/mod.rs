@@ -5,6 +5,7 @@ use actix_web::Error;
 use assert_cmd::prelude::*;
 use ds_proxy::config::create_key;
 use futures::executor::block_on_stream;
+use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
 use std::{thread, time};
@@ -148,4 +149,11 @@ pub fn decrypt_bytes(input: Bytes) -> BytesMut {
             acc.put(x);
             acc
         })
+}
+
+pub fn ensure_is_absent(file_path: &str) {
+    if Path::new(file_path).exists() {
+        std::fs::remove_file(file_path)
+            .unwrap_or_else(|_| panic!("Unable to remove {} !", file_path));
+    }
 }
