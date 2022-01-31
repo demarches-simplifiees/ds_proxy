@@ -4,7 +4,7 @@ pub async fn simple_proxy(
     req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
-    config: web::Data<Config>,
+    config: web::Data<HttpConfig>,
 ) -> Result<HttpResponse, Error> {
     let url = config.create_upstream_url(&req);
 

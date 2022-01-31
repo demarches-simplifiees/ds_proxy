@@ -15,16 +15,35 @@ pub type DsKey = Key;
 pub const DEFAULT_CHUNK_SIZE: usize = 16 * 1024;
 pub const DEFAULT_LOCAL_ENCRYPTION_DIRECTORY: &str = "ds_proxy/local_encryption/";
 
+pub enum Config {
+    Decrypt(DecryptConfig),
+    Encrypt(EncryptConfig),
+    Http(HttpConfig),
+}
+
 #[derive(Debug, Clone)]
-pub struct Config {
-    pub upstream_base_url: Option<String>,
+pub struct DecryptConfig {
+    pub key: DsKey,
+    pub input_file: String,
+    pub output_file: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct EncryptConfig {
+    pub key: DsKey,
+    pub chunk_size: usize,
+    pub input_file: String,
+    pub output_file: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct HttpConfig {
+    pub upstream_base_url: String,
     pub noop: bool,
     pub key: DsKey,
     pub chunk_size: usize,
     pub max_connections: usize,
-    pub input_file: Option<String>,
-    pub output_file: Option<String>,
-    pub address: Option<SocketAddr>,
+    pub address: SocketAddr,
     pub local_encryption_directory: PathBuf,
 }
 
@@ -59,39 +78,51 @@ impl Config {
             },
         };
 
-        let local_encryption_directory = match &args.flag_local_encryption_directory {
-            Some(directory) => PathBuf::from(directory),
-            None => match env::var("DS_LOCAL_ENCRYPTION_DIRECTORY") {
-                Ok(directory) => PathBuf::from(directory),
-                _ => {
-                    let mut path_buf = PathBuf::new();
-                    path_buf.push(env::temp_dir());
-                    path_buf.push(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY);
-                    path_buf
-                }
-            },
-        };
+        let key = create_key(salt, password).unwrap();
 
-        std::fs::create_dir_all(local_encryption_directory.clone()).unwrap_or_else(|why| {
-            panic!(
-                "Cannot create tmp directory {:?}: {}",
-                local_encryption_directory, why
-            )
-        });
+        if args.cmd_encrypt {
+            Config::Encrypt(EncryptConfig {
+                key,
+                chunk_size,
+                input_file: args.arg_input_file.clone().unwrap(),
+                output_file: args.arg_output_file.clone().unwrap(),
+            })
+        } else if args.cmd_decrypt {
+            Config::Decrypt(DecryptConfig {
+                key,
+                input_file: args.arg_input_file.clone().unwrap(),
+                output_file: args.arg_output_file.clone().unwrap(),
+            })
+        } else {
+            let local_encryption_directory = match &args.flag_local_encryption_directory {
+                Some(directory) => PathBuf::from(directory),
+                None => match env::var("DS_LOCAL_ENCRYPTION_DIRECTORY") {
+                    Ok(directory) => PathBuf::from(directory),
+                    _ => {
+                        let mut path_buf = PathBuf::new();
+                        path_buf.push(env::temp_dir());
+                        path_buf.push(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY);
+                        path_buf
+                    }
+                },
+            };
 
-        let upstream_base_url = if args.cmd_proxy {
-            match &args.flag_upstream_url {
+            std::fs::create_dir_all(local_encryption_directory.clone()).unwrap_or_else(|why| {
+                panic!(
+                    "Cannot create tmp directory {:?}: {}",
+                    local_encryption_directory, why
+                )
+            });
+
+            let upstream_base_url = match &args.flag_upstream_url {
                 Some(upstream_url) => Some(upstream_url.to_string()),
                 None => Some(env::var("DS_UPSTREAM_URL").expect(
                     "Missing upstream_url, use DS_UPSTREAM_URL env or --upstream-url cli argument",
                 )),
             }
-        } else {
-            None
-        };
+            .unwrap();
 
-        let address = if args.cmd_proxy {
-            match &args.flag_address {
+            let address = match &args.flag_address {
                 Some(address) => match address.to_socket_addrs() {
                     Ok(mut sockets) => Some(sockets.next().unwrap()),
                     _ => panic!("Unable to parse the address"),
@@ -104,25 +135,24 @@ impl Config {
                     _ => panic!("Unable to parse the address"),
                 },
             }
-        } else {
-            None
-        };
+            .unwrap();
 
-        Config {
-            key: create_key(salt, password).unwrap(),
-            chunk_size,
-            upstream_base_url,
-            noop: args.flag_noop,
-            input_file: args.arg_input_file.clone(),
-            output_file: args.arg_output_file.clone(),
-            address,
-            local_encryption_directory,
-            max_connections: args.flag_max_connections.unwrap_or(25_000),
+            Config::Http(HttpConfig {
+                key,
+                chunk_size,
+                upstream_base_url,
+                noop: args.flag_noop,
+                address,
+                local_encryption_directory,
+                max_connections: args.flag_max_connections.unwrap_or(25_000),
+            })
         }
     }
+}
 
+impl HttpConfig {
     pub fn create_upstream_url(&self, req: &HttpRequest) -> String {
-        let base = Url::parse(self.upstream_base_url.as_ref().unwrap()).unwrap();
+        let base = Url::parse(self.upstream_base_url.as_ref()).unwrap();
         let mut url = base.join(&req.match_info()["name"]).unwrap();
 
         if !req.query_string().is_empty() {
@@ -222,18 +252,16 @@ mod tests {
         );
     }
 
-    fn default_config(upstream_base_url: &str) -> Config {
+    fn default_config(upstream_base_url: &str) -> HttpConfig {
         let password = "Correct Horse Battery Staple".to_string();
         let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
 
-        Config {
+        HttpConfig {
             key: create_key(salt, password).unwrap(),
             chunk_size: DEFAULT_CHUNK_SIZE,
-            upstream_base_url: Some(upstream_base_url.to_string()),
+            upstream_base_url: upstream_base_url.to_string(),
             noop: false,
-            input_file: None,
-            output_file: None,
-            address: "127.0.0.1:1234".to_socket_addrs().unwrap().next(),
+            address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
             max_connections: 1,
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
         }

@@ -4,8 +4,8 @@ use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
 use futures::executor::block_on_stream;
 
-pub fn encrypt(config: Config) {
-    let input: Vec<u8> = std::fs::read(config.input_file.unwrap()).unwrap();
+pub fn encrypt(config: EncryptConfig) {
+    let input: Vec<u8> = std::fs::read(config.input_file).unwrap();
 
     let source: Result<Bytes, Error> = Ok(Bytes::from(input));
     let source_stream = futures::stream::once(Box::pin(async { source }));
@@ -20,11 +20,11 @@ pub fn encrypt(config: Config) {
         },
     );
 
-    std::fs::write(config.output_file.unwrap(), &buf[..]).unwrap();
+    std::fs::write(config.output_file, &buf[..]).unwrap();
 }
 
-pub fn decrypt(config: Config) {
-    let input: Vec<u8> = std::fs::read(config.input_file.unwrap()).unwrap();
+pub fn decrypt(config: DecryptConfig) {
+    let input: Vec<u8> = std::fs::read(config.input_file).unwrap();
 
     let source: Result<Bytes, Error> = Ok(Bytes::from(input));
     let source_stream = futures::stream::once(Box::pin(async { source }));
@@ -39,5 +39,5 @@ pub fn decrypt(config: Config) {
         },
     );
 
-    std::fs::write(config.output_file.unwrap(), &buf[..]).unwrap();
+    std::fs::write(config.output_file, &buf[..]).unwrap();
 }

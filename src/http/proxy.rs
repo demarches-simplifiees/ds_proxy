@@ -1,4 +1,4 @@
-use super::super::config::Config;
+use super::super::config::HttpConfig;
 use actix_web::guard::{Get, Put};
 use actix_web::{
     middleware,
@@ -16,8 +16,8 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[actix_web::main]
-pub async fn main(config: Config) -> std::io::Result<()> {
-    let address = config.address.unwrap();
+pub async fn main(config: HttpConfig) -> std::io::Result<()> {
+    let address = config.address;
     let max_conn = config.max_connections;
 
     HttpServer::new(move || {

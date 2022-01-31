@@ -7,7 +7,7 @@ pub async fn fetch(
     req: HttpRequest,
     body: web::Bytes,
     client: web::Data<Client>,
-    config: web::Data<Config>,
+    config: web::Data<HttpConfig>,
 ) -> Result<HttpResponse, Error> {
     let get_url = config.create_upstream_url(&req);
 

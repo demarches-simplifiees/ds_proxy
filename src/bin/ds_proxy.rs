@@ -5,7 +5,8 @@ extern crate sodiumoxide;
 
 use docopt::Docopt;
 use ds_proxy::args::{Args, USAGE};
-use ds_proxy::config::Config;
+use ds_proxy::config::{Config, Config::*};
+use ds_proxy::{file, http};
 use log::info;
 use std::env;
 
@@ -25,17 +26,16 @@ fn main() {
 
     let args: Args = docopt.deserialize().unwrap_or_else(|e| e.exit());
 
-    let config: Config = Config::create_config(&args);
+    let config = Config::create_config(&args);
 
-    if args.cmd_proxy {
-        if args.flag_noop {
-            info!("proxy in dry mode")
+    match config {
+        Encrypt(config) => file::encrypt(config),
+        Decrypt(config) => file::decrypt(config),
+        Http(config) => {
+            if args.flag_noop {
+                info!("proxy in dry mode")
+            }
+            http::main(config).unwrap()
         }
-
-        ds_proxy::http::main(config).unwrap();
-    } else if args.cmd_encrypt {
-        ds_proxy::file::encrypt(config);
-    } else if args.cmd_decrypt {
-        ds_proxy::file::decrypt(config);
     }
 }

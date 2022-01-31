@@ -13,7 +13,7 @@ pub use ping::ping;
 pub use simple_proxy::simple_proxy;
 
 // shared import between handlers
-use super::super::config::Config;
+use super::super::config::HttpConfig;
 use super::super::crypto::*;
 use super::utils::*;
 use actix_web::http::header;
