@@ -5,6 +5,7 @@ use actix_web::Error;
 use assert_cmd::prelude::*;
 use ds_proxy::config::create_key;
 use futures::executor::block_on_stream;
+use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
 use std::{thread, time};
@@ -18,6 +19,14 @@ pub const PASSWORD: &str = "plop";
 pub const SALT: &str = "12345678901234567890123456789012";
 pub const HASH_FILE_ARG: &str = "--hash-file=tests/fixtures/password.hash";
 pub const CHUNK_SIZE: usize = 512;
+
+pub const COMPUTER_SVG_PATH: &str = "tests/fixtures/computer.svg";
+pub const COMPUTER_SVG_BYTES: Bytes =
+    Bytes::from_static(include_bytes!("../fixtures/computer.svg"));
+
+pub const ENCRYPTED_COMPUTER_SVG_PATH: &str = "tests/fixtures/computer.svg.enc";
+pub const ENCRYPTED_COMPUTER_SVG_BYTES: Bytes =
+    Bytes::from_static(include_bytes!("../fixtures/computer.svg.enc"));
 
 #[allow(dead_code)]
 pub struct ProxyAndNode {
@@ -140,4 +149,11 @@ pub fn decrypt_bytes(input: Bytes) -> BytesMut {
             acc.put(x);
             acc
         })
+}
+
+pub fn ensure_is_absent(file_path: &str) {
+    if Path::new(file_path).exists() {
+        std::fs::remove_file(file_path)
+            .unwrap_or_else(|_| panic!("Unable to remove {} !", file_path));
+    }
 }

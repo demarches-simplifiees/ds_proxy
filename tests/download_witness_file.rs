@@ -13,27 +13,20 @@ fn download_witness_file() {
      - copy a witness file in the right directory to be downloaded
      - downloads the uploaded file via the proxy, and checks that its content matches the initial content
     */
-    let original_path = "tests/fixtures/computer.svg";
-    let original_bytes = std::fs::read(original_path).unwrap();
-
-    let encrypted_path = "tests/fixtures/computer.svg.enc";
     let uploaded_path = "tests/fixtures/server-static/uploads/computer.svg.enc";
 
-    std::fs::copy(encrypted_path, uploaded_path).expect("copy failed");
+    std::fs::copy(ENCRYPTED_COMPUTER_SVG_PATH, uploaded_path).expect("copy failed");
 
     let _proxy_and_node = ProxyAndNode::start();
 
     let curl_download = curl_get("localhost:4444/upstream/computer.svg.enc");
-    if !curl_download.status.success() {
-        panic!("unable to download file !");
-    }
 
-    assert_eq!(curl_download.stdout, original_bytes);
+    assert_eq!(curl_download.stdout, COMPUTER_SVG_BYTES);
 
     let content_length =
         curl_get_content_length_header("http://localhost:4444/upstream/computer.svg.enc");
 
-    let metadata = std::fs::metadata(original_path).unwrap();
+    let metadata = std::fs::metadata(COMPUTER_SVG_PATH).unwrap();
     assert_eq!(metadata.len(), content_length as u64);
 
     let headers = curl_get_headers("http://localhost:4444/upstream/computer.svg.enc");
