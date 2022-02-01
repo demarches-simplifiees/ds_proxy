@@ -1,9 +1,15 @@
 pub use serial_test::serial;
 
+use actix_web::web::{BufMut, Bytes, BytesMut};
+use actix_web::Error;
 use assert_cmd::prelude::*;
+use ds_proxy::config::create_key;
+use futures::executor::block_on_stream;
 use std::process::{Child, Command};
 use std::time::Duration;
 use std::{thread, time};
+
+use ds_proxy::crypto::*;
 
 mod curl;
 pub use curl::*;
@@ -120,4 +126,18 @@ pub fn decrypt(
         .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string())
         .assert()
         .success()
+}
+
+pub fn decrypt_bytes(input: Bytes) -> BytesMut {
+    let source: Result<Bytes, Error> = Ok(input);
+    let source_stream = futures::stream::once(Box::pin(async { source }));
+    let key = create_key(SALT.to_string(), PASSWORD.to_string()).unwrap();
+    let decoder = Decoder::new(key, Box::new(source_stream));
+
+    block_on_stream(decoder)
+        .map(|r| r.unwrap())
+        .fold(BytesMut::with_capacity(64), |mut acc, x| {
+            acc.put(x);
+            acc
+        })
 }

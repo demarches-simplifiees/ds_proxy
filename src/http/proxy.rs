@@ -1,8 +1,15 @@
 use super::super::config::Config;
-use actix_web::guard;
-use actix_web::{middleware, web, App, HttpServer};
+use actix_web::guard::{Get, Put};
+use actix_web::{
+    middleware,
+    web::{resource, scope, Data},
+    App, HttpServer,
+};
 
 use super::handlers::*;
+use super::middlewares::*;
+use actix_web::dev::Service;
+use futures::FutureExt;
 use std::time::Duration;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
@@ -15,7 +22,7 @@ pub async fn main(config: Config) -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(
+            .app_data(Data::new(
                 awc::Client::builder()
                     .connector(
                         awc::Connector::new().timeout(CONNECT_TIMEOUT), // max time to connect to remote host including dns name resolution
@@ -23,14 +30,24 @@ pub async fn main(config: Config) -> std::io::Result<()> {
                     .timeout(RESPONSE_TIMEOUT) // the total time before a response must be received
                     .finish(),
             ))
-            .app_data(web::Data::new(config.clone()))
+            .app_data(Data::new(config.clone()))
             .wrap(middleware::Logger::default())
-            .service(web::resource("/ping").guard(guard::Get()).to(ping))
+            .service(resource("/ping").guard(Get()).to(ping))
             .service(
-                web::scope("/upstream")
-                    .service(web::resource("{name}*").guard(guard::Get()).to(fetch))
-                    .service(web::resource("{name}*").guard(guard::Put()).to(forward))
-                    .service(web::resource("{name}*").to(simple_proxy)),
+                scope("/upstream")
+                    .service(resource("{name}*").guard(Get()).to(fetch))
+                    .service(resource("{name}*").guard(Put()).to(forward))
+                    .service(resource("{name}*").to(simple_proxy)),
+            )
+            .service(
+                scope("/local")
+                    .service(resource("encrypt/{name}").guard(Put()).to(encrypt_to_file))
+                    .service(
+                        resource("fetch/{name}")
+                            .guard(Get())
+                            .wrap_fn(|req, srv| srv.call(req).map(erase_file))
+                            .to(fetch_file),
+                    ),
             )
     })
     .max_connections(max_conn)

@@ -6,12 +6,14 @@ use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
+use std::path::PathBuf;
 use url::Url;
 
 pub type DsKey = Key;
 
 // match nginx default (proxy_buffer_size in ngx_stream_proxy_module)
 pub const DEFAULT_CHUNK_SIZE: usize = 16 * 1024;
+pub const DEFAULT_LOCAL_ENCRYPTION_DIRECTORY: &str = "ds_proxy/local_encryption/";
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -23,6 +25,7 @@ pub struct Config {
     pub input_file: Option<String>,
     pub output_file: Option<String>,
     pub address: Option<SocketAddr>,
+    pub local_encryption_directory: PathBuf,
 }
 
 impl Config {
@@ -55,6 +58,26 @@ impl Config {
                 _ => DEFAULT_CHUNK_SIZE,
             },
         };
+
+        let local_encryption_directory = match &args.flag_local_encryption_directory {
+            Some(directory) => PathBuf::from(directory),
+            None => match env::var("DS_LOCAL_ENCRYPTION_DIRECTORY") {
+                Ok(directory) => PathBuf::from(directory),
+                _ => {
+                    let mut path_buf = PathBuf::new();
+                    path_buf.push(env::temp_dir());
+                    path_buf.push(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY);
+                    path_buf
+                }
+            },
+        };
+
+        std::fs::create_dir_all(local_encryption_directory.clone()).unwrap_or_else(|why| {
+            panic!(
+                "Cannot create tmp directory {:?}: {}",
+                local_encryption_directory, why
+            )
+        });
 
         let upstream_base_url = if args.cmd_proxy {
             match &args.flag_upstream_url {
@@ -93,6 +116,7 @@ impl Config {
             input_file: args.arg_input_file.clone(),
             output_file: args.arg_output_file.clone(),
             address,
+            local_encryption_directory,
             max_connections: args.flag_max_connections.unwrap_or(25_000),
         }
     }
@@ -106,6 +130,13 @@ impl Config {
         }
 
         url.to_string()
+    }
+
+    pub fn local_encryption_path_for(&self, req: &HttpRequest) -> PathBuf {
+        let name = req.match_info().get("name").unwrap();
+        let mut filepath = self.local_encryption_directory.clone();
+        filepath.push(name);
+        filepath
     }
 }
 
@@ -204,6 +235,7 @@ mod tests {
             output_file: None,
             address: "127.0.0.1:1234".to_socket_addrs().unwrap().next(),
             max_connections: 1,
+            local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
         }
     }
 }

@@ -1,4 +1,5 @@
 mod handlers;
+mod middlewares;
 mod proxy;
 mod utils;
 
