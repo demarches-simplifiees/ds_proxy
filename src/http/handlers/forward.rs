@@ -26,7 +26,7 @@ pub async fn forward(
     req: HttpRequest,
     payload: web::Payload,
     client: web::Data<Client>,
-    config: web::Data<Config>,
+    config: web::Data<HttpConfig>,
 ) -> Result<HttpResponse, Error> {
     let put_url = config.create_upstream_url(&req);
 

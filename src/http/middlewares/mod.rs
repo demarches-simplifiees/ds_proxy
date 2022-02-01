@@ -1,4 +1,4 @@
-use super::super::config::Config;
+use super::super::config::HttpConfig;
 use actix_web::dev::ServiceResponse;
 use actix_web::web;
 use actix_web::Error;
@@ -9,7 +9,7 @@ pub fn erase_file(res: Result<ServiceResponse, Error>) -> Result<ServiceResponse
     let request = response.request();
 
     let filepath = request
-        .app_data::<web::Data<Config>>()
+        .app_data::<web::Data<HttpConfig>>()
         .unwrap()
         .local_encryption_path_for(request);
 

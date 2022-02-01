@@ -37,7 +37,6 @@ fn encrypt_and_decrypt() {
         .arg(HASH_FILE_ARG)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
-        .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string())
         .assert()
         .success();
 

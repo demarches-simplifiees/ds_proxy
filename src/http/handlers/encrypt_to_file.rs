@@ -4,7 +4,7 @@ use std::io::Write;
 
 pub async fn encrypt_to_file(
     req: HttpRequest,
-    config: web::Data<Config>,
+    config: web::Data<HttpConfig>,
     payload: web::Payload,
 ) -> HttpResponse {
     let filepath = config.local_encryption_path_for(&req);
