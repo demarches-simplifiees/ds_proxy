@@ -53,7 +53,7 @@ fn concurent_uploads() {
                 let original_bytes = std::fs::read(original_path).unwrap();
 
                 let stored_filename = Uuid::new_v4();
-                let stored_file_url = format!("localhost:4444/{}", stored_filename);
+                let stored_file_url = format!("localhost:4444/upstream/{}", stored_filename);
                 let uploaded_path =
                     format!("tests/fixtures/server-static/uploads/{}", stored_filename);
 
@@ -81,8 +81,10 @@ fn concurent_uploads() {
                 assert_eq!(curl_socket_download.stdout.len(), original_bytes.len());
                 assert_eq!(curl_socket_download.stdout, original_bytes);
 
-                let curl_chunked_download =
-                    curl_get(&format!("localhost:4444/chunked/{}", stored_filename));
+                let curl_chunked_download = curl_get(&format!(
+                    "localhost:4444/upstream/chunked/{}",
+                    stored_filename
+                ));
                 assert_eq!(curl_chunked_download.stdout.len(), original_bytes.len());
                 assert_eq!(curl_chunked_download.stdout, original_bytes);
 
