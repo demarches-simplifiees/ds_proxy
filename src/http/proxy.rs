@@ -43,7 +43,7 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
                 scope("/local")
                     .service(resource("encrypt/{name}").guard(Put()).to(encrypt_to_file))
                     .service(
-                        resource("fetch/{name}")
+                        resource("encrypt/{name}")
                             .guard(Get())
                             .wrap_fn(|req, srv| srv.call(req).map(erase_file))
                             .to(fetch_file),

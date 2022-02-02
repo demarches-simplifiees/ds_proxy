@@ -20,7 +20,7 @@ fn local_encryption() {
 
     assert!(uploaded_path.exists());
 
-    let curl_download = curl_get("localhost:4444/local/fetch/archive.zip");
+    let curl_download = curl_get("localhost:4444/local/encrypt/archive.zip");
 
     assert!(!uploaded_path.exists());
 
