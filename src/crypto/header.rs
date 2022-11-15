@@ -8,7 +8,7 @@ const VERSION_NB_SIZE: usize = 8;
 const CHUNK_SIZE_SIZE: usize = 8; //usize size
 pub const HEADER_SIZE: usize = PREFIX_SIZE + VERSION_NB_SIZE + CHUNK_SIZE_SIZE;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Header {
     version: usize,
     pub chunk_size: usize,
@@ -23,7 +23,7 @@ impl Header {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum HeaderParsingError {
     WrongSize,
     WrongPrefix,
