@@ -136,13 +136,12 @@ impl<E> Decoder<E> {
 
                 let decrypted: Bytes = chunks
                     .by_ref()
-                    .map(|encrypted_chunk| {
+                    .flat_map(|encrypted_chunk| {
                         stream
                             .pull(encrypted_chunk, None)
                             .expect("Unable to decrypt chunk")
                             .0
                     })
-                    .flatten()
                     .collect();
 
                 self.buffer = chunks.remainder().into();
