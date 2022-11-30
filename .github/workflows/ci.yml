@@ -1,0 +1,59 @@
+name: Continuous Integration
+on:
+  push:
+    branches: 'main'
+  pull_request:
+    branches: 'main'
+
+permissions:
+  contents: read  #  to fetch code (actions/checkout)
+
+jobs:
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@1.65.0
+        with: { components: rustfmt }
+
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@1.65.0
+        with: { components: clippy }
+
+      - name: Cache Dependencies
+        uses: Swatinem/rust-cache@v2
+  
+      - name: Check with Clippy
+        run: cargo clippy
+
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@1.65.0
+
+      - name: Cache Dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          cache: 'yarn'
+          cache-dependency-path: tests/fixtures/server-static/package-lock.json
+
+      - name: Install Node modules
+        run: cd tests/fixtures/server-static && npm install
+        shell: bash
+
+      - run: cargo test --all-features
