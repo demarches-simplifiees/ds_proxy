@@ -50,11 +50,9 @@ pub async fn forward(
     let stream: Box<dyn Stream<Item = _> + Unpin> = if config.noop {
         Box::new(payload)
     } else {
-        Box::new(Encoder::new(
-            config.key.clone(),
-            config.chunk_size,
-            Box::new(payload),
-        ))
+        let key = config.keyring.get_last_key();
+
+        Box::new(Encoder::new(key, config.chunk_size, Box::new(payload)))
     };
 
     let req_copy = req.clone();

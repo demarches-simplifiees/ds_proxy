@@ -1,5 +1,5 @@
 use super::decipher_type::DecipherType;
-use super::header;
+use super::{super::keys::Keyring, header};
 use actix_web::web::{Bytes, BytesMut};
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -15,23 +15,23 @@ pub struct Decoder<E> {
     decipher_type: Option<DecipherType>,
     stream_decoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
     buffer: BytesMut,
-    key: Key,
+    keyring: Keyring,
 }
 
 impl<E> Decoder<E> {
-    pub fn new(key: Key, s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>) -> Decoder<E> {
+    pub fn new(keyring: Keyring, s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>) -> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,
             decipher_type: None,
             stream_decoder: None,
             buffer: BytesMut::new(),
-            key,
+            keyring,
         }
     }
 
     pub fn new_from_cypher_and_buffer(
-        key: Key,
+        keyring: Keyring,
         s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
         decipher_type: DecipherType,
         b: Option<BytesMut>,
@@ -42,7 +42,7 @@ impl<E> Decoder<E> {
             decipher_type: Some(decipher_type),
             stream_decoder: None,
             buffer: b.unwrap_or_default(),
-            key,
+            keyring,
         }
     }
 
@@ -54,7 +54,9 @@ impl<E> Decoder<E> {
             match self.decipher_type {
                 None => self.read_header(cx),
 
-                Some(DecipherType::Encrypted { chunk_size }) => self.decrypt(cx, &chunk_size),
+                Some(DecipherType::Encrypted { chunk_size, key_id }) => {
+                    self.decrypt(cx, &chunk_size, self.keyring.get_key_by_id(key_id))
+                }
 
                 Some(DecipherType::Plaintext) => {
                     Poll::Ready(Some(Ok(self.buffer.split().freeze())))
@@ -74,6 +76,7 @@ impl<E> Decoder<E> {
                     trace!("the file is encrypted !");
                     self.decipher_type = Some(DecipherType::Encrypted {
                         chunk_size: header.chunk_size,
+                        key_id: header.key_id,
                     });
                     let _ = self.buffer.split_to(header::HEADER_SIZE);
                     self.decrypt_buffer(cx)
@@ -97,7 +100,12 @@ impl<E> Decoder<E> {
         }
     }
 
-    fn decrypt(&mut self, cx: &mut Context, chunk_size: &usize) -> Poll<Option<Result<Bytes, E>>> {
+    fn decrypt(
+        &mut self,
+        cx: &mut Context,
+        chunk_size: &usize,
+        key: Key,
+    ) -> Poll<Option<Result<Bytes, E>>> {
         match self.stream_decoder {
             None => {
                 trace!("no stream_decoder");
@@ -111,7 +119,7 @@ impl<E> Decoder<E> {
 
                     // TODO: throw error
                     self.stream_decoder =
-                        Some(xchacha20poly1305::Stream::init_pull(&header, &self.key).unwrap());
+                        Some(xchacha20poly1305::Stream::init_pull(&header, &key).unwrap());
 
                     self.decrypt_buffer(cx)
                 } else {

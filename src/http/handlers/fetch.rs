@@ -62,7 +62,7 @@ pub async fn fetch(
             .map(|content_length| decrypted_content_length(content_length, cypher_type));
 
         let decoder =
-            Decoder::new_from_cypher_and_buffer(config.key.clone(), boxy, cypher_type, buff);
+            Decoder::new_from_cypher_and_buffer(config.keyring.clone(), boxy, cypher_type, buff);
 
         if let Some(length) = fetch_length {
             use std::convert::TryInto;

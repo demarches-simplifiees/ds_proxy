@@ -1,15 +1,14 @@
-use super::args;
+use super::{args, keys::Keyring};
 use actix_web::HttpRequest;
 use sodiumoxide::crypto::pwhash;
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
 use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
+use std::collections::HashMap;
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
 use url::Url;
-
-pub type DsKey = Key;
 
 // match nginx default (proxy_buffer_size in ngx_stream_proxy_module)
 pub const DEFAULT_CHUNK_SIZE: usize = 16 * 1024;
@@ -23,14 +22,14 @@ pub enum Config {
 
 #[derive(Debug, Clone)]
 pub struct DecryptConfig {
-    pub key: DsKey,
+    pub keyring: Keyring,
     pub input_file: String,
     pub output_file: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct EncryptConfig {
-    pub key: DsKey,
+    pub keyring: Keyring,
     pub chunk_size: usize,
     pub input_file: String,
     pub output_file: String,
@@ -40,7 +39,7 @@ pub struct EncryptConfig {
 pub struct HttpConfig {
     pub upstream_base_url: String,
     pub noop: bool,
-    pub key: DsKey,
+    pub keyring: Keyring,
     pub chunk_size: usize,
     pub max_connections: usize,
     pub address: SocketAddr,
@@ -78,18 +77,18 @@ impl Config {
             },
         };
 
-        let key = create_key(salt, password).unwrap();
+        let keyring = create_keys(salt, password).unwrap();
 
         if args.cmd_encrypt {
             Config::Encrypt(EncryptConfig {
-                key,
+                keyring,
                 chunk_size,
                 input_file: args.arg_input_file.clone().unwrap(),
                 output_file: args.arg_output_file.clone().unwrap(),
             })
         } else if args.cmd_decrypt {
             Config::Decrypt(DecryptConfig {
-                key,
+                keyring,
                 input_file: args.arg_input_file.clone().unwrap(),
                 output_file: args.arg_output_file.clone().unwrap(),
             })
@@ -138,7 +137,7 @@ impl Config {
             .unwrap();
 
             Config::Http(HttpConfig {
-                key,
+                keyring,
                 chunk_size,
                 upstream_base_url,
                 noop: args.flag_noop,
@@ -185,7 +184,7 @@ fn ensure_valid_password(password: &str, hash: &str) {
     }
 }
 
-pub fn create_key(salt: String, password: String) -> Result<Key, &'static str> {
+pub fn create_keys(salt: String, password: String) -> Result<Keyring, &'static str> {
     if let Some(salt) = Salt::from_slice(salt.as_bytes()) {
         let mut raw_key = [0u8; KEYBYTES];
 
@@ -198,7 +197,11 @@ pub fn create_key(salt: String, password: String) -> Result<Key, &'static str> {
         )
         .unwrap();
 
-        Ok(Key(raw_key))
+        let mut keys = HashMap::new();
+
+        keys.insert(0, Key(raw_key));
+
+        Ok(Keyring::new(keys))
     } else {
         Err("Unable to derive a key from the salt")
     }
@@ -214,9 +217,9 @@ mod tests {
         let password = "Correct Horse Battery Staple".to_string();
         let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
 
-        let key_ok = create_key(salt, password);
+        let keyring = create_keys(salt, password);
 
-        assert!(key_ok.is_ok());
+        assert!(keyring.is_ok());
     }
 
     #[test]
@@ -257,7 +260,7 @@ mod tests {
         let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
 
         HttpConfig {
-            key: create_key(salt, password).unwrap(),
+            keyring: create_keys(salt, password).unwrap(),
             chunk_size: DEFAULT_CHUNK_SIZE,
             upstream_base_url: upstream_base_url.to_string(),
             noop: false,

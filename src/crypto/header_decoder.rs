@@ -61,6 +61,7 @@ where
                             Poll::Ready((
                                 DecipherType::Encrypted {
                                     chunk_size: header.chunk_size,
+                                    key_id: 0,
                                 },
                                 Some(decoder.buffer.clone()),
                             ))

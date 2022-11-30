@@ -12,6 +12,7 @@ pub const HEADER_SIZE: usize = PREFIX_SIZE + VERSION_NB_SIZE + CHUNK_SIZE_SIZE;
 pub struct Header {
     version: usize,
     pub chunk_size: usize,
+    pub key_id: u64,
 }
 
 impl Header {
@@ -19,6 +20,7 @@ impl Header {
         Header {
             version: VERSION_NB,
             chunk_size,
+            key_id: 0,
         }
     }
 }

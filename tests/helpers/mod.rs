@@ -3,7 +3,7 @@ pub use serial_test::serial;
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
 use assert_cmd::prelude::*;
-use ds_proxy::config::create_key;
+use ds_proxy::config::create_keys;
 use futures::executor::block_on_stream;
 use std::path::Path;
 use std::process::{Child, Command};
@@ -140,8 +140,8 @@ pub fn decrypt(
 pub fn decrypt_bytes(input: Bytes) -> BytesMut {
     let source: Result<Bytes, Error> = Ok(input);
     let source_stream = futures::stream::once(Box::pin(async { source }));
-    let key = create_key(SALT.to_string(), PASSWORD.to_string()).unwrap();
-    let decoder = Decoder::new(key, Box::new(source_stream));
+    let keyring = create_keys(SALT.to_string(), PASSWORD.to_string()).unwrap();
+    let decoder = Decoder::new(keyring, Box::new(source_stream));
 
     block_on_stream(decoder)
         .map(|r| r.unwrap())
