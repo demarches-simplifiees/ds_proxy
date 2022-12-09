@@ -19,7 +19,10 @@ pub struct Decoder<E> {
 }
 
 impl<E> Decoder<E> {
-    pub fn new(keyring: Keyring, s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>) -> Decoder<E> {
+    pub fn new(
+        keyring: Keyring,
+        s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
+    ) -> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,

@@ -1,6 +1,5 @@
 extern crate ds_proxy;
 
-use ds_proxy::config::create_keys;
 use ds_proxy::crypto::*;
 use ds_proxy::keys::Keyring;
 
@@ -24,7 +23,7 @@ fn decrypt_clear_stream() {
 
 #[test]
 fn encoding_then_decoding_returns_source_data() {
-    let keyring: Keyring = build_key();
+    let keyring: Keyring = build_keyring();
 
     proptest!(|(source_bytes: Vec<u8>, chunk_size in 1usize..10000)| {
         let source : Result<Bytes, Error> = Ok(Bytes::from(source_bytes.clone()));
@@ -43,7 +42,7 @@ fn encoding_then_decoding_returns_source_data() {
 
 #[test]
 fn decrypting_plaintext_returns_plaintext() {
-    let keyring: Keyring = build_key();
+    let keyring: Keyring = build_keyring();
 
     proptest!(|(clear: Vec<u8>)| {
         let source : Result<Bytes, Error> = Ok(Bytes::from(clear.clone()));
@@ -59,8 +58,8 @@ fn decrypting_plaintext_returns_plaintext() {
     });
 }
 
-fn build_key() -> Keyring {
+fn build_keyring() -> Keyring {
     let password = "Correct Horse Battery Staple".to_string();
     let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
-    create_keys(salt, password).unwrap()
+    Keyring::load(salt, password).unwrap()
 }
