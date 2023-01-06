@@ -642,6 +642,7 @@ dependencies = [
  "assert_cmd",
  "assert_fs",
  "awc",
+ "base64",
  "bytes",
  "docopt",
  "env_logger",
@@ -656,6 +657,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "sodiumoxide",
+ "toml",
  "url",
  "uuid",
 ]
@@ -2171,6 +2173,15 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "toml"
+version = "0.5.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d82e1a7758622a465f8cee077614c73484dac5b836c02ff6a40d5d1010324d7"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
