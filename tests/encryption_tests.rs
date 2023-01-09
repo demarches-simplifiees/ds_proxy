@@ -1,7 +1,7 @@
 extern crate ds_proxy;
 
 use ds_proxy::crypto::*;
-use ds_proxy::keys::Keyring;
+use ds_proxy::keyring::Keyring;
 
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;

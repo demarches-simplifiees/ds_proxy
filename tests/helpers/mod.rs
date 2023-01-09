@@ -10,7 +10,7 @@ use std::time::Duration;
 use std::{thread, time};
 
 use ds_proxy::crypto::*;
-use ds_proxy::keys::Keyring;
+use ds_proxy::keyring::Keyring;
 
 mod curl;
 pub use curl::*;
