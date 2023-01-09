@@ -10,7 +10,7 @@ use std::time::Duration;
 use std::{thread, time};
 
 use ds_proxy::crypto::*;
-use ds_proxy::keyring::Keyring;
+use ds_proxy::keyring_utils::load_keyring;
 
 mod curl;
 pub use curl::*;
@@ -140,7 +140,8 @@ pub fn decrypt(
 pub fn decrypt_bytes(input: Bytes) -> BytesMut {
     let source: Result<Bytes, Error> = Ok(input);
     let source_stream = futures::stream::once(Box::pin(async { source }));
-    let keyring = Keyring::load(SALT.to_string(), PASSWORD.to_string()).unwrap();
+    let keyring_file = "keyring";
+    let keyring = load_keyring(keyring_file, SALT.to_string(), PASSWORD.to_string());
     let decoder = Decoder::new(keyring, Box::new(source_stream));
 
     block_on_stream(decoder)

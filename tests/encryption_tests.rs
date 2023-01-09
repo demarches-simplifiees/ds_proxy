@@ -2,6 +2,7 @@ extern crate ds_proxy;
 
 use ds_proxy::crypto::*;
 use ds_proxy::keyring::Keyring;
+use ds_proxy::keyring_utils::load_keyring;
 
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
@@ -61,5 +62,6 @@ fn decrypting_plaintext_returns_plaintext() {
 fn build_keyring() -> Keyring {
     let password = "Correct Horse Battery Staple".to_string();
     let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
-    Keyring::load(salt, password).unwrap()
+    let keyring_file = "keyring";
+    load_keyring(keyring_file, salt, password)
 }

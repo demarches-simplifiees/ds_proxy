@@ -1,4 +1,4 @@
-use super::{args, keyring::Keyring};
+use super::{args, keyring::Keyring, keyring_utils::load_keyring};
 use actix_web::HttpRequest;
 
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
@@ -46,6 +46,12 @@ pub struct HttpConfig {
 
 impl Config {
     pub fn create_config(args: &args::Args) -> Config {
+        let keyring_file: String = match &args.flag_keyring_file {
+            Some(keyring_file) => keyring_file.to_string(),
+            None => env::var("DS_KEYRING")
+                .expect("Missing keyring, use DS_KEYRING env or --keyring-file cli argument"),
+        };
+
         let password = match &args.flag_password_file {
             Some(password_file) => read_file_content(password_file),
             None => env::var("DS_PASSWORD")
@@ -75,7 +81,7 @@ impl Config {
             },
         };
 
-        let keyring = Keyring::load(salt, password).unwrap();
+        let keyring = load_keyring(&keyring_file, password, salt);
 
         if args.cmd_encrypt {
             Config::Encrypt(EncryptConfig {
@@ -184,18 +190,10 @@ fn ensure_valid_password(password: &str, hash: &str) {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use actix_web::test::TestRequest;
-
-    #[test]
-    fn test_key_creation() {
-        let password = "Correct Horse Battery Staple".to_string();
-        let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
-
-        let keyring = Keyring::load(salt, password);
-
-        assert!(keyring.is_ok());
-    }
 
     #[test]
     fn test_create_upstream_url() {
@@ -231,11 +229,10 @@ mod tests {
     }
 
     fn default_config(upstream_base_url: &str) -> HttpConfig {
-        let password = "Correct Horse Battery Staple".to_string();
-        let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
+        let keyring = Keyring::new(HashMap::new());
 
         HttpConfig {
-            keyring: Keyring::load(salt, password).unwrap(),
+            keyring,
             chunk_size: DEFAULT_CHUNK_SIZE,
             upstream_base_url: upstream_base_url.to_string(),
             noop: false,
