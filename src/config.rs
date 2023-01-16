@@ -16,6 +16,7 @@ pub enum Config {
     Decrypt(DecryptConfig),
     Encrypt(EncryptConfig),
     Http(HttpConfig),
+    BootstrapKeyring(BootstrapKeyring),
 }
 
 #[derive(Debug, Clone)]
@@ -44,14 +45,15 @@ pub struct HttpConfig {
     pub local_encryption_directory: PathBuf,
 }
 
+#[derive(Debug, Clone)]
+pub struct BootstrapKeyring {
+    pub password: String,
+    pub salt: String,
+    pub keyring_file: String,
+}
+
 impl Config {
     pub fn create_config(args: &args::Args) -> Config {
-        let keyring_file: String = match &args.flag_keyring_file {
-            Some(keyring_file) => keyring_file.to_string(),
-            None => env::var("DS_KEYRING")
-                .expect("Missing keyring, use DS_KEYRING env or --keyring-file cli argument"),
-        };
-
         let password = match &args.flag_password_file {
             Some(password_file) => read_file_content(password_file),
             None => env::var("DS_PASSWORD")
@@ -72,6 +74,20 @@ impl Config {
                 env::var("DS_SALT").expect("Missing salt, use DS_SALT env or --salt cli argument")
             }
         };
+
+        let keyring_file: String = match &args.flag_keyring_file {
+            Some(keyring_file) => keyring_file.to_string(),
+            None => env::var("DS_KEYRING")
+                .expect("Missing keyring, use DS_KEYRING env or --keyring-file cli argument"),
+        };
+
+        if args.cmd_bootstrap_keyring {
+            return Config::BootstrapKeyring(BootstrapKeyring {
+                password,
+                salt,
+                keyring_file,
+            });
+        }
 
         let chunk_size = match &args.flag_chunk_size {
             Some(chunk_size) => *chunk_size,

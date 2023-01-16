@@ -62,6 +62,60 @@ fn decrypt(master_key: &secretbox::Key, nonce_cipher: Vec<u8>) -> [u8; KEYBYTES]
         .unwrap()
 }
 
+pub fn bootstrap_and_save_keyring(keyring_file: &str, master_password: String, salt: String) {
+    let mut key = [0u8; KEYBYTES];
+
+    let typed_salt = Salt::from_slice(salt.as_bytes()).unwrap();
+
+    pwhash::derive_key(
+        &mut key,
+        master_password.as_bytes(),
+        &typed_salt,
+        pwhash::OPSLIMIT_INTERACTIVE,
+        pwhash::MEMLIMIT_INTERACTIVE,
+    )
+    .unwrap();
+
+    let master_key = secretbox::Key::from_slice(&key.clone()).unwrap();
+
+    let new_base64_cipher = base64_cipher(&master_key, key);
+
+    let mut hash = HashMap::new();
+    hash.insert("0".to_string(), new_base64_cipher);
+    let secrets = Secrets {
+        cipher_keyring: hash,
+    };
+
+    save_secrets(keyring_file, &secrets);
+}
+
+fn base64_cipher(master_key: &secretbox::Key, key: [u8; 32]) -> String {
+    let (cipher, nonce) = encrypt(master_key, key);
+    let nonce_cipher = concat(nonce, cipher);
+    base64::encode(&nonce_cipher)
+}
+
+fn encrypt(master_key: &secretbox::Key, byte_key: [u8; 32]) -> (Vec<u8>, [u8; 24]) {
+    let nonce_bytes: [u8; 24] = sodiumoxide::randombytes::randombytes(24)
+        .try_into()
+        .unwrap();
+    let nonce = secretbox::Nonce::from_slice(&nonce_bytes).unwrap();
+    let cipher = secretbox::seal(&byte_key, &nonce, master_key);
+
+    (cipher, nonce_bytes)
+}
+
+fn concat(nonce: [u8; 24], mut cipher: Vec<u8>) -> Vec<u8> {
+    let mut serialized = Vec::<u8>::from(nonce);
+    serialized.append(&mut cipher);
+    serialized
+}
+
+fn save_secrets(keyring_file: &str, secrets: &Secrets) {
+    let text_secrets = toml::to_string(secrets).unwrap();
+    std::fs::write(keyring_file, text_secrets).unwrap()
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Secrets {
     #[serde(rename = "keys")]
