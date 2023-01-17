@@ -99,9 +99,9 @@ mod tests {
 
         let mut boxy: Box<dyn Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(source_stream);
 
-        let result = futures::executor::block_on(HeaderDecoder::new(&mut boxy));
+        let (cypher_type, buff) = futures::executor::block_on(HeaderDecoder::new(&mut boxy));
 
-        assert_eq!(DecipherType::Plaintext, result.0);
-        assert_eq!(Some(BytesMut::from(clear)), result.1);
+        assert_eq!(DecipherType::Plaintext, cypher_type);
+        assert_eq!(Some(BytesMut::from(clear)), buff);
     }
 }
