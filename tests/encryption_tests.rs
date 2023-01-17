@@ -2,7 +2,8 @@ extern crate ds_proxy;
 
 use ds_proxy::crypto::*;
 use ds_proxy::keyring::Keyring;
-use ds_proxy::keyring_utils::load_keyring;
+use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Key, KEYBYTES};
+use std::collections::HashMap;
 
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
@@ -60,8 +61,13 @@ fn decrypting_plaintext_returns_plaintext() {
 }
 
 fn build_keyring() -> Keyring {
-    let password = "Correct Horse Battery Staple".to_string();
-    let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
-    let keyring_file = "keyring";
-    load_keyring(keyring_file, salt, password)
+    let key: [u8; KEYBYTES] = [
+        1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6,
+        7, 8,
+    ];
+
+    let mut hash = HashMap::new();
+    hash.insert(0, Key(key));
+
+    Keyring::new(hash)
 }

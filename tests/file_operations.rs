@@ -23,6 +23,7 @@ fn encrypt_and_decrypt() {
         .arg(COMPUTER_SVG_PATH)
         .arg(encrypted_path)
         .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
         .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string())
@@ -35,6 +36,7 @@ fn encrypt_and_decrypt() {
         .arg(encrypted_path)
         .arg(decrypted_path)
         .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
         .assert()
@@ -58,6 +60,7 @@ fn decrypt_witness_file() {
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
         .assert()
@@ -81,6 +84,7 @@ fn the_app_crashes_on_a_missing_password() {
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
         .env("DS_SALT", SALT);
 
     decrypt_cmd.assert().failure();
@@ -99,6 +103,7 @@ fn the_app_crashes_on_a_missing_hash() {
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD);
 
     decrypt_cmd.assert().failure();
@@ -119,6 +124,7 @@ fn the_app_crashes_with_an_invalid_password() {
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
         .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", password)
         .env("DS_SALT", SALT);
 
