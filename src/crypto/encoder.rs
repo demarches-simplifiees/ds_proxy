@@ -53,7 +53,7 @@ impl<E> Encoder<E> {
                     let mut buf =
                         BytesMut::with_capacity(HEADER_SIZE + encryption_header_bytes.len());
 
-                    let ds_header = Header::new(self.chunk_size);
+                    let ds_header = Header::new(self.chunk_size, 0);
                     let ds_header_bytes: Vec<u8> = ds_header.into();
                     buf.extend(&ds_header_bytes[..]);
                     buf.extend(encryption_header_bytes);

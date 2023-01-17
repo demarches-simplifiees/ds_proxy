@@ -16,11 +16,11 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn new(chunk_size: usize) -> Header {
+    pub fn new(chunk_size: usize, key_id: u64) -> Header {
         Header {
             version: VERSION_NB,
             chunk_size,
-            key_id: 0,
+            key_id,
         }
     }
 }
@@ -59,7 +59,7 @@ impl TryFrom<&[u8]> for Header {
                 .unwrap(),
         );
 
-        Ok(Header::new(chunk_size))
+        Ok(Header::new(chunk_size, 0))
     }
 }
 
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let header = Header::new(10);
+        let header = Header::new(10, 0);
         let header_bytes: Vec<u8> = header.into();
         let received_header = Header::try_from(&header_bytes[..]).unwrap();
 
