@@ -1,5 +1,5 @@
 use super::decipher_type::DecipherType;
-use super::{super::keyring::Keyring, header};
+use super::super::keyring::Keyring;
 use actix_web::web::{Bytes, BytesMut};
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -7,12 +7,11 @@ use futures_core::stream::Stream;
 use log::{error, trace};
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{Header, Key};
-use std::convert::TryFrom;
 
 pub struct Decoder<E> {
     inner: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
     inner_ended: bool,
-    decipher_type: Option<DecipherType>,
+    decipher_type: DecipherType,
     stream_decoder: Option<xchacha20poly1305::Stream<xchacha20poly1305::Pull>>,
     buffer: BytesMut,
     keyring: Keyring,
@@ -28,7 +27,7 @@ impl<E> Decoder<E> {
         Decoder {
             inner: s,
             inner_ended: false,
-            decipher_type: Some(decipher_type),
+            decipher_type,
             stream_decoder: None,
             buffer: b.unwrap_or_default(),
             keyring,
@@ -41,51 +40,14 @@ impl<E> Decoder<E> {
             Poll::Ready(None)
         } else {
             match self.decipher_type {
-                None => self.read_header(cx),
-
-                Some(DecipherType::Encrypted { chunk_size, key_id }) => {
+                DecipherType::Encrypted { chunk_size, key_id } => {
                     self.decrypt(cx, &chunk_size, self.keyring.get_key_by_id(key_id))
                 }
 
-                Some(DecipherType::Plaintext) => {
+                DecipherType::Plaintext => {
                     Poll::Ready(Some(Ok(self.buffer.split().freeze())))
                 }
             }
-        }
-    }
-
-    fn read_header(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
-        trace!("Decypher type unknown");
-
-        if header::HEADER_SIZE <= self.buffer.len() {
-            trace!("enough byte to decide decypher type");
-
-            match header::Header::try_from(&self.buffer[0..header::HEADER_SIZE]) {
-                Ok(header) => {
-                    trace!("the file is encrypted !");
-                    self.decipher_type = Some(DecipherType::Encrypted {
-                        chunk_size: header.chunk_size,
-                        key_id: header.key_id,
-                    });
-                    let _ = self.buffer.split_to(header::HEADER_SIZE);
-                    self.decrypt_buffer(cx)
-                }
-                Err(header::HeaderParsingError::WrongPrefix) => {
-                    trace!("the file is not encrypted !");
-                    self.decipher_type = Some(DecipherType::Plaintext);
-                    self.decrypt_buffer(cx)
-                }
-                e => {
-                    error!("{:?}", e);
-                    panic!()
-                }
-            }
-        } else if self.inner_ended {
-            trace!("the stream is over, so the file is not encrypted !");
-
-            Poll::Ready(Some(Ok(self.buffer.split().freeze())))
-        } else {
-            Pin::new(self).poll_next(cx)
         }
     }
 
