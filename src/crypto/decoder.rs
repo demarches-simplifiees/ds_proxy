@@ -19,20 +19,6 @@ pub struct Decoder<E> {
 }
 
 impl<E> Decoder<E> {
-    pub fn new(
-        keyring: Keyring,
-        s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
-    ) -> Decoder<E> {
-        Decoder {
-            inner: s,
-            inner_ended: false,
-            decipher_type: None,
-            stream_decoder: None,
-            buffer: BytesMut::new(),
-            keyring,
-        }
-    }
-
     pub fn new_from_cypher_and_buffer(
         keyring: Keyring,
         s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
