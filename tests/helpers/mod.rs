@@ -51,7 +51,7 @@ impl ProxyAndNode {
 
 pub fn bootstrap_keyring() {
     let mut command = Command::cargo_bin("ds_proxy").unwrap();
-    let result = command
+    command
         .arg("bootstrap-keyring")
         .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", DS_KEYRING)
@@ -59,8 +59,6 @@ pub fn bootstrap_keyring() {
         .env("DS_SALT", SALT)
         .output()
         .expect("failed to perform bootstrap");
-
-    println!("result: {:?}", result);
 }
 
 pub fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
