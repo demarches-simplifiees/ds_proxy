@@ -41,8 +41,7 @@ impl ProxyAndNode {
     }
 
     pub fn start_with_options(latency: Option<Duration>, log: PrintServerLogs) -> ProxyAndNode {
-        bootstrap_keyring();
-        let proxy = launch_proxy(log);
+        let proxy = launch_proxy(log, None);
         let node = launch_node_with_latency(latency, log);
         thread::sleep(time::Duration::from_secs(4));
         ProxyAndNode { proxy, node }
@@ -61,14 +60,20 @@ pub fn bootstrap_keyring() {
         .expect("failed to perform bootstrap");
 }
 
-pub fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
+pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGuard {
+    let keyring = if let Some(file) = keyring_path {
+        file
+    } else {
+        DS_KEYRING
+    };
+
     let mut command = Command::cargo_bin("ds_proxy").unwrap();
     command
         .arg("proxy")
         .arg("--address=localhost:4444")
         .arg("--upstream-url=http://localhost:3333")
         .arg(HASH_FILE_ARG)
-        .env("DS_KEYRING", DS_KEYRING)
+        .env("DS_KEYRING", keyring)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
         .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string());
