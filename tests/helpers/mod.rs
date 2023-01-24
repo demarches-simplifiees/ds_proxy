@@ -37,6 +37,7 @@ pub struct ProxyAndNode {
 
 impl ProxyAndNode {
     pub fn start() -> ProxyAndNode {
+        bootstrap_keyring();
         ProxyAndNode::start_with_options(None, PrintServerLogs::No, None)
     }
 
