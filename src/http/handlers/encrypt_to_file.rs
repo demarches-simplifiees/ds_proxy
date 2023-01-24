@@ -9,9 +9,9 @@ pub async fn encrypt_to_file(
 ) -> HttpResponse {
     let filepath = config.local_encryption_path_for(&req);
 
-    let key = config.keyring.get_last_key().expect("no key avalaible for encryption");
+    let (id, key) = config.keyring.get_last_key().expect("no key avalaible for encryption");
 
-    let mut encrypted_stream = Encoder::new(key, config.chunk_size, Box::new(payload));
+    let mut encrypted_stream = Encoder::new(key, id, config.chunk_size, Box::new(payload));
 
     // File::create is blocking operation, use threadpool
     let mut f = web::block(move || File::create(filepath))

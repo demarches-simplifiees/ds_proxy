@@ -15,11 +15,13 @@ pub struct Encoder<E> {
     buffer: BytesMut,
     chunk_size: usize,
     key: Key,
+    key_id: u64,
 }
 
 impl<E> Encoder<E> {
     pub fn new(
         key: Key,
+        key_id: u64,
         chunk_size: usize,
         s: Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>,
     ) -> Encoder<E> {
@@ -30,6 +32,7 @@ impl<E> Encoder<E> {
             buffer: BytesMut::with_capacity(chunk_size),
             chunk_size,
             key,
+            key_id,
         }
     }
 
@@ -53,7 +56,7 @@ impl<E> Encoder<E> {
                     let mut buf =
                         BytesMut::with_capacity(HEADER_SIZE + encryption_header_bytes.len());
 
-                    let ds_header = Header::new(self.chunk_size, 0);
+                    let ds_header = Header::new(self.chunk_size, self.key_id);
                     let ds_header_bytes: Vec<u8> = ds_header.into();
                     buf.extend(&ds_header_bytes[..]);
                     buf.extend(encryption_header_bytes);

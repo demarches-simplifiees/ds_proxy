@@ -1,3 +1,4 @@
+use log::trace;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 use std::collections::HashMap;
 
@@ -11,9 +12,10 @@ impl Keyring {
         Keyring { keys }
     }
 
-    pub fn get_last_key(&self) -> Option<Key> {
+    pub fn get_last_key(&self) -> Option<(u64, Key)> {
         if let Some(id) = self.keys.keys().max() {
-            self.get_key_by_id(id)
+            trace!("returning key_id {} as last_key", id);
+            self.get_key_by_id(id).map(|k| (*id, k))
         } else {
             None
         }
