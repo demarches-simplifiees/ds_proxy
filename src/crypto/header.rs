@@ -69,8 +69,9 @@ impl From<Header> for Vec<u8> {
     fn from(header: Header) -> Vec<u8> {
         [
             PREFIX,
-            &VERSION_NB.to_le_bytes(),
+            &2_usize.to_le_bytes(),
             &header.chunk_size.to_le_bytes(),
+            &header.key_id.to_le_bytes(),
         ]
         .concat()
     }
