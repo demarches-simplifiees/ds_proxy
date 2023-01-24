@@ -40,7 +40,7 @@ impl<E> Decoder<E> {
             Poll::Ready(None)
         } else {
             match self.decipher_type {
-                DecipherType::Encrypted { chunk_size, key_id } => {
+                DecipherType::Encrypted { chunk_size, key_id, .. } => {
                     self.decrypt(cx, &chunk_size, self.keyring.get_key_by_id(key_id))
                 }
 

@@ -49,6 +49,7 @@ impl<E> HeaderDecoder<'_, E> {
             return ParseHeaderResponse::DecipherType(DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
+                header_size: header::HEADER_SIZE
             });
         } else if self.buffer.len() < header::HEADER_V2_SIZE {
             return ParseHeaderResponse::MissingBytes;
@@ -63,7 +64,7 @@ impl<E> HeaderDecoder<'_, E> {
         trace!("header version: {:?}, chunk_size: {:?}, key_id: {:?}", version, chunk_size, key_id);
 
         let _ = self.buffer.split_to(header::HEADER_V2_SIZE);
-        ParseHeaderResponse::DecipherType(DecipherType::Encrypted { chunk_size, key_id })
+        ParseHeaderResponse::DecipherType(DecipherType::Encrypted { chunk_size, key_id, header_size: header::HEADER_V2_SIZE })
     }
 }
 
@@ -147,7 +148,8 @@ mod tests {
         assert_eq!(
             ParseHeaderResponse::DecipherType(DecipherType::Encrypted {
                 chunk_size: 10,
-                key_id: 0
+                key_id: 0,
+                header_size: header::HEADER_SIZE
             }),
             decoder.parse_header()
         );
@@ -158,7 +160,8 @@ mod tests {
         assert_eq!(
             ParseHeaderResponse::DecipherType(DecipherType::Encrypted {
                 chunk_size: 13,
-                key_id: 15
+                key_id: 15,
+                header_size: header::HEADER_V2_SIZE
             }),
             decoder.parse_header()
         );
