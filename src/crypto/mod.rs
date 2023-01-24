@@ -22,9 +22,9 @@ pub fn encrypted_content_length(clear_length: usize, chunk_size: usize) -> usize
     let remainder = clear_length % chunk_size;
 
     if remainder == 0 {
-        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size)
+        HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size)
     } else {
-        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + ABYTES + remainder
+        HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + ABYTES + remainder
     }
 }
 
@@ -154,7 +154,7 @@ mod tests {
         let original_length = 32;
         let chunk_size = 16;
         let nb_chunk = 32 / 16;
-        let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
+        let encrypted_length = HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
 
         assert_eq!(
             encrypted_length,
@@ -168,7 +168,7 @@ mod tests {
         let chunk_size = 16;
         let nb_chunk = 32 / 16;
         let encrypted_length =
-            HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
+            HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
 
         assert_eq!(
             encrypted_length,
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn test_encrypted_content_length_with_another_exemple() {
         let original_length = 5882;
-        let encrypted_length = 6345;
+        let encrypted_length = 6353;
         let chunk_size = 256;
 
         assert_eq!(
