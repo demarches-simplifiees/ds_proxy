@@ -1,5 +1,5 @@
-use super::decipher_type::DecipherType;
 use super::super::keyring::Keyring;
+use super::decipher_type::DecipherType;
 use actix_web::web::{Bytes, BytesMut};
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -44,9 +44,7 @@ impl<E> Decoder<E> {
                     self.decrypt(cx, &chunk_size, self.keyring.get_key_by_id(key_id))
                 }
 
-                DecipherType::Plaintext => {
-                    Poll::Ready(Some(Ok(self.buffer.split().freeze())))
-                }
+                DecipherType::Plaintext => Poll::Ready(Some(Ok(self.buffer.split().freeze()))),
             }
         }
     }
