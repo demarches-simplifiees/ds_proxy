@@ -41,7 +41,11 @@ impl<E> Decoder<E> {
         } else {
             match self.decipher_type {
                 DecipherType::Encrypted { chunk_size, key_id, .. } => {
-                    self.decrypt(cx, &chunk_size, self.keyring.get_key_by_id(key_id))
+                    if let Some(key) = self.keyring.get_key_by_id(&key_id) {
+                        self.decrypt(cx, &chunk_size, key)
+                    } else {
+                        panic!("Key {} not found !", key_id)
+                    }
                 }
 
                 DecipherType::Plaintext => Poll::Ready(Some(Ok(self.buffer.split().freeze()))),

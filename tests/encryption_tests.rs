@@ -31,7 +31,7 @@ fn encoding_then_decoding_returns_source_data() {
         let source : Result<Bytes, Error> = Ok(Bytes::from(source_bytes.clone()));
         let source_stream  = futures::stream::once(Box::pin(async { source }));
 
-        let encoder = Encoder::new(keyring.get_last_key(), chunk_size, Box::new(source_stream));
+        let encoder = Encoder::new(keyring.get_last_key().unwrap(), chunk_size, Box::new(source_stream));
 
         let mut boxy: Box<dyn futures::Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(encoder);
 

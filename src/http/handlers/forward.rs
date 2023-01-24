@@ -50,7 +50,7 @@ pub async fn forward(
     let stream: Box<dyn Stream<Item = _> + Unpin> = if config.noop {
         Box::new(payload)
     } else {
-        let key = config.keyring.get_last_key();
+        let key = config.keyring.get_last_key().expect("no key avalaible for encryption");
 
         Box::new(Encoder::new(key, config.chunk_size, Box::new(payload)))
     };

@@ -11,11 +11,15 @@ impl Keyring {
         Keyring { keys }
     }
 
-    pub fn get_last_key(&self) -> Key {
-        self.keys.get(&0).unwrap().to_owned()
+    pub fn get_last_key(&self) -> Option<Key> {
+        if let Some(id) = self.keys.keys().max() {
+            self.get_key_by_id(id)
+        } else {
+            None
+        }
     }
 
-    pub fn get_key_by_id(&self, _id: u64) -> Key {
-        self.get_last_key()
+    pub fn get_key_by_id(&self, id: &u64) -> Option<Key> {
+        self.keys.get(id).map(|k| k.to_owned())
     }
 }
