@@ -44,14 +44,14 @@ pub fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType)
             //    = integer_part ( n + a (abytes + remainder) / (abytes + chunk) )
             //    = n
 
-            let nb_chunk = (encrypted_length - HEADER_SIZE - HEADERBYTES) / (ABYTES + chunk_size);
+            let nb_chunk = (encrypted_length - header_size - HEADERBYTES) / (ABYTES + chunk_size);
             let remainder_exists =
-                (encrypted_length - HEADER_SIZE - HEADERBYTES) % (ABYTES + chunk_size) != 0;
+                (encrypted_length - header_size - HEADERBYTES) % (ABYTES + chunk_size) != 0;
 
             if remainder_exists {
-                encrypted_length - HEADER_SIZE - HEADERBYTES - (nb_chunk + 1) * ABYTES
+                encrypted_length - header_size - HEADERBYTES - (nb_chunk + 1) * ABYTES
             } else {
-                encrypted_length - HEADER_SIZE - HEADERBYTES - nb_chunk * ABYTES
+                encrypted_length - header_size - HEADERBYTES - nb_chunk * ABYTES
             }
         }
 
@@ -74,6 +74,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
+                header_size: header::HEADER_SIZE
             },
         );
 
@@ -92,6 +93,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
+                header_size: header::HEADER_SIZE
             },
         );
 
@@ -111,6 +113,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
+                header_size: header::HEADER_SIZE
             },
         );
 
@@ -127,6 +130,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size: 256,
                 key_id: 0,
+                header_size: header::HEADER_SIZE
             },
         );
 
