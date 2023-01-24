@@ -37,11 +37,15 @@ pub struct ProxyAndNode {
 
 impl ProxyAndNode {
     pub fn start() -> ProxyAndNode {
-        ProxyAndNode::start_with_options(None, PrintServerLogs::No)
+        ProxyAndNode::start_with_options(None, PrintServerLogs::No, None)
     }
 
-    pub fn start_with_options(latency: Option<Duration>, log: PrintServerLogs) -> ProxyAndNode {
-        let proxy = launch_proxy(log, None);
+    pub fn start_with_keyring_path(keyring_path: &str) -> ProxyAndNode {
+        ProxyAndNode::start_with_options(None, PrintServerLogs::No, Some(keyring_path))
+    }
+
+    pub fn start_with_options(latency: Option<Duration>, log: PrintServerLogs, keyring_path: Option<&str>) -> ProxyAndNode {
+        let proxy = launch_proxy(log, keyring_path);
         let node = launch_node_with_latency(latency, log);
         thread::sleep(time::Duration::from_secs(4));
         ProxyAndNode { proxy, node }
