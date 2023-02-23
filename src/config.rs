@@ -1,15 +1,12 @@
-use super::args;
+use super::{args, keyring::Keyring, keyring_utils::load_keyring};
 use actix_web::HttpRequest;
-use sodiumoxide::crypto::pwhash;
+
 use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
-use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
-use sodiumoxide::crypto::secretstream::xchacha20poly1305::*;
+
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
 use url::Url;
-
-pub type DsKey = Key;
 
 // match nginx default (proxy_buffer_size in ngx_stream_proxy_module)
 pub const DEFAULT_CHUNK_SIZE: usize = 16 * 1024;
@@ -19,18 +16,19 @@ pub enum Config {
     Decrypt(DecryptConfig),
     Encrypt(EncryptConfig),
     Http(HttpConfig),
+    BootstrapKeyring(BootstrapKeyring),
 }
 
 #[derive(Debug, Clone)]
 pub struct DecryptConfig {
-    pub key: DsKey,
+    pub keyring: Keyring,
     pub input_file: String,
     pub output_file: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct EncryptConfig {
-    pub key: DsKey,
+    pub keyring: Keyring,
     pub chunk_size: usize,
     pub input_file: String,
     pub output_file: String,
@@ -40,11 +38,18 @@ pub struct EncryptConfig {
 pub struct HttpConfig {
     pub upstream_base_url: String,
     pub noop: bool,
-    pub key: DsKey,
+    pub keyring: Keyring,
     pub chunk_size: usize,
     pub max_connections: usize,
     pub address: SocketAddr,
     pub local_encryption_directory: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct BootstrapKeyring {
+    pub password: String,
+    pub salt: String,
+    pub keyring_file: String,
 }
 
 impl Config {
@@ -70,6 +75,20 @@ impl Config {
             }
         };
 
+        let keyring_file: String = match &args.flag_keyring_file {
+            Some(keyring_file) => keyring_file.to_string(),
+            None => env::var("DS_KEYRING")
+                .expect("Missing keyring, use DS_KEYRING env or --keyring-file cli argument"),
+        };
+
+        if args.cmd_bootstrap_keyring {
+            return Config::BootstrapKeyring(BootstrapKeyring {
+                password,
+                salt,
+                keyring_file,
+            });
+        }
+
         let chunk_size = match &args.flag_chunk_size {
             Some(chunk_size) => *chunk_size,
             None => match env::var("DS_CHUNK_SIZE") {
@@ -78,18 +97,18 @@ impl Config {
             },
         };
 
-        let key = create_key(salt, password).unwrap();
+        let keyring = load_keyring(&keyring_file, password, salt);
 
         if args.cmd_encrypt {
             Config::Encrypt(EncryptConfig {
-                key,
+                keyring,
                 chunk_size,
                 input_file: args.arg_input_file.clone().unwrap(),
                 output_file: args.arg_output_file.clone().unwrap(),
             })
         } else if args.cmd_decrypt {
             Config::Decrypt(DecryptConfig {
-                key,
+                keyring,
                 input_file: args.arg_input_file.clone().unwrap(),
                 output_file: args.arg_output_file.clone().unwrap(),
             })
@@ -138,7 +157,7 @@ impl Config {
             .unwrap();
 
             Config::Http(HttpConfig {
-                key,
+                keyring,
                 chunk_size,
                 upstream_base_url,
                 noop: args.flag_noop,
@@ -185,39 +204,12 @@ fn ensure_valid_password(password: &str, hash: &str) {
     }
 }
 
-pub fn create_key(salt: String, password: String) -> Result<Key, &'static str> {
-    if let Some(salt) = Salt::from_slice(salt.as_bytes()) {
-        let mut raw_key = [0u8; KEYBYTES];
-
-        pwhash::derive_key(
-            &mut raw_key,
-            password.as_bytes(),
-            &salt,
-            pwhash::OPSLIMIT_INTERACTIVE,
-            pwhash::MEMLIMIT_INTERACTIVE,
-        )
-        .unwrap();
-
-        Ok(Key(raw_key))
-    } else {
-        Err("Unable to derive a key from the salt")
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use actix_web::test::TestRequest;
-
-    #[test]
-    fn test_key_creation() {
-        let password = "Correct Horse Battery Staple".to_string();
-        let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
-
-        let key_ok = create_key(salt, password);
-
-        assert!(key_ok.is_ok());
-    }
 
     #[test]
     fn test_create_upstream_url() {
@@ -253,11 +245,10 @@ mod tests {
     }
 
     fn default_config(upstream_base_url: &str) -> HttpConfig {
-        let password = "Correct Horse Battery Staple".to_string();
-        let salt = "abcdefghabcdefghabcdefghabcdefgh".to_string();
+        let keyring = Keyring::new(HashMap::new());
 
         HttpConfig {
-            key: create_key(salt, password).unwrap(),
+            keyring,
             chunk_size: DEFAULT_CHUNK_SIZE,
             upstream_base_url: upstream_base_url.to_string(),
             noop: false,

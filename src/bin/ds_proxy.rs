@@ -6,6 +6,7 @@ extern crate sodiumoxide;
 use docopt::Docopt;
 use ds_proxy::args::{Args, USAGE};
 use ds_proxy::config::{Config, Config::*};
+use ds_proxy::keyring_utils::bootstrap_and_save_keyring;
 use ds_proxy::{file, http};
 use log::info;
 use std::env;
@@ -31,6 +32,9 @@ fn main() {
     match config {
         Encrypt(config) => file::encrypt(config),
         Decrypt(config) => file::decrypt(config),
+        BootstrapKeyring(config) => {
+            bootstrap_and_save_keyring(&config.keyring_file, config.password, config.salt)
+        }
         Http(config) => {
             if args.flag_noop {
                 info!("proxy in dry mode")

@@ -17,11 +17,14 @@ actix-files = "*"
 bytes = "*"
 docopt = "*"
 serde = { version = "*", features = ["derive"] }
+toml = "*"
 log = "*"
 env_logger = "*"
 sentry = "*"
 sentry-actix = "*"
 url = "*"
+base64 = "*"
+serde_json = "*"
 
 [dev-dependencies]
 assert_cmd = "*"

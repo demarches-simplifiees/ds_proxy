@@ -34,7 +34,7 @@ pub fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType)
     }
 
     match decipher {
-        DecipherType::Encrypted { chunk_size } => {
+        DecipherType::Encrypted { chunk_size, .. } => {
             // encrypted = header_ds + header_crypto + n ( abytes + chunk ) + a (abytes + remainder)
             // with remainder < chunk and a = 0 if remainder = 0, a = 1 otherwise
             //
@@ -69,8 +69,13 @@ mod tests {
         let chunk_size = 16;
         let encrypted_length = 0;
 
-        let decrypted_length =
-            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted {
+                chunk_size,
+                key_id: 0,
+            },
+        );
 
         assert_eq!(original_length, decrypted_length);
     }
@@ -82,8 +87,13 @@ mod tests {
         let nb_chunk = 32 / 16;
         let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
 
-        let decrypted_length =
-            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted {
+                chunk_size,
+                key_id: 0,
+            },
+        );
 
         assert_eq!(original_length, decrypted_length);
     }
@@ -96,8 +106,13 @@ mod tests {
         let encrypted_length =
             HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
 
-        let decrypted_length =
-            decrypted_content_length(encrypted_length, DecipherType::Encrypted { chunk_size });
+        let decrypted_length = decrypted_content_length(
+            encrypted_length,
+            DecipherType::Encrypted {
+                chunk_size,
+                key_id: 0,
+            },
+        );
 
         assert_eq!(original_length, decrypted_length);
     }
@@ -109,7 +124,10 @@ mod tests {
 
         let decrypted_length = decrypted_content_length(
             encrypted_length,
-            DecipherType::Encrypted { chunk_size: 256 },
+            DecipherType::Encrypted {
+                chunk_size: 256,
+                key_id: 0,
+            },
         );
 
         assert_eq!(original_length, decrypted_length);

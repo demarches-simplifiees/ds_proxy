@@ -10,7 +10,9 @@ pub fn encrypt(config: EncryptConfig) {
     let source: Result<Bytes, Error> = Ok(Bytes::from(input));
     let source_stream = futures::stream::once(Box::pin(async { source }));
 
-    let encoder = Encoder::new(config.key, config.chunk_size, Box::new(source_stream));
+    let key = config.keyring.get_last_key();
+
+    let encoder = Encoder::new(key, config.chunk_size, Box::new(source_stream));
 
     let buf = block_on_stream(encoder).map(|r| r.unwrap()).fold(
         BytesMut::with_capacity(64),
@@ -29,7 +31,7 @@ pub fn decrypt(config: DecryptConfig) {
     let source: Result<Bytes, Error> = Ok(Bytes::from(input));
     let source_stream = futures::stream::once(Box::pin(async { source }));
 
-    let decoder = Decoder::new(config.key, Box::new(source_stream));
+    let decoder = Decoder::new(config.keyring, Box::new(source_stream));
 
     let buf = block_on_stream(decoder).map(|r| r.unwrap()).fold(
         BytesMut::with_capacity(64),

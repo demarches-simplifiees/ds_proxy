@@ -3,7 +3,6 @@ pub use serial_test::serial;
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
 use assert_cmd::prelude::*;
-use ds_proxy::config::create_key;
 use futures::executor::block_on_stream;
 use std::path::Path;
 use std::process::{Child, Command};
@@ -11,12 +10,14 @@ use std::time::Duration;
 use std::{thread, time};
 
 use ds_proxy::crypto::*;
+use ds_proxy::keyring_utils::load_keyring;
 
 mod curl;
 pub use curl::*;
 
 pub const PASSWORD: &str = "plop";
 pub const SALT: &str = "12345678901234567890123456789012";
+pub const DS_KEYRING: &str = "/tmp/test_keys.toml";
 pub const HASH_FILE_ARG: &str = "--hash-file=tests/fixtures/password.hash";
 pub const CHUNK_SIZE: usize = 512;
 
@@ -40,11 +41,26 @@ impl ProxyAndNode {
     }
 
     pub fn start_with_options(latency: Option<Duration>, log: PrintServerLogs) -> ProxyAndNode {
+        bootstrap_keyring();
         let proxy = launch_proxy(log);
         let node = launch_node_with_latency(latency, log);
         thread::sleep(time::Duration::from_secs(4));
         ProxyAndNode { proxy, node }
     }
+}
+
+pub fn bootstrap_keyring() {
+    let mut command = Command::cargo_bin("ds_proxy").unwrap();
+    let result = command
+        .arg("bootstrap-keyring")
+        .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
+        .env("DS_PASSWORD", PASSWORD)
+        .env("DS_SALT", SALT)
+        .output()
+        .expect("failed to perform bootstrap");
+
+    println!("result: {:?}", result);
 }
 
 pub fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
@@ -54,6 +70,7 @@ pub fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
         .arg("--address=localhost:4444")
         .arg("--upstream-url=http://localhost:3333")
         .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
         .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string());
@@ -130,6 +147,7 @@ pub fn decrypt(
         .arg(encrypted_path)
         .arg(decrypted_path)
         .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
         .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string())
@@ -140,8 +158,9 @@ pub fn decrypt(
 pub fn decrypt_bytes(input: Bytes) -> BytesMut {
     let source: Result<Bytes, Error> = Ok(input);
     let source_stream = futures::stream::once(Box::pin(async { source }));
-    let key = create_key(SALT.to_string(), PASSWORD.to_string()).unwrap();
-    let decoder = Decoder::new(key, Box::new(source_stream));
+    let keyring = load_keyring(DS_KEYRING, PASSWORD.to_string(), SALT.to_string());
+
+    let decoder = Decoder::new(keyring, Box::new(source_stream));
 
     block_on_stream(decoder)
         .map(|r| r.unwrap())
