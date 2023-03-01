@@ -2,6 +2,7 @@ use super::config::*;
 use super::crypto::*;
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
+use futures::executor::block_on;
 use futures::executor::block_on_stream;
 
 pub fn encrypt(config: EncryptConfig) {
@@ -10,9 +11,12 @@ pub fn encrypt(config: EncryptConfig) {
     let source: Result<Bytes, Error> = Ok(Bytes::from(input));
     let source_stream = futures::stream::once(Box::pin(async { source }));
 
-    let key = config.keyring.get_last_key();
+    let (key_id, key) = config
+        .keyring
+        .get_last_key()
+        .expect("no key avalaible for encryption");
 
-    let encoder = Encoder::new(key, config.chunk_size, Box::new(source_stream));
+    let encoder = Encoder::new(key, key_id, config.chunk_size, Box::new(source_stream));
 
     let buf = block_on_stream(encoder).map(|r| r.unwrap()).fold(
         BytesMut::with_capacity(64),
@@ -30,8 +34,14 @@ pub fn decrypt(config: DecryptConfig) {
 
     let source: Result<Bytes, Error> = Ok(Bytes::from(input));
     let source_stream = futures::stream::once(Box::pin(async { source }));
+    let mut boxy: Box<dyn futures::Stream<Item = Result<Bytes, _>> + Unpin> =
+        Box::new(source_stream);
 
-    let decoder = Decoder::new(config.keyring, Box::new(source_stream));
+    let header_decoder = HeaderDecoder::new(&mut boxy);
+    let (cypher_type, buff) = block_on(header_decoder);
+
+    let decoder =
+        Decoder::new_from_cypher_and_buffer(config.keyring.clone(), boxy, cypher_type, buff);
 
     let buf = block_on_stream(decoder).map(|r| r.unwrap()).fold(
         BytesMut::with_capacity(64),

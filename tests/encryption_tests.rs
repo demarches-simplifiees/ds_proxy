@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
-use futures::executor::block_on_stream;
+use futures::executor::{block_on, block_on_stream};
 
 use proptest::prelude::*;
 
@@ -31,8 +31,17 @@ fn encoding_then_decoding_returns_source_data() {
         let source : Result<Bytes, Error> = Ok(Bytes::from(source_bytes.clone()));
         let source_stream  = futures::stream::once(Box::pin(async { source }));
 
-        let encoder = Encoder::new(keyring.get_last_key(), chunk_size, Box::new(source_stream));
-        let decoder = Decoder::new(keyring.clone(), Box::new(encoder));
+        let (key_id, key) = keyring.get_last_key().unwrap();
+
+        let encoder = Encoder::new(key, key_id, chunk_size, Box::new(source_stream));
+
+        let mut boxy: Box<dyn futures::Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(encoder);
+
+        let header_decoder = HeaderDecoder::new(&mut boxy);
+        let (cypher_type, buff) = block_on(header_decoder);
+
+        let decoder =
+        Decoder::new_from_cypher_and_buffer(keyring.clone(), boxy, cypher_type, buff);
 
         let buf = block_on_stream(decoder)
             .map(|r| r.unwrap())
@@ -50,7 +59,13 @@ fn decrypting_plaintext_returns_plaintext() {
         let source : Result<Bytes, Error> = Ok(Bytes::from(clear.clone()));
         let source_stream  = futures::stream::once(Box::pin(async { source }));
 
-        let decoder = Decoder::new(keyring.clone(), Box::new(source_stream));
+        let mut boxy: Box<dyn futures::Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(source_stream);
+
+        let header_decoder = HeaderDecoder::new(&mut boxy);
+        let (cypher_type, buff) = block_on(header_decoder);
+
+        let decoder =
+        Decoder::new_from_cypher_and_buffer(keyring.clone(), boxy, cypher_type, buff);
 
         let buf = block_on_stream(decoder)
             .map(|r| r.unwrap())

@@ -17,6 +17,8 @@ fn encrypt_and_decrypt() {
     let encrypted_path = encrypted.path();
     let decrypted_path = decrypted.path();
 
+    bootstrap_keyring();
+
     let mut encrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     encrypt_cmd
         .arg("encrypt")
@@ -53,6 +55,8 @@ fn decrypt_witness_file() {
 
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
+
+    bootstrap_keyring();
 
     let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     decrypt_cmd

@@ -89,6 +89,39 @@ pub fn bootstrap_and_save_keyring(keyring_file: &str, master_password: String, s
     save_secrets(keyring_file, &secrets);
 }
 
+pub fn encrypt_and_save_keyring(
+    keys: Vec<[u8; 32]>,
+    keyring_path: &str,
+    master_password: String,
+    salt: String,
+) {
+    let mut key = [0u8; KEYBYTES];
+
+    let typed_salt = Salt::from_slice(salt.as_bytes()).unwrap();
+
+    pwhash::derive_key(
+        &mut key,
+        master_password.as_bytes(),
+        &typed_salt,
+        pwhash::OPSLIMIT_INTERACTIVE,
+        pwhash::MEMLIMIT_INTERACTIVE,
+    )
+    .unwrap();
+
+    let master_key = secretbox::Key::from_slice(&key.clone()).unwrap();
+
+    let hash = keys
+        .iter()
+        .enumerate()
+        .map(|(id, key)| (id.to_string(), base64_cipher(&master_key, *key)))
+        .collect();
+
+    let secrets = Secrets {
+        cipher_keyring: hash,
+    };
+    save_secrets(keyring_path, &secrets);
+}
+
 fn base64_cipher(master_key: &secretbox::Key, key: [u8; 32]) -> String {
     let (cipher, nonce) = encrypt(master_key, key);
     let nonce_cipher = concat(nonce, cipher);

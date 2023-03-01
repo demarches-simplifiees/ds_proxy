@@ -3,7 +3,7 @@ pub use serial_test::serial;
 use actix_web::web::{BufMut, Bytes, BytesMut};
 use actix_web::Error;
 use assert_cmd::prelude::*;
-use futures::executor::block_on_stream;
+use futures::executor::{block_on, block_on_stream};
 use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
@@ -37,12 +37,20 @@ pub struct ProxyAndNode {
 
 impl ProxyAndNode {
     pub fn start() -> ProxyAndNode {
-        ProxyAndNode::start_with_options(None, PrintServerLogs::No)
+        bootstrap_keyring();
+        ProxyAndNode::start_with_options(None, PrintServerLogs::No, None)
     }
 
-    pub fn start_with_options(latency: Option<Duration>, log: PrintServerLogs) -> ProxyAndNode {
-        bootstrap_keyring();
-        let proxy = launch_proxy(log);
+    pub fn start_with_keyring_path(keyring_path: &str) -> ProxyAndNode {
+        ProxyAndNode::start_with_options(None, PrintServerLogs::No, Some(keyring_path))
+    }
+
+    pub fn start_with_options(
+        latency: Option<Duration>,
+        log: PrintServerLogs,
+        keyring_path: Option<&str>,
+    ) -> ProxyAndNode {
+        let proxy = launch_proxy(log, keyring_path);
         let node = launch_node_with_latency(latency, log);
         thread::sleep(time::Duration::from_secs(4));
         ProxyAndNode { proxy, node }
@@ -51,7 +59,7 @@ impl ProxyAndNode {
 
 pub fn bootstrap_keyring() {
     let mut command = Command::cargo_bin("ds_proxy").unwrap();
-    let result = command
+    command
         .arg("bootstrap-keyring")
         .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", DS_KEYRING)
@@ -59,18 +67,23 @@ pub fn bootstrap_keyring() {
         .env("DS_SALT", SALT)
         .output()
         .expect("failed to perform bootstrap");
-
-    println!("result: {:?}", result);
 }
 
-pub fn launch_proxy(log: PrintServerLogs) -> ChildGuard {
+pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGuard {
+    let keyring = if let Some(file) = keyring_path {
+        file
+    } else {
+        bootstrap_keyring();
+        DS_KEYRING
+    };
+
     let mut command = Command::cargo_bin("ds_proxy").unwrap();
     command
         .arg("proxy")
         .arg("--address=localhost:4444")
         .arg("--upstream-url=http://localhost:3333")
         .arg(HASH_FILE_ARG)
-        .env("DS_KEYRING", DS_KEYRING)
+        .env("DS_KEYRING", keyring)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
         .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string());
@@ -158,9 +171,15 @@ pub fn decrypt(
 pub fn decrypt_bytes(input: Bytes) -> BytesMut {
     let source: Result<Bytes, Error> = Ok(input);
     let source_stream = futures::stream::once(Box::pin(async { source }));
+    let mut boxy: Box<dyn futures::Stream<Item = Result<Bytes, _>> + Unpin> =
+        Box::new(source_stream);
+
+    let header_decoder = HeaderDecoder::new(&mut boxy);
+    let (cypher_type, buff) = block_on(header_decoder);
+
     let keyring = load_keyring(DS_KEYRING, PASSWORD.to_string(), SALT.to_string());
 
-    let decoder = Decoder::new(keyring, Box::new(source_stream));
+    let decoder = Decoder::new_from_cypher_and_buffer(keyring, boxy, cypher_type, buff);
 
     block_on_stream(decoder)
         .map(|r| r.unwrap())

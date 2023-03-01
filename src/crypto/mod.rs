@@ -22,9 +22,9 @@ pub fn encrypted_content_length(clear_length: usize, chunk_size: usize) -> usize
     let remainder = clear_length % chunk_size;
 
     if remainder == 0 {
-        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size)
+        HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size)
     } else {
-        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + ABYTES + remainder
+        HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + ABYTES + remainder
     }
 }
 
@@ -34,7 +34,11 @@ pub fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType)
     }
 
     match decipher {
-        DecipherType::Encrypted { chunk_size, .. } => {
+        DecipherType::Encrypted {
+            chunk_size,
+            header_size,
+            ..
+        } => {
             // encrypted = header_ds + header_crypto + n ( abytes + chunk ) + a (abytes + remainder)
             // with remainder < chunk and a = 0 if remainder = 0, a = 1 otherwise
             //
@@ -44,14 +48,14 @@ pub fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType)
             //    = integer_part ( n + a (abytes + remainder) / (abytes + chunk) )
             //    = n
 
-            let nb_chunk = (encrypted_length - HEADER_SIZE - HEADERBYTES) / (ABYTES + chunk_size);
+            let nb_chunk = (encrypted_length - header_size - HEADERBYTES) / (ABYTES + chunk_size);
             let remainder_exists =
-                (encrypted_length - HEADER_SIZE - HEADERBYTES) % (ABYTES + chunk_size) != 0;
+                (encrypted_length - header_size - HEADERBYTES) % (ABYTES + chunk_size) != 0;
 
             if remainder_exists {
-                encrypted_length - HEADER_SIZE - HEADERBYTES - (nb_chunk + 1) * ABYTES
+                encrypted_length - header_size - HEADERBYTES - (nb_chunk + 1) * ABYTES
             } else {
-                encrypted_length - HEADER_SIZE - HEADERBYTES - nb_chunk * ABYTES
+                encrypted_length - header_size - HEADERBYTES - nb_chunk * ABYTES
             }
         }
 
@@ -74,6 +78,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
+                header_size: header::HEADER_SIZE,
             },
         );
 
@@ -92,6 +97,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
+                header_size: header::HEADER_SIZE,
             },
         );
 
@@ -111,6 +117,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
+                header_size: header::HEADER_SIZE,
             },
         );
 
@@ -127,6 +134,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size: 256,
                 key_id: 0,
+                header_size: header::HEADER_SIZE,
             },
         );
 
@@ -150,7 +158,7 @@ mod tests {
         let original_length = 32;
         let chunk_size = 16;
         let nb_chunk = 32 / 16;
-        let encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
+        let encrypted_length = HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size);
 
         assert_eq!(
             encrypted_length,
@@ -164,7 +172,7 @@ mod tests {
         let chunk_size = 16;
         let nb_chunk = 32 / 16;
         let encrypted_length =
-            HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
+            HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + chunk_size) + (ABYTES + 1);
 
         assert_eq!(
             encrypted_length,
@@ -175,7 +183,7 @@ mod tests {
     #[test]
     fn test_encrypted_content_length_with_another_exemple() {
         let original_length = 5882;
-        let encrypted_length = 6345;
+        let encrypted_length = 6353;
         let chunk_size = 256;
 
         assert_eq!(

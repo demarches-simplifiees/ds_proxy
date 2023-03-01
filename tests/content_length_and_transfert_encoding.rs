@@ -19,7 +19,7 @@ async fn content_length_and_transfert_encoding() {
     let original_length = nb_chunk * CHUNK_SIZE;
     let content = vec![0; original_length];
 
-    let expected_encrypted_length = HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + CHUNK_SIZE);
+    let expected_encrypted_length = HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + CHUNK_SIZE);
 
     let (uploaded_length, downloaded_length) =
         uploaded_and_downloaded_content_length(&content).await;
@@ -33,7 +33,7 @@ async fn content_length_and_transfert_encoding() {
     let content = vec![0; original_length];
 
     let expected_encrypted_length =
-        HEADER_SIZE + HEADERBYTES + nb_chunk * (ABYTES + CHUNK_SIZE) + ABYTES + 1;
+        HEADER_V2_SIZE + HEADERBYTES + nb_chunk * (ABYTES + CHUNK_SIZE) + ABYTES + 1;
 
     let (uploaded_length, downloaded_length) =
         uploaded_and_downloaded_content_length(&content).await;
