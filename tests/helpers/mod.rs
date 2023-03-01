@@ -73,6 +73,7 @@ pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGu
     let keyring = if let Some(file) = keyring_path {
         file
     } else {
+        bootstrap_keyring();
         DS_KEYRING
     };
 
