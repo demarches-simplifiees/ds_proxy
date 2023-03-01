@@ -34,7 +34,11 @@ pub fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType)
     }
 
     match decipher {
-        DecipherType::Encrypted { chunk_size, header_size, .. } => {
+        DecipherType::Encrypted {
+            chunk_size,
+            header_size,
+            ..
+        } => {
             // encrypted = header_ds + header_crypto + n ( abytes + chunk ) + a (abytes + remainder)
             // with remainder < chunk and a = 0 if remainder = 0, a = 1 otherwise
             //
@@ -74,7 +78,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
-                header_size: header::HEADER_SIZE
+                header_size: header::HEADER_SIZE,
             },
         );
 
@@ -93,7 +97,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
-                header_size: header::HEADER_SIZE
+                header_size: header::HEADER_SIZE,
             },
         );
 
@@ -113,7 +117,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size,
                 key_id: 0,
-                header_size: header::HEADER_SIZE
+                header_size: header::HEADER_SIZE,
             },
         );
 
@@ -130,7 +134,7 @@ mod tests {
             DecipherType::Encrypted {
                 chunk_size: 256,
                 key_id: 0,
-                header_size: header::HEADER_SIZE
+                header_size: header::HEADER_SIZE,
             },
         );
 

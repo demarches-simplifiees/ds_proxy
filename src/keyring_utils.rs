@@ -95,7 +95,6 @@ pub fn encrypt_and_save_keyring(
     master_password: String,
     salt: String,
 ) {
-
     let mut key = [0u8; KEYBYTES];
 
     let typed_salt = Salt::from_slice(salt.as_bytes()).unwrap();
@@ -117,7 +116,9 @@ pub fn encrypt_and_save_keyring(
         .map(|(id, key)| (id.to_string(), base64_cipher(&master_key, *key)))
         .collect();
 
-    let secrets = Secrets { cipher_keyring: hash };
+    let secrets = Secrets {
+        cipher_keyring: hash,
+    };
     save_secrets(keyring_path, &secrets);
 }
 

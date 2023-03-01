@@ -29,7 +29,7 @@ fn multiple_keys() {
         let keys = ids_keys
             .iter()
             .take(id_usize + 1)
-            .map(|(_, key)| key.clone())
+            .map(|(_, key)| *key)
             .collect();
 
         make_keyring(keyring_path, keys);
@@ -47,7 +47,7 @@ fn multiple_keys() {
 
     let final_keyring_file = temp.child("final_keyring");
     let final_keyring_path = final_keyring_file.path().to_str().unwrap();
-    let final_keys = ids_keys.iter().map(|(_, key)| key.clone()).collect();
+    let final_keys = ids_keys.iter().map(|(_, key)| *key).collect();
     make_keyring(final_keyring_path, final_keys);
 
     let _proxy_and_node = ProxyAndNode::start_with_keyring_path(final_keyring_path);
