@@ -83,7 +83,7 @@ pub async fn fetch(
                         format!("bytes {}-{}/{}", range_start, range_end, length),
                     ));
 
-                    return Ok(client_resp.no_chunking(r.length as u64).streaming(pe));
+                    return Ok(client_resp.no_chunking(r.length).streaming(pe));
                 }
                 _ => {
                     return Ok(client_resp.no_chunking(length as u64).streaming(decoder));
