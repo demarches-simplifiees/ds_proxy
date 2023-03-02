@@ -34,6 +34,29 @@ pub fn load_keyring(keyring_file: &str, master_password: String, salt: String) -
     Keyring::new(hash_map)
 }
 
+pub fn add_random_key_to_keyring(keyring_file: &str, master_password: String, salt: String) {
+    let new_key = random_key();
+    let master_key = build_master_key(master_password, salt);
+    add_key(keyring_file, &master_key, new_key);
+}
+
+fn add_key(keyring_file: &str, master_key: &secretbox::Key, key: [u8; 32]) {
+    let new_base64_cipher = base64_cipher(master_key, key);
+
+    let mut secrets = load_secrets(keyring_file);
+    secrets
+        .cipher_keyring
+        .insert(next_id(&secrets), new_base64_cipher);
+
+    save_secrets(keyring_file, &secrets)
+}
+
+fn random_key() -> [u8; 32] {
+    sodiumoxide::randombytes::randombytes(KEYBYTES)
+        .try_into()
+        .unwrap()
+}
+
 fn to_u64(id: &str) -> u64 {
     id.parse::<u64>().unwrap()
 }
@@ -60,6 +83,39 @@ fn decrypt(master_key: &secretbox::Key, nonce_cipher: Vec<u8>) -> [u8; KEYBYTES]
         .expect("could not decipher a key")
         .try_into()
         .unwrap()
+}
+
+fn build_master_key(master_password: String, salt: String) -> secretbox::Key {
+    let mut key = [0u8; KEYBYTES];
+
+    let typed_salt = Salt::from_slice(salt.as_bytes()).unwrap();
+
+    pwhash::derive_key(
+        &mut key,
+        master_password.as_bytes(),
+        &typed_salt,
+        pwhash::OPSLIMIT_INTERACTIVE,
+        pwhash::MEMLIMIT_INTERACTIVE,
+    )
+    .unwrap();
+
+    secretbox::Key::from_slice(&key).unwrap()
+}
+
+fn next_id(secrets: &Secrets) -> String {
+    if let Some(max) = last_id(secrets) {
+        (max + 1).to_string()
+    } else {
+        "0".to_string()
+    }
+}
+
+fn last_id(secrets: &Secrets) -> Option<u64> {
+    secrets
+        .cipher_keyring
+        .keys()
+        .max()
+        .map(|x| x.parse::<u64>().unwrap())
 }
 
 pub fn bootstrap_and_save_keyring(keyring_file: &str, master_password: String, salt: String) {
