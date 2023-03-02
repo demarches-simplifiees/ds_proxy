@@ -8,20 +8,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 
 pub fn load_keyring(keyring_file: &str, master_password: String, salt: String) -> Keyring {
-    let mut raw_master_password = [0u8; KEYBYTES];
-
-    let typed_salt = Salt::from_slice(salt.as_bytes()).unwrap();
-
-    pwhash::derive_key(
-        &mut raw_master_password,
-        master_password.as_bytes(),
-        &typed_salt,
-        pwhash::OPSLIMIT_INTERACTIVE,
-        pwhash::MEMLIMIT_INTERACTIVE,
-    )
-    .unwrap();
-
-    let master_key = secretbox::Key::from_slice(&raw_master_password.clone()).unwrap();
+    let master_key = build_master_key(master_password, salt);
 
     let hash_map = load_secrets(keyring_file)
         .cipher_keyring
