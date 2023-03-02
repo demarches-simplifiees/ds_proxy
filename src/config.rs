@@ -17,6 +17,7 @@ pub enum Config {
     Encrypt(EncryptConfig),
     Http(HttpConfig),
     BootstrapKeyring(BootstrapKeyring),
+    AddKeyConfig(AddKeyConfig),
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +48,13 @@ pub struct HttpConfig {
 
 #[derive(Debug, Clone)]
 pub struct BootstrapKeyring {
+    pub password: String,
+    pub salt: String,
+    pub keyring_file: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct AddKeyConfig {
     pub password: String,
     pub salt: String,
     pub keyring_file: String,
@@ -83,6 +91,14 @@ impl Config {
 
         if args.cmd_bootstrap_keyring {
             return Config::BootstrapKeyring(BootstrapKeyring {
+                password,
+                salt,
+                keyring_file,
+            });
+        }
+
+        if args.cmd_add_key {
+            return Config::AddKeyConfig(AddKeyConfig {
                 password,
                 salt,
                 keyring_file,
