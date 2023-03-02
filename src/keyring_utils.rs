@@ -125,7 +125,7 @@ pub fn encrypt_and_save_keyring(
 fn base64_cipher(master_key: &secretbox::Key, key: [u8; 32]) -> String {
     let (cipher, nonce) = encrypt(master_key, key);
     let nonce_cipher = concat(nonce, cipher);
-    base64::encode(&nonce_cipher)
+    base64::encode(nonce_cipher)
 }
 
 fn encrypt(master_key: &secretbox::Key, byte_key: [u8; 32]) -> (Vec<u8>, [u8; 24]) {
