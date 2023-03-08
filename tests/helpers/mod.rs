@@ -37,7 +37,6 @@ pub struct ProxyAndNode {
 
 impl ProxyAndNode {
     pub fn start() -> ProxyAndNode {
-        bootstrap_keyring();
         ProxyAndNode::start_with_options(None, PrintServerLogs::No, None)
     }
 
@@ -57,23 +56,10 @@ impl ProxyAndNode {
     }
 }
 
-pub fn bootstrap_keyring() {
-    let mut command = Command::cargo_bin("ds_proxy").unwrap();
-    command
-        .arg("bootstrap-keyring")
-        .arg(HASH_FILE_ARG)
-        .env("DS_KEYRING", DS_KEYRING)
-        .env("DS_PASSWORD", PASSWORD)
-        .env("DS_SALT", SALT)
-        .output()
-        .expect("failed to perform bootstrap");
-}
-
 pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGuard {
     let keyring = if let Some(file) = keyring_path {
         file
     } else {
-        bootstrap_keyring();
         DS_KEYRING
     };
 

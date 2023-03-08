@@ -105,33 +105,6 @@ fn last_id(secrets: &Secrets) -> Option<u64> {
         .map(|x| x.parse::<u64>().unwrap())
 }
 
-pub fn bootstrap_and_save_keyring(keyring_file: &str, master_password: String, salt: String) {
-    let mut key = [0u8; KEYBYTES];
-
-    let typed_salt = Salt::from_slice(salt.as_bytes()).unwrap();
-
-    pwhash::derive_key(
-        &mut key,
-        master_password.as_bytes(),
-        &typed_salt,
-        pwhash::OPSLIMIT_INTERACTIVE,
-        pwhash::MEMLIMIT_INTERACTIVE,
-    )
-    .unwrap();
-
-    let master_key = secretbox::Key::from_slice(&key.clone()).unwrap();
-
-    let new_base64_cipher = base64_cipher(&master_key, key);
-
-    let mut hash = HashMap::new();
-    hash.insert("0".to_string(), new_base64_cipher);
-    let secrets = Secrets {
-        cipher_keyring: hash,
-    };
-
-    save_secrets(keyring_file, &secrets);
-}
-
 pub fn encrypt_and_save_keyring(
     keys: Vec<[u8; 32]>,
     keyring_path: &str,

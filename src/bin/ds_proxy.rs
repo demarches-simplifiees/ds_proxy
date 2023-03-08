@@ -6,7 +6,7 @@ extern crate sodiumoxide;
 use docopt::Docopt;
 use ds_proxy::args::{Args, USAGE};
 use ds_proxy::config::{Config, Config::*};
-use ds_proxy::keyring_utils::{add_random_key_to_keyring, bootstrap_and_save_keyring};
+use ds_proxy::keyring_utils::add_random_key_to_keyring;
 use ds_proxy::{file, http};
 use log::info;
 use std::env;
@@ -32,9 +32,6 @@ fn main() {
     match config {
         Encrypt(config) => file::encrypt(config),
         Decrypt(config) => file::decrypt(config),
-        BootstrapKeyring(config) => {
-            bootstrap_and_save_keyring(&config.keyring_file, config.password, config.salt)
-        }
         AddKeyConfig(config) => {
             add_random_key_to_keyring(&config.keyring_file, config.password, config.salt)
         }

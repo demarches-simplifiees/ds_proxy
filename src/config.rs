@@ -16,7 +16,6 @@ pub enum Config {
     Decrypt(DecryptConfig),
     Encrypt(EncryptConfig),
     Http(HttpConfig),
-    BootstrapKeyring(BootstrapKeyring),
     AddKeyConfig(AddKeyConfig),
 }
 
@@ -44,13 +43,6 @@ pub struct HttpConfig {
     pub max_connections: usize,
     pub address: SocketAddr,
     pub local_encryption_directory: PathBuf,
-}
-
-#[derive(Debug, Clone)]
-pub struct BootstrapKeyring {
-    pub password: String,
-    pub salt: String,
-    pub keyring_file: String,
 }
 
 #[derive(Debug, Clone)]
@@ -88,14 +80,6 @@ impl Config {
             None => env::var("DS_KEYRING")
                 .expect("Missing keyring, use DS_KEYRING env or --keyring-file cli argument"),
         };
-
-        if args.cmd_bootstrap_keyring {
-            return Config::BootstrapKeyring(BootstrapKeyring {
-                password,
-                salt,
-                keyring_file,
-            });
-        }
 
         if args.cmd_add_key {
             return Config::AddKeyConfig(AddKeyConfig {
