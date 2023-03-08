@@ -17,7 +17,7 @@ pub use curl::*;
 
 pub const PASSWORD: &str = "plop";
 pub const SALT: &str = "12345678901234567890123456789012";
-pub const DS_KEYRING: &str = "/tmp/test_keys.toml";
+pub const DS_KEYRING: &str = "tests/fixtures/keyring.toml";
 pub const HASH_FILE_ARG: &str = "--hash-file=tests/fixtures/password.hash";
 pub const CHUNK_SIZE: usize = 512;
 
