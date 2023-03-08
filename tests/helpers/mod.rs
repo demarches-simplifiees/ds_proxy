@@ -181,3 +181,15 @@ pub fn ensure_is_absent(file_path: &str) {
             .unwrap_or_else(|_| panic!("Unable to remove {} !", file_path));
     }
 }
+
+pub fn add_a_key(keyring_path: &str) -> assert_cmd::assert::Assert {
+    Command::cargo_bin("ds_proxy")
+        .unwrap()
+        .arg("add-key")
+        .arg(HASH_FILE_ARG)
+        .env("DS_KEYRING", keyring_path)
+        .env("DS_PASSWORD", PASSWORD)
+        .env("DS_SALT", SALT)
+        .assert()
+        .success()
+}
