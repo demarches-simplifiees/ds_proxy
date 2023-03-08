@@ -1,8 +1,6 @@
 use super::{args, keyring::Keyring, keyring_utils::load_keyring};
 use actix_web::HttpRequest;
 
-use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
-
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
@@ -59,14 +57,6 @@ impl Config {
             None => env::var("DS_PASSWORD")
                 .expect("Missing password, use DS_PASSWORD env or --password-file cli argument"),
         };
-
-        let password_hash = match &args.flag_hash_file {
-            Some(hash_file) => read_file_content(hash_file),
-            None => env::var("DS_PASSWORD_HASH")
-                .expect("Missing hash, use DS_PASSWORD_HASH env or --hash-file cli argument"),
-        };
-
-        ensure_valid_password(&password, &password_hash);
 
         let salt = match &args.flag_salt {
             Some(salt) => salt.to_string(),
@@ -193,14 +183,6 @@ fn read_file_content(path_string: &str) -> String {
     match std::fs::read(path_string) {
         Err(why) => panic!("couldn't open {}: {}", path_string, why),
         Ok(file) => String::from_utf8(file).unwrap(),
-    }
-}
-
-fn ensure_valid_password(password: &str, hash: &str) {
-    let hash = HashedPassword::from_slice(hash.as_bytes());
-
-    if !pwhash_verify(&hash.unwrap(), password.trim_end().as_bytes()) {
-        panic!("Incorrect password, aborting");
     }
 }
 

@@ -4,10 +4,10 @@ pub const USAGE: &str = "
 DS encryption proxy.
 
 Usage:
-  ds_proxy encrypt <input-file> <output-file> [--password-file=<password-file>] [--hash-file=<hash-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--keyring-file=<keyring-file>]
-  ds_proxy decrypt <input-file> <output-file> [--password-file=<password-file>] [--hash-file=<hash-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--keyring-file=<keyring-file>]
-  ds_proxy proxy [--address=<address>] [--password-file=<password-file>] [--hash-file=<hash-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--upstream-url=<upstream-url>] [--max-connections=<max-connections>] [--local-encryption-directory=<local-encryption-directory>] [--noop] [--keyring-file=<keyring-file>]
-  ds_proxy add-key [--password-file=<password-file>] [--hash-file=<hash-file>] [--salt=<salt>] [--keyring-file=<keyring-file>]
+  ds_proxy encrypt <input-file> <output-file> [--password-file=<password-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--keyring-file=<keyring-file>]
+  ds_proxy decrypt <input-file> <output-file> [--password-file=<password-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--keyring-file=<keyring-file>]
+  ds_proxy proxy [--address=<address>] [--password-file=<password-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--upstream-url=<upstream-url>] [--max-connections=<max-connections>] [--local-encryption-directory=<local-encryption-directory>] [--noop] [--keyring-file=<keyring-file>]
+  ds_proxy add-key [--password-file=<password-file>] [--salt=<salt>] [--keyring-file=<keyring-file>]
   ds_proxy (-h | --help)
   ds_proxy --version
 
@@ -20,7 +20,6 @@ Options:
 pub struct Args {
     pub flag_address: Option<String>,
     pub flag_chunk_size: Option<usize>,
-    pub flag_hash_file: Option<String>,
     pub arg_input_file: Option<String>,
     pub flag_keyring_file: Option<String>,
     pub flag_noop: bool,
