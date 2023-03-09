@@ -2,53 +2,60 @@
 
 ## Contexte
 
-DS Proxy sert de proxy de chiffrement des fichiers entre l'application [démarches-simplifées](https://github.com/betagouv/demarches-simplifiees.fr/) et son backend de stockage.
+DS Proxy est un proxy HTTP de chiffrement en streaming. Il est utilisé sur [démarches-simplifées](https://github.com/demarches-simplifiees/demarches-simplifiees.fr) avec un backend Openstack Swift mais devrait être compatible avec le protocol S3.
+Il permet de se prémunir d'accès non authorisé aux espaces de stockages mutualisés de type object storage en y stockant uniquement de la donnée chiffrée.
 
-Il se compose de 2 programmes:
+Fonctionnalités :
+- chiffre et déchiffre de manière transparente pour le client des fichiers en http en les les stockants sur l'object storage
+- chiffre et stocke en local de gros fichier (`/local/`) depuis un envoi http
+- chiffrer et dechiffrer des fichiers sur le système de fichier
+- est performant
+- supporte de multiple clés de chiffrement pour se conformer à une politique de péremption de clés
+- possède une url de health check `/ping` qui renvoie une 404 si le fichier `maintenance` est présent à coté du binaire.
 
- - le proxy
- - un générateur de hash
+## Pour commencer
 
-## Compilation
+prérequis: 
+- [rust](rust-lang.org) dans la version préciser par le fichier `Cargo.toml`
+- et dans la cadre de la démo [node](https://nodejs.org)
 
-Le proxy est un applicatif [rust](rust-lang.org). La méthode préconisée pour installer le compilateur au sein de
-la communauté est [rustup](https://rustup.rs/)
+puis lancer le script `launch_demo.sh` qui compilera le proxy, le démarrera, et qui lancera un faux backend object storage en node.
 
-`Rustup`, le gestionnaire de versions de rust, va vous permettre d'installer la bonne version de `cargo`,
-l'outil à tout faire qui permet notamment de piloter `rustc`, le compilateur. Ouf !
+## Installation
 
-Concrètement, après avoir suivi l'installation de rustup, on peut compiler l'application en mode `debug` ou `release`
-avec les commandes suivantes:
+- compiler le proxy pour la production: `cargo build --release`, le binaire se trouve à présent ici : `target/release/ds_proxy`
+- placer le binaire sur votre server et utiliser votre système habituel pour le superviser
+exemple d'un fichier service minimal de supervision par systemd.
 
-    $ cargo build
-    $ cargo build --release
+```
+[Unit]
+Description=DS Proxy Service
+After=network.target
 
-Vous pouvez également jouer les tests automatisés avec `cargo test` :
+[Service]
+ExectStart=/usr/bin/ds_proxy proxy --password-file /var/ds_proxy/password --salt a_32_charactere_long_salt_123456 --keyring-file /var/ds_proxy/keyring.toml  --local-encryption-directory /var/ds_proxy/local_encryption/ --address 0.0.0.0:4444 --upstream_url 'https://my-storage-object.com'
 
-    $ (cd tests/fixtures/server-static && yarn install)
-    $ cargo test
+Environment=RUST_LOG="actix_web=info"
+...
+```
 
-Afin de vous faciliter la vie, vous pouvez également regarder sur [AreWeIDEYet](https://areweideyet.com/) quels sont
-les plugins les plus adaptés pour votre éditeur favori.
+### Garder le password en mémoire
 
-## Usage
+Pour éviter que le password ne reste sur le disque et en suivant https://www.netmeister.org/blog/passing-passwords.html, nous utilisons `mkfifo` pour créer un named pipe qui nous permet de transmettre le mot passe en restant en mémoire.
+En voici le principe :
+```
+mkfifo -m 0600 password_file
+systemctl start ds_proxy
+systemd-ask-password > password_file
+rm -f password_file
+```
 
-Il faut tout d'abord générer un hash du mot de passe utilisé:
+## Dans le détail
 
-    $ create_hash_file hash.key
+### Algo
+DS Proxy utilise actuellement l'algorithme de chiffrement [xchacha20poly1305](https://doc.libsodium.org/secret-key_cryptography/aead/chacha20-poly1305/xchacha20-poly1305_construction) proposé par la librairie [sodium](https://doc.libsodium.org/) dont l'interface est portée en rust par [sodiumoxide](https://github.com/sodiumoxide/sodiumoxide).
 
-Il faut ensuite définir les variables d'environnement nécessaires:
-
-    $ export UPSTREAM_URL="http://your.storage.backend";
-    $ export DS_SALT="abcdefghabcdefghabcdefghabcdefgh";
-
-Le sel DS_SALT doit faire 32 caractères.
-
-On peut ensuite lancer le proxy:
-
-    $ ./ds_proxy proxy localhost 8888 fichier_password
-
-Le fichier password contenant le mot de passe.
+Les clés de chiffrement sont stockés sur un fichier `keyring.toml`. Ce fichier est lui même chiffré à l'aide d'un mot de passe maître et d'un sel.
 
 ## Comment contribuer ?
 
