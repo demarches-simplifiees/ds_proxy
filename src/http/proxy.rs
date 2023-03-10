@@ -18,7 +18,6 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 #[actix_web::main]
 pub async fn main(config: HttpConfig) -> std::io::Result<()> {
     let address = config.address;
-    let max_conn = config.max_connections;
 
     HttpServer::new(move || {
         App::new()
@@ -50,7 +49,6 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
                     ),
             )
     })
-    .max_connections(max_conn)
     .keep_alive(actix_http::KeepAlive::Disabled)
     .bind_uds("/tmp/actix-uds.socket")?
     .bind(address)?

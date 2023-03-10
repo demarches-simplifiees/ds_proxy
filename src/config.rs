@@ -1,8 +1,6 @@
 use super::{args, keyring::Keyring, keyring_utils::load_keyring};
 use actix_web::HttpRequest;
 
-use sodiumoxide::crypto::pwhash::argon2i13::{pwhash_verify, HashedPassword};
-
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
@@ -16,7 +14,6 @@ pub enum Config {
     Decrypt(DecryptConfig),
     Encrypt(EncryptConfig),
     Http(HttpConfig),
-    BootstrapKeyring(BootstrapKeyring),
     AddKeyConfig(AddKeyConfig),
 }
 
@@ -38,19 +35,10 @@ pub struct EncryptConfig {
 #[derive(Debug, Clone)]
 pub struct HttpConfig {
     pub upstream_base_url: String,
-    pub noop: bool,
     pub keyring: Keyring,
     pub chunk_size: usize,
-    pub max_connections: usize,
     pub address: SocketAddr,
     pub local_encryption_directory: PathBuf,
-}
-
-#[derive(Debug, Clone)]
-pub struct BootstrapKeyring {
-    pub password: String,
-    pub salt: String,
-    pub keyring_file: String,
 }
 
 #[derive(Debug, Clone)]
@@ -68,14 +56,6 @@ impl Config {
                 .expect("Missing password, use DS_PASSWORD env or --password-file cli argument"),
         };
 
-        let password_hash = match &args.flag_hash_file {
-            Some(hash_file) => read_file_content(hash_file),
-            None => env::var("DS_PASSWORD_HASH")
-                .expect("Missing hash, use DS_PASSWORD_HASH env or --hash-file cli argument"),
-        };
-
-        ensure_valid_password(&password, &password_hash);
-
         let salt = match &args.flag_salt {
             Some(salt) => salt.to_string(),
             None => {
@@ -88,14 +68,6 @@ impl Config {
             None => env::var("DS_KEYRING")
                 .expect("Missing keyring, use DS_KEYRING env or --keyring-file cli argument"),
         };
-
-        if args.cmd_bootstrap_keyring {
-            return Config::BootstrapKeyring(BootstrapKeyring {
-                password,
-                salt,
-                keyring_file,
-            });
-        }
 
         if args.cmd_add_key {
             return Config::AddKeyConfig(AddKeyConfig {
@@ -176,10 +148,8 @@ impl Config {
                 keyring,
                 chunk_size,
                 upstream_base_url,
-                noop: args.flag_noop,
                 address,
                 local_encryption_directory,
-                max_connections: args.flag_max_connections.unwrap_or(25_000),
             })
         }
     }
@@ -209,14 +179,6 @@ fn read_file_content(path_string: &str) -> String {
     match std::fs::read(path_string) {
         Err(why) => panic!("couldn't open {}: {}", path_string, why),
         Ok(file) => String::from_utf8(file).unwrap(),
-    }
-}
-
-fn ensure_valid_password(password: &str, hash: &str) {
-    let hash = HashedPassword::from_slice(hash.as_bytes());
-
-    if !pwhash_verify(&hash.unwrap(), password.trim_end().as_bytes()) {
-        panic!("Incorrect password, aborting");
     }
 }
 
@@ -267,9 +229,7 @@ mod tests {
             keyring,
             chunk_size: DEFAULT_CHUNK_SIZE,
             upstream_base_url: upstream_base_url.to_string(),
-            noop: false,
             address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
-            max_connections: 1,
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
         }
     }

@@ -48,49 +48,41 @@ pub async fn fetch(
 
     let original_length = content_length(res.headers());
 
-    if config.noop {
-        if let Some(length) = original_length {
-            Ok(client_resp.no_chunking(length as u64).streaming(res))
-        } else {
-            Ok(client_resp.streaming(res))
+    let mut boxy: Box<dyn Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(res);
+    let header_decoder = HeaderDecoder::new(&mut boxy);
+    let (cypher_type, buff) = header_decoder.await;
+    let fetch_length =
+        original_length.map(|content_length| decrypted_content_length(content_length, cypher_type));
+
+    let decoder =
+        Decoder::new_from_cypher_and_buffer(config.keyring.clone(), boxy, cypher_type, buff);
+
+    if let Some(length) = fetch_length {
+        use std::convert::TryInto;
+
+        let range = raw_range.map(|r| HttpRange::parse(r, length.try_into().unwrap()));
+
+        match range {
+            Some(Ok(v)) => {
+                let r = v.first().unwrap();
+
+                let range_start = r.start.try_into().unwrap();
+                let range_end = (r.start + r.length - 1).try_into().unwrap();
+
+                let pe = PartialExtractor::new(Box::new(decoder), range_start, range_end);
+
+                client_resp.append_header((
+                    header::CONTENT_RANGE,
+                    format!("bytes {}-{}/{}", range_start, range_end, length),
+                ));
+
+                return Ok(client_resp.no_chunking(r.length).streaming(pe));
+            }
+            _ => {
+                return Ok(client_resp.no_chunking(length as u64).streaming(decoder));
+            }
         }
     } else {
-        let mut boxy: Box<dyn Stream<Item = Result<Bytes, _>> + Unpin> = Box::new(res);
-        let header_decoder = HeaderDecoder::new(&mut boxy);
-        let (cypher_type, buff) = header_decoder.await;
-        let fetch_length = original_length
-            .map(|content_length| decrypted_content_length(content_length, cypher_type));
-
-        let decoder =
-            Decoder::new_from_cypher_and_buffer(config.keyring.clone(), boxy, cypher_type, buff);
-
-        if let Some(length) = fetch_length {
-            use std::convert::TryInto;
-
-            let range = raw_range.map(|r| HttpRange::parse(r, length.try_into().unwrap()));
-
-            match range {
-                Some(Ok(v)) => {
-                    let r = v.first().unwrap();
-
-                    let range_start = r.start.try_into().unwrap();
-                    let range_end = (r.start + r.length - 1).try_into().unwrap();
-
-                    let pe = PartialExtractor::new(Box::new(decoder), range_start, range_end);
-
-                    client_resp.append_header((
-                        header::CONTENT_RANGE,
-                        format!("bytes {}-{}/{}", range_start, range_end, length),
-                    ));
-
-                    return Ok(client_resp.no_chunking(r.length).streaming(pe));
-                }
-                _ => {
-                    return Ok(client_resp.no_chunking(length as u64).streaming(decoder));
-                }
-            }
-        } else {
-            Ok(client_resp.streaming(decoder))
-        }
+        Ok(client_resp.streaming(decoder))
     }
 }

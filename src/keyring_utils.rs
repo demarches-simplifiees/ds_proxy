@@ -1,4 +1,6 @@
 use super::keyring::Keyring;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::pwhash;
 use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
@@ -49,7 +51,7 @@ fn to_u64(id: &str) -> u64 {
 }
 
 fn decode64(text: &str) -> Vec<u8> {
-    base64::decode(text).unwrap()
+    STANDARD.decode(text).unwrap()
 }
 
 fn load_secrets(keyring_file: &str) -> Secrets {
@@ -105,70 +107,10 @@ fn last_id(secrets: &Secrets) -> Option<u64> {
         .map(|x| x.parse::<u64>().unwrap())
 }
 
-pub fn bootstrap_and_save_keyring(keyring_file: &str, master_password: String, salt: String) {
-    let mut key = [0u8; KEYBYTES];
-
-    let typed_salt = Salt::from_slice(salt.as_bytes()).unwrap();
-
-    pwhash::derive_key(
-        &mut key,
-        master_password.as_bytes(),
-        &typed_salt,
-        pwhash::OPSLIMIT_INTERACTIVE,
-        pwhash::MEMLIMIT_INTERACTIVE,
-    )
-    .unwrap();
-
-    let master_key = secretbox::Key::from_slice(&key.clone()).unwrap();
-
-    let new_base64_cipher = base64_cipher(&master_key, key);
-
-    let mut hash = HashMap::new();
-    hash.insert("0".to_string(), new_base64_cipher);
-    let secrets = Secrets {
-        cipher_keyring: hash,
-    };
-
-    save_secrets(keyring_file, &secrets);
-}
-
-pub fn encrypt_and_save_keyring(
-    keys: Vec<[u8; 32]>,
-    keyring_path: &str,
-    master_password: String,
-    salt: String,
-) {
-    let mut key = [0u8; KEYBYTES];
-
-    let typed_salt = Salt::from_slice(salt.as_bytes()).unwrap();
-
-    pwhash::derive_key(
-        &mut key,
-        master_password.as_bytes(),
-        &typed_salt,
-        pwhash::OPSLIMIT_INTERACTIVE,
-        pwhash::MEMLIMIT_INTERACTIVE,
-    )
-    .unwrap();
-
-    let master_key = secretbox::Key::from_slice(&key.clone()).unwrap();
-
-    let hash = keys
-        .iter()
-        .enumerate()
-        .map(|(id, key)| (id.to_string(), base64_cipher(&master_key, *key)))
-        .collect();
-
-    let secrets = Secrets {
-        cipher_keyring: hash,
-    };
-    save_secrets(keyring_path, &secrets);
-}
-
 fn base64_cipher(master_key: &secretbox::Key, key: [u8; 32]) -> String {
     let (cipher, nonce) = encrypt(master_key, key);
     let nonce_cipher = concat(nonce, cipher);
-    base64::encode(nonce_cipher)
+    STANDARD.encode(nonce_cipher)
 }
 
 fn encrypt(master_key: &secretbox::Key, byte_key: [u8; 32]) -> (Vec<u8>, [u8; 24]) {

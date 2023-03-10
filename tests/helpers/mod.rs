@@ -17,8 +17,7 @@ pub use curl::*;
 
 pub const PASSWORD: &str = "plop";
 pub const SALT: &str = "12345678901234567890123456789012";
-pub const DS_KEYRING: &str = "/tmp/test_keys.toml";
-pub const HASH_FILE_ARG: &str = "--hash-file=tests/fixtures/password.hash";
+pub const DS_KEYRING: &str = "tests/fixtures/keyring.toml";
 pub const CHUNK_SIZE: usize = 512;
 
 pub const COMPUTER_SVG_PATH: &str = "tests/fixtures/computer.svg";
@@ -37,7 +36,6 @@ pub struct ProxyAndNode {
 
 impl ProxyAndNode {
     pub fn start() -> ProxyAndNode {
-        bootstrap_keyring();
         ProxyAndNode::start_with_options(None, PrintServerLogs::No, None)
     }
 
@@ -57,23 +55,10 @@ impl ProxyAndNode {
     }
 }
 
-pub fn bootstrap_keyring() {
-    let mut command = Command::cargo_bin("ds_proxy").unwrap();
-    command
-        .arg("bootstrap-keyring")
-        .arg(HASH_FILE_ARG)
-        .env("DS_KEYRING", DS_KEYRING)
-        .env("DS_PASSWORD", PASSWORD)
-        .env("DS_SALT", SALT)
-        .output()
-        .expect("failed to perform bootstrap");
-}
-
 pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGuard {
     let keyring = if let Some(file) = keyring_path {
         file
     } else {
-        bootstrap_keyring();
         DS_KEYRING
     };
 
@@ -82,7 +67,6 @@ pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGu
         .arg("proxy")
         .arg("--address=localhost:4444")
         .arg("--upstream-url=http://localhost:3333")
-        .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", keyring)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
@@ -159,7 +143,6 @@ pub fn decrypt(
         .arg("decrypt")
         .arg(encrypted_path)
         .arg(decrypted_path)
-        .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
@@ -194,4 +177,15 @@ pub fn ensure_is_absent(file_path: &str) {
         std::fs::remove_file(file_path)
             .unwrap_or_else(|_| panic!("Unable to remove {} !", file_path));
     }
+}
+
+pub fn add_a_key(keyring_path: &str) -> assert_cmd::assert::Assert {
+    Command::cargo_bin("ds_proxy")
+        .unwrap()
+        .arg("add-key")
+        .env("DS_KEYRING", keyring_path)
+        .env("DS_PASSWORD", PASSWORD)
+        .env("DS_SALT", SALT)
+        .assert()
+        .success()
 }

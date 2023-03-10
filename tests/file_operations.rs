@@ -17,14 +17,11 @@ fn encrypt_and_decrypt() {
     let encrypted_path = encrypted.path();
     let decrypted_path = decrypted.path();
 
-    bootstrap_keyring();
-
     let mut encrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     encrypt_cmd
         .arg("encrypt")
         .arg(COMPUTER_SVG_PATH)
         .arg(encrypted_path)
-        .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
@@ -37,7 +34,6 @@ fn encrypt_and_decrypt() {
         .arg("decrypt")
         .arg(encrypted_path)
         .arg(decrypted_path)
-        .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
@@ -56,14 +52,11 @@ fn decrypt_witness_file() {
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
-    bootstrap_keyring();
-
     let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
     decrypt_cmd
         .arg("decrypt")
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
-        .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
@@ -87,28 +80,8 @@ fn the_app_crashes_on_a_missing_password() {
         .arg("proxy")
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
-        .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", DS_KEYRING)
         .env("DS_SALT", SALT);
-
-    decrypt_cmd.assert().failure();
-}
-
-#[test]
-fn the_app_crashes_on_a_missing_hash() {
-    let temp = TempDir::new().unwrap();
-
-    let decrypted = temp.child("computer.dec.svg");
-    let decrypted_path = decrypted.path();
-
-    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
-    decrypt_cmd
-        .arg("proxy")
-        .arg(ENCRYPTED_COMPUTER_SVG_PATH)
-        .arg(decrypted_path)
-        .arg(HASH_FILE_ARG)
-        .env("DS_KEYRING", DS_KEYRING)
-        .env("DS_PASSWORD", PASSWORD);
 
     decrypt_cmd.assert().failure();
 }
@@ -127,7 +100,6 @@ fn the_app_crashes_with_an_invalid_password() {
         .arg("proxy")
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
         .arg(decrypted_path)
-        .arg(HASH_FILE_ARG)
         .env("DS_KEYRING", DS_KEYRING)
         .env("DS_PASSWORD", password)
         .env("DS_SALT", SALT);
