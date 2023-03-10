@@ -1,4 +1,6 @@
 use super::keyring::Keyring;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::pwhash;
 use sodiumoxide::crypto::pwhash::scryptsalsa208sha256::Salt;
@@ -49,7 +51,7 @@ fn to_u64(id: &str) -> u64 {
 }
 
 fn decode64(text: &str) -> Vec<u8> {
-    base64::decode(text).unwrap()
+    STANDARD.decode(text).unwrap()
 }
 
 fn load_secrets(keyring_file: &str) -> Secrets {
@@ -108,7 +110,7 @@ fn last_id(secrets: &Secrets) -> Option<u64> {
 fn base64_cipher(master_key: &secretbox::Key, key: [u8; 32]) -> String {
     let (cipher, nonce) = encrypt(master_key, key);
     let nonce_cipher = concat(nonce, cipher);
-    base64::encode(nonce_cipher)
+    STANDARD.encode(nonce_cipher)
 }
 
 fn encrypt(master_key: &secretbox::Key, byte_key: [u8; 32]) -> (Vec<u8>, [u8; 24]) {
