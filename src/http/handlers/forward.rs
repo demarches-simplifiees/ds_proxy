@@ -35,33 +35,24 @@ pub async fn forward(
         .force_close()
         .timeout(UPLOAD_TIMEOUT);
 
-    let forward_length: Option<usize> = content_length(req.headers()).map(|content_length| {
-        if config.noop {
-            content_length
-        } else {
-            encrypted_content_length(content_length, config.chunk_size)
-        }
-    });
+    let forward_length: Option<usize> = content_length(req.headers())
+        .map(|content_length| encrypted_content_length(content_length, config.chunk_size));
 
     for header in &FORWARD_REQUEST_HEADERS_TO_REMOVE {
         forwarded_req.headers_mut().remove(header);
     }
 
-    let stream: Box<dyn Stream<Item = _> + Unpin> = if config.noop {
-        Box::new(payload)
-    } else {
-        let (key_id, key) = config
-            .keyring
-            .get_last_key()
-            .expect("no key avalaible for encryption");
+    let (key_id, key) = config
+        .keyring
+        .get_last_key()
+        .expect("no key avalaible for encryption");
 
-        Box::new(Encoder::new(
-            key,
-            key_id,
-            config.chunk_size,
-            Box::new(payload),
-        ))
-    };
+    let stream: Box<dyn Stream<Item = _> + Unpin> = Box::new(Encoder::new(
+        key,
+        key_id,
+        config.chunk_size,
+        Box::new(payload),
+    ));
 
     let req_copy = req.clone();
     let stream_to_send = stream.map_err(move |e| {

@@ -35,7 +35,6 @@ pub struct EncryptConfig {
 #[derive(Debug, Clone)]
 pub struct HttpConfig {
     pub upstream_base_url: String,
-    pub noop: bool,
     pub keyring: Keyring,
     pub chunk_size: usize,
     pub max_connections: usize,
@@ -150,7 +149,6 @@ impl Config {
                 keyring,
                 chunk_size,
                 upstream_base_url,
-                noop: args.flag_noop,
                 address,
                 local_encryption_directory,
                 max_connections: args.flag_max_connections.unwrap_or(25_000),
@@ -233,7 +231,6 @@ mod tests {
             keyring,
             chunk_size: DEFAULT_CHUNK_SIZE,
             upstream_base_url: upstream_base_url.to_string(),
-            noop: false,
             address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
             max_connections: 1,
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),

@@ -35,11 +35,6 @@ fn main() {
         AddKeyConfig(config) => {
             add_random_key_to_keyring(&config.keyring_file, config.password, config.salt)
         }
-        Http(config) => {
-            if args.flag_noop {
-                info!("proxy in dry mode")
-            }
-            http::main(config).unwrap()
-        }
+        Http(config) => http::main(config).unwrap(),
     }
 }
