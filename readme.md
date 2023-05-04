@@ -58,6 +58,10 @@ DS Proxy utilise actuellement l'algorithme de chiffrement [xchacha20poly1305](ht
 
 Les clés de chiffrement sont stockées sur un fichier `keyring.toml`. Ce fichier est lui-même chiffré à l'aide d'un mot de passe maître et d'un sel.
 
+## Dépendances
+
+En plus des différents crates utilisés référencés dans le Cargo.lock, la signature aws est calculée à l'aide d'une implémentation proposée par https://github.com/psnszsn/aws-sign-v4.
+
 ## Comment contribuer ?
 
 **ds_proxy** est un [logiciel libre](https://fr.wikipedia.org/wiki/Logiciel_libre) sous [licence AGPL](LICENSE.txt).

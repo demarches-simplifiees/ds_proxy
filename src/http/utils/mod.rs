@@ -1,6 +1,6 @@
 use actix_web::http::{header, header::HeaderMap};
 
-pub mod partial_extractor;
+pub mod aws_helper;
 pub mod memory_or_file_buffer;
 pub mod partial_extractor;
 pub mod sign;
