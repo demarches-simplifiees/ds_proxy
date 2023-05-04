@@ -39,6 +39,9 @@ pub struct HttpConfig {
     pub chunk_size: usize,
     pub address: SocketAddr,
     pub local_encryption_directory: PathBuf,
+    pub aws_access_key: Option<String>,
+    pub aws_secret_key: Option<String>,
+    pub aws_region: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -152,6 +155,9 @@ impl Config {
                 upstream_base_url,
                 address,
                 local_encryption_directory,
+                aws_access_key: args.flag_aws_access_key.clone(),
+                aws_secret_key: args.flag_aws_secret_key.clone(),
+                aws_region: args.flag_aws_region.clone(),
             })
         }
     }
@@ -313,6 +319,9 @@ mod tests {
             upstream_base_url: normalize_and_parse_upstream_url(upstream_base_url.to_string()),
             address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
+            aws_access_key: None,
+            aws_secret_key: None,
+            aws_region: None,
         }
     }
 }
