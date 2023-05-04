@@ -12,7 +12,7 @@ fn upload_and_download() {
     This test:
      - spawns a node server that stores uploaded files in tests/fixtures/server-static/uploads/
      - spawns a ds proxy that uses the node proxy as a storage backend
-     - uploads a file using curl via the DS proxy
+     - uploads a file using curl via the DS proxy and check correct uploaded md5
      - checks amz headers
      - checks that said file is encrypted
      - decrypt the uploaded file by the decrypted command and check the result
@@ -29,6 +29,7 @@ fn upload_and_download() {
     let _proxy_and_node = ProxyAndNode::start();
 
     curl_put(COMPUTER_SVG_PATH, "localhost:4444/upstream/victory");
+    assert_eq!(returned_header("etag"), COMPUTER_SVG_MD5_ETAG);
 
     assert!(node_received_header("x-amz-date").is_some());
     assert!(node_received_header("authorization").is_some());

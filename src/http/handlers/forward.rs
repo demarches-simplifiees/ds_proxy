@@ -58,6 +58,8 @@ pub async fn forward(
 
     let cloned_req = req.clone();
 
+    let mut input_etag: Option<String> = None;
+
     let res_e = if config.aws_access_key.is_some() {
         let filepath = config.local_encryption_path_for(&req);
         let mut buffer = MemoryOrFileBuffer::new(filepath);
@@ -67,6 +69,7 @@ pub async fn forward(
         }
 
         let (output_sha256, length) = buffer.sha256_and_len();
+        input_etag = Some(encrypted_stream.input_md5());
 
         let stream_to_send = buffer.to_stream().await;
 
@@ -113,6 +116,10 @@ pub async fn forward(
         .filter(|(h, _)| !FORWARD_RESPONSE_HEADERS_TO_REMOVE.contains(h))
     {
         client_resp.append_header(header);
+    }
+
+    if let Some(etag) = input_etag {
+        client_resp.insert_header(("etag", format!("\"{}\"", etag)));
     }
 
     Ok(client_resp.body(res.body().await?))

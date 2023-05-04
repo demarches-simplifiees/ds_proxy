@@ -1,6 +1,8 @@
 use std::process::{Command, Output};
 use std::{thread, time};
 
+const RETURNED_HEADER: &str = "/tmp/curl_headers";
+
 pub fn curl_get_status(url: &str) -> String {
     let stdout = Command::new("curl")
         .arg("-XGET")
@@ -24,6 +26,8 @@ pub fn curl_put(file_path: &str, url: &str) -> Output {
         .arg(url)
         .arg("--data-binary")
         .arg(format!("@{}", file_path))
+        .arg("--dump-header")
+        .arg(RETURNED_HEADER)
         .output()
         .expect("failed to perform upload");
 
@@ -102,4 +106,24 @@ pub fn node_received_header(header: &str) -> Option<String> {
         serde_json::from_str(&last_put_headers_string).unwrap();
 
     lookup.get(header).map(|h| h.to_string())
+}
+
+pub fn returned_header(header: &str) -> String {
+    read_lines(RETURNED_HEADER)
+        .find(|x| x.as_ref().unwrap().contains(header))
+        .unwrap()
+        .unwrap()
+        .split(": ")
+        .nth(1)
+        .unwrap()
+        .to_string()
+}
+
+fn read_lines<P>(filename: P) -> std::io::Lines<std::io::BufReader<std::fs::File>>
+where
+    P: AsRef<std::path::Path>,
+{
+    use std::io::BufRead;
+    let file = std::fs::File::open(filename).unwrap();
+    std::io::BufReader::new(file).lines()
 }
