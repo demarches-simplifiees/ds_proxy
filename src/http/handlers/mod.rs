@@ -23,12 +23,15 @@ use futures::TryStreamExt;
 use futures_core::stream::Stream;
 use log::error;
 
-pub static FETCH_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
+pub static FETCH_RESPONSE_HEADERS_TO_REMOVE: [header::HeaderName; 3] = [
     // Connection settings (keepalived) must not be resend
     header::CONNECTION,
     // Encryption changes the length of the content
     // and we use chunk transfert-encoding
     header::CONTENT_LENGTH,
+    // Encryption change the data and thus the etag
+    // which is often used as a md5
+    header::ETAG,
 ];
 
 pub static FETCH_REQUEST_HEADERS_TO_REMOVE: [header::HeaderName; 2] = [
