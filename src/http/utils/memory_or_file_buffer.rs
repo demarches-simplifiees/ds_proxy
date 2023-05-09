@@ -39,7 +39,7 @@ impl MemoryOrFileBuffer {
             None => {
                 if self.buf.len() < MAX_IN_MEMORY_FILE_SIZE {
                     log::info!("going memory");
-                    self.buf.extend(bytes);
+                    self.buf.extend_from_slice(&bytes);
                 } else {
                     log::info!("going file");
                     let mut f = OpenOptions::new()
