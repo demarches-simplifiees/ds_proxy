@@ -13,6 +13,7 @@ fn upload_and_download() {
      - spawns a node server that stores uploaded files in tests/fixtures/server-static/uploads/
      - spawns a ds proxy that uses the node proxy as a storage backend
      - uploads a file using curl via the DS proxy
+     - checks amz headers
      - checks that said file is encrypted
      - decrypt the uploaded file by the decrypted command and check the result
      - downloads the uploaded file via the proxy, and checks that its content matches the initial content
@@ -29,8 +30,16 @@ fn upload_and_download() {
 
     curl_put(COMPUTER_SVG_PATH, "localhost:4444/upstream/victory");
 
+    assert!(node_received_header("x-amz-date").is_some());
+    assert!(node_received_header("authorization").is_some());
+
     let uploaded_bytes = std::fs::read(uploaded_path).expect("uploaded should exist !");
     assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
+
+    assert_eq!(
+        format!("\"{}\"", compute_sha256(uploaded_path)),
+        node_received_header("x-amz-content-sha256").unwrap()
+    );
 
     decrypt(uploaded_path, decrypted_path);
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();

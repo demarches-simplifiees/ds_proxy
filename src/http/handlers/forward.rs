@@ -1,5 +1,8 @@
+use crate::http::utils::{aws_helper::sign_request, memory_or_file_buffer::MemoryOrFileBuffer};
+
 use super::*;
 use actix_web::body::SizedStream;
+use futures::StreamExt;
 use std::time::Duration;
 
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 60);
@@ -51,25 +54,46 @@ pub async fn forward(
         .get_last_key()
         .expect("no key avalaible for encryption");
 
-    let stream: Box<dyn Stream<Item = _> + Unpin> = Box::new(Encoder::new(
-        key,
-        key_id,
-        config.chunk_size,
-        Box::new(payload),
-    ));
+    let mut encrypted_stream = Encoder::new(key, key_id, config.chunk_size, Box::new(payload));
 
-    let req_copy = req.clone();
-    let stream_to_send = stream.map_err(move |e| {
-        error!("forward error with stream {:?}, {:?}", e, req_copy);
-        Error::from(e)
-    });
+    let cloned_req = req.clone();
 
-    let res_e = if let Some(length) = forward_length {
-        forwarded_req
-            .send_body(SizedStream::new(length as u64, stream_to_send))
-            .await
+    let res_e = if config.aws_access_key.is_some() {
+        let filepath = config.local_encryption_path_for(&req);
+        let mut buffer = MemoryOrFileBuffer::new(filepath);
+
+        while let Ok(Some(v)) = encrypted_stream.try_next().await {
+            buffer.append(v).await;
+        }
+
+        let (output_sha256, length) = buffer.sha256_and_len();
+
+        let stream_to_send = buffer.to_stream().await;
+
+        sign_request(
+            forwarded_req,
+            &config.aws_access_key.clone().unwrap(),
+            &config.aws_secret_key.clone().unwrap(),
+            &config.aws_region.clone().unwrap(),
+            &output_sha256,
+        )
+        .send_body(SizedStream::new(length, stream_to_send))
+        .await
     } else {
-        forwarded_req.send_stream(stream_to_send).await
+        let stream_to_send = encrypted_stream
+            .map_err(move |e| {
+                error!("forward error with stream {:?}, {:?}", e, cloned_req);
+                Error::from(e)
+            })
+            .boxed_local();
+
+        if let Some(length) = forward_length {
+            forwarded_req
+                .send_body(SizedStream::new(length as u64, stream_to_send))
+                .await
+        } else {
+            forwarded_req.send_stream(stream_to_send).await
+        }
     };
 
     let mut res = res_e.map_err(|e| {

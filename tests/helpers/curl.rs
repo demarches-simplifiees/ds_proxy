@@ -92,3 +92,14 @@ pub fn curl_socket_get(url: &str) -> Output {
         .output()
         .expect("failed to perform download")
 }
+
+pub fn node_received_header(header: &str) -> Option<String> {
+    let last_put_headers = curl_get("localhost:3333/last_put_headers").stdout;
+    let last_put_headers_string = String::from_utf8_lossy(&last_put_headers);
+
+    use serde_json::Value;
+    let lookup: std::collections::HashMap<String, Value> =
+        serde_json::from_str(&last_put_headers_string).unwrap();
+
+    lookup.get(header).map(|h| h.to_string())
+}
