@@ -34,7 +34,7 @@ pub struct EncryptConfig {
 
 #[derive(Debug, Clone)]
 pub struct HttpConfig {
-    pub upstream_base_url: String,
+    pub upstream_base_url: Url,
     pub keyring: Keyring,
     pub chunk_size: usize,
     pub address: SocketAddr,
@@ -121,13 +121,15 @@ impl Config {
                 )
             });
 
-            let upstream_base_url = match &args.flag_upstream_url {
+            let raw_upstream_base_url = match &args.flag_upstream_url {
                 Some(upstream_url) => Some(upstream_url.to_string()),
                 None => Some(env::var("DS_UPSTREAM_URL").expect(
                     "Missing upstream_url, use DS_UPSTREAM_URL env or --upstream-url cli argument",
                 )),
             }
             .unwrap();
+
+            let upstream_base_url = normalize_and_parse_upstream_url(raw_upstream_base_url);
 
             let address = match &args.flag_address {
                 Some(address) => match address.to_socket_addrs() {
@@ -153,6 +155,18 @@ impl Config {
             })
         }
     }
+}
+
+// ensure upstream_url ends with a "/ to avoid
+// upstream url: "https://upstream/dir"
+// request: "https://proxy/file"
+// "https://upstream/dir".join('file') => https://upstream/file
+// instead ".../upstream/dir/".join('file') => https://upstream/dir/file
+fn normalize_and_parse_upstream_url(mut url: String) -> Url {
+    if !url.ends_with('/') {
+        url.push('/');
+    }
+    Url::parse(&url).unwrap()
 }
 
 impl HttpConfig {
@@ -188,6 +202,14 @@ mod tests {
 
     use super::*;
     use actix_web::test::TestRequest;
+
+    #[test]
+    fn test_normalize_and_parse_upstream_url() {
+        assert_eq!(
+            normalize_and_parse_upstream_url("https://upstream.com/dir".to_string()),
+            Url::parse("https://upstream.com/dir/").unwrap()
+        );
+    }
 
     #[test]
     fn test_create_upstream_url() {
@@ -228,7 +250,7 @@ mod tests {
         HttpConfig {
             keyring,
             chunk_size: DEFAULT_CHUNK_SIZE,
-            upstream_base_url: upstream_base_url.to_string(),
+            upstream_base_url: normalize_and_parse_upstream_url(upstream_base_url.to_string()),
             address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
         }
