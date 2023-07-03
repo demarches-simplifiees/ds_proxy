@@ -52,15 +52,6 @@ app.get('/last_put_headers', function(req, res){
   res.json(last_put_headers);
 });
 
-app.get('/chunked/*', function(req, res){
-  const path = req.url.substr(8)
-
-  const readStream = fs.createReadStream(__dirname + '/uploads/' + path, { highWaterMark: 1 * 1024});
-
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  readStream.pipe(res);
-});
-
 app.get('/get/500', function(req, res){
   res.writeHead(500, {'Content-Type': 'text/plain'});
   res.end('KO: 500');
@@ -71,5 +62,18 @@ app.get('/get/400', function(req, res){
   res.end('KO: 400');
 });
 
+// return a file by chunked if the query param chunked is present
+const chunked_static = function (req, res, next) {
+  if (!req.query.chunked) {
+    return next();
+  }
+
+  const path = req.path.substr(1);
+  const readStream = fs.createReadStream(__dirname + '/uploads/' + path, { highWaterMark: 1 * 1024});
+  res.writeHead(200, {'Content-Type': 'text/plain'});
+  readStream.pipe(res);
+}
+
+app.use(chunked_static);
 app.use(express.static(__dirname + '/uploads'));
 app.listen(3333);

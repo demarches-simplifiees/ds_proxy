@@ -17,7 +17,7 @@ fn upload_and_download() {
      - decrypt the uploaded file by the decrypted command and check the result
      - downloads the uploaded file via the proxy, and checks that its content matches the initial content
     */
-    let uploaded_path = "tests/fixtures/server-static/uploads/victory";
+    let uploaded_path = "tests/fixtures/server-static/uploads/jail/cell/victory";
 
     let temp = assert_fs::TempDir::new().unwrap();
     let decrypted_file = temp.child("computer.dec.svg");
@@ -45,7 +45,7 @@ fn upload_and_download() {
     let curl_socket_download = curl_socket_get("localhost:4444/upstream/victory");
     assert_eq!(curl_socket_download.stdout, COMPUTER_SVG_BYTES);
 
-    let curl_chunked_download = curl_get("localhost:4444/upstream/chunked/victory");
+    let curl_chunked_download = curl_get("localhost:4444/upstream/victory?chunked=true");
     assert_eq!(curl_chunked_download.stdout, COMPUTER_SVG_BYTES);
 
     temp.close().unwrap();

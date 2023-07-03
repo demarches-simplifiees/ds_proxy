@@ -24,7 +24,10 @@ fn multiple_keys() {
         add_a_key(keyring_path);
 
         let upload_url = format!("localhost:4444/upstream/victory_{}", i);
-        let upload_path = format!("tests/fixtures/server-static/uploads/victory_{}", i);
+        let upload_path = format!(
+            "tests/fixtures/server-static/uploads/jail/cell/victory_{}",
+            i
+        );
         ensure_is_absent(&upload_path);
 
         let _proxy_and_node = ProxyAndNode::start_with_keyring_path(keyring_path);

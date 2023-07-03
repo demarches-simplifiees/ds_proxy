@@ -51,8 +51,10 @@ fn concurent_uploads() {
 
                 let stored_filename = Uuid::new_v4();
                 let stored_file_url = format!("localhost:4444/upstream/{}", stored_filename);
-                let uploaded_path =
-                    format!("tests/fixtures/server-static/uploads/{}", stored_filename);
+                let uploaded_path = format!(
+                    "tests/fixtures/server-static/uploads/jail/cell/{}",
+                    stored_filename
+                );
 
                 let temp = assert_fs::TempDir::new().unwrap();
                 let decrypted_file = temp.child("computer.dec.svg");
@@ -79,7 +81,7 @@ fn concurent_uploads() {
                 assert_eq!(curl_socket_download.stdout, COMPUTER_SVG_BYTES);
 
                 let curl_chunked_download = curl_get(&format!(
-                    "localhost:4444/upstream/chunked/{}",
+                    "localhost:4444/upstream/{}?chunked=true",
                     stored_filename
                 ));
                 assert_eq!(curl_chunked_download.stdout.len(), COMPUTER_SVG_BYTES.len());
