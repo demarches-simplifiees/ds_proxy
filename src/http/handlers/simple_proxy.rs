@@ -8,7 +8,11 @@ pub async fn simple_proxy(
 ) -> Result<HttpResponse, Error> {
     let url = config.create_upstream_url(&req);
 
-    let mut proxied_req = client.request_from(url.as_str(), req.head()).force_close();
+    if url.is_none() {
+        return not_found();
+    }
+
+    let mut proxied_req = client.request_from(url.unwrap(), req.head()).force_close();
 
     for header in &FETCH_REQUEST_HEADERS_TO_REMOVE {
         proxied_req.headers_mut().remove(header);
