@@ -30,8 +30,12 @@ pub async fn forward(
 ) -> Result<HttpResponse, Error> {
     let put_url = config.create_upstream_url(&req);
 
+    if put_url.is_none() {
+        return not_found();
+    }
+
     let mut forwarded_req = client
-        .request_from(put_url.as_str(), req.head())
+        .request_from(put_url.unwrap(), req.head())
         .force_close()
         .timeout(UPLOAD_TIMEOUT);
 

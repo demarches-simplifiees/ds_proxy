@@ -13,7 +13,7 @@ fn download_witness_file() {
      - copy a witness file in the right directory to be downloaded
      - downloads the uploaded file via the proxy, and checks that its content matches the initial content
     */
-    let uploaded_path = "tests/fixtures/server-static/uploads/computer.svg.enc";
+    let uploaded_path = "tests/fixtures/server-static/uploads/jail/cell/computer.svg.enc";
 
     std::fs::copy(ENCRYPTED_COMPUTER_SVG_PATH, uploaded_path).expect("copy failed");
 

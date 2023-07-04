@@ -34,7 +34,7 @@ pub struct EncryptConfig {
 
 #[derive(Debug, Clone)]
 pub struct HttpConfig {
-    pub upstream_base_url: String,
+    pub upstream_base_url: Url,
     pub keyring: Keyring,
     pub chunk_size: usize,
     pub address: SocketAddr,
@@ -121,13 +121,15 @@ impl Config {
                 )
             });
 
-            let upstream_base_url = match &args.flag_upstream_url {
+            let raw_upstream_base_url = match &args.flag_upstream_url {
                 Some(upstream_url) => Some(upstream_url.to_string()),
                 None => Some(env::var("DS_UPSTREAM_URL").expect(
                     "Missing upstream_url, use DS_UPSTREAM_URL env or --upstream-url cli argument",
                 )),
             }
             .unwrap();
+
+            let upstream_base_url = normalize_and_parse_upstream_url(raw_upstream_base_url);
 
             let address = match &args.flag_address {
                 Some(address) => match address.to_socket_addrs() {
@@ -155,16 +157,36 @@ impl Config {
     }
 }
 
+// ensure upstream_url ends with a "/ to avoid
+// upstream url: "https://upstream/dir"
+// request: "https://proxy/file"
+// "https://upstream/dir".join('file') => https://upstream/file
+// instead ".../upstream/dir/".join('file') => https://upstream/dir/file
+fn normalize_and_parse_upstream_url(mut url: String) -> Url {
+    if !url.ends_with('/') {
+        url.push('/');
+    }
+    Url::parse(&url).unwrap()
+}
+
 impl HttpConfig {
-    pub fn create_upstream_url(&self, req: &HttpRequest) -> String {
-        let base = Url::parse(self.upstream_base_url.as_ref()).unwrap();
-        let mut url = base.join(&req.match_info()["name"]).unwrap();
+    pub fn create_upstream_url(&self, req: &HttpRequest) -> Option<String> {
+        // Warning: join process '../'
+        // "https://a.com/jail/".join('../escape') => "https://a.com/escape"
+        let mut url = self
+            .upstream_base_url
+            .join(&req.match_info()["name"])
+            .unwrap();
+
+        if self.is_traversal_attack(&url) {
+            return None;
+        }
 
         if !req.query_string().is_empty() {
             url.set_query(Some(req.query_string()));
         }
 
-        url.to_string()
+        Some(url.to_string())
     }
 
     pub fn local_encryption_path_for(&self, req: &HttpRequest) -> PathBuf {
@@ -172,6 +194,27 @@ impl HttpConfig {
         let mut filepath = self.local_encryption_directory.clone();
         filepath.push(name);
         filepath
+    }
+
+    fn is_traversal_attack(&self, url: &Url) -> bool {
+        // https://upstream.com => [Some("")]
+        // https://upstream.com/jail/cell/ => [Some("jail"), Some("cell"), Some("")]
+        let mut base_segments: Vec<&str> =
+            self.upstream_base_url.path_segments().unwrap().collect();
+
+        // remove the last segment corresponding to "/"
+        base_segments.pop();
+
+        let mut url_segments = url.path_segments().unwrap();
+
+        // ensure that all segment of the upstream_base_url
+        // are present in the final url
+        let safe = base_segments.iter().all(|base_segment| {
+            let url_segment = url_segments.next().unwrap();
+            base_segment == &url_segment
+        });
+
+        !safe
     }
 }
 
@@ -190,35 +233,74 @@ mod tests {
     use actix_web::test::TestRequest;
 
     #[test]
+    fn test_normalize_and_parse_upstream_url() {
+        assert_eq!(
+            normalize_and_parse_upstream_url("https://upstream.com/dir".to_string()),
+            Url::parse("https://upstream.com/dir/").unwrap()
+        );
+    }
+
+    #[test]
     fn test_create_upstream_url() {
-        let req = TestRequest::default()
+        let base = "https://upstream.com/";
+        let jailed_base = "https://upstream.com/jail/cell/";
+
+        let config = default_config(base);
+        let jailed_config = default_config(jailed_base);
+
+        let file = TestRequest::default()
+            .uri("https://proxy.com/file")
+            .param("name", "file") // hack to force parsing
+            .to_http_request();
+
+        assert_eq!(
+            config.create_upstream_url(&file),
+            Some("https://upstream.com/file".to_string())
+        );
+
+        assert_eq!(
+            jailed_config.create_upstream_url(&file),
+            Some("https://upstream.com/jail/cell/file".to_string())
+        );
+
+        let sub_dir_file = TestRequest::default()
+            .uri("https://proxy.com/sub/dir/file")
+            .param("name", "sub/dir/file") // hack to force parsing
+            .to_http_request();
+
+        assert_eq!(
+            config.create_upstream_url(&sub_dir_file),
+            Some("https://upstream.com/sub/dir/file".to_string())
+        );
+
+        assert_eq!(
+            jailed_config.create_upstream_url(&sub_dir_file),
+            Some("https://upstream.com/jail/cell/sub/dir/file".to_string())
+        );
+
+        let path_traversal_file = TestRequest::default()
+            .uri("https://proxy.com/../escape")
+            .param("name", "../escape") // hack to force parsing
+            .to_http_request();
+
+        assert_eq!(
+            config.create_upstream_url(&path_traversal_file),
+            Some("https://upstream.com/escape".to_string())
+        );
+
+        assert_eq!(
+            jailed_config.create_upstream_url(&path_traversal_file),
+            None
+        );
+
+        let file_with_query_string = TestRequest::default()
             .uri("https://proxy.com/bucket/file.zip?p1=ok1&p2=ok2")
             .param("name", "bucket/file.zip") // hack to force parsing
             .to_http_request();
 
         assert_eq!(
-            default_config("https://upstream.com").create_upstream_url(&req),
-            "https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2"
-        );
-
-        assert_eq!(
-            default_config("https://upstream.com/").create_upstream_url(&req),
-            "https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2"
-        );
-
-        assert_eq!(
-            default_config("https://upstream.com/sub_folder/").create_upstream_url(&req),
-            "https://upstream.com/sub_folder/bucket/file.zip?p1=ok1&p2=ok2"
-        );
-
-        let req = TestRequest::default()
-            .uri("https://proxy.com/bucket/file.zip")
-            .param("name", "bucket/file.zip") // hack to force parsing
-            .to_http_request();
-
-        assert_eq!(
-            default_config("https://upstream.com").create_upstream_url(&req),
-            "https://upstream.com/bucket/file.zip"
+            config.create_upstream_url(&file_with_query_string),
+            Some("https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2".to_string())
         );
     }
 
@@ -228,7 +310,7 @@ mod tests {
         HttpConfig {
             keyring,
             chunk_size: DEFAULT_CHUNK_SIZE,
-            upstream_base_url: upstream_base_url.to_string(),
+            upstream_base_url: normalize_and_parse_upstream_url(upstream_base_url.to_string()),
             address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
         }

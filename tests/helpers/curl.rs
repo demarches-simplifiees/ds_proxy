@@ -5,6 +5,7 @@ pub fn curl_get_status(url: &str) -> String {
     let stdout = Command::new("curl")
         .arg("-XGET")
         .arg(url)
+        .arg("--path-as-is")
         .arg("-o")
         .arg("/dev/null")
         .arg("-s")

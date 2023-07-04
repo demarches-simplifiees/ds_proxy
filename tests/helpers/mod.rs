@@ -66,7 +66,7 @@ pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGu
     command
         .arg("proxy")
         .arg("--address=localhost:4444")
-        .arg("--upstream-url=http://localhost:3333")
+        .arg("--upstream-url=http://localhost:3333/jail/cell")
         .env("DS_KEYRING", keyring)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)

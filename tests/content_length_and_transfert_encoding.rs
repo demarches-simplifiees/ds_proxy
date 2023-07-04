@@ -50,7 +50,7 @@ async fn uploaded_and_downloaded_content_length(content: &[u8]) -> (usize, usize
 
     curl_put("/tmp/foo", "localhost:4444/upstream/file");
 
-    let last_put_headers = curl_get("localhost:4444/upstream/last_put_headers").stdout;
+    let last_put_headers = curl_get("localhost:3333/last_put_headers").stdout;
 
     let deserialized: TestHeaders = serde_json::from_slice(&last_put_headers).unwrap();
 
