@@ -23,6 +23,7 @@ pub const CHUNK_SIZE: usize = 512;
 pub const COMPUTER_SVG_PATH: &str = "tests/fixtures/computer.svg";
 pub static COMPUTER_SVG_BYTES: Bytes =
     Bytes::from_static(include_bytes!("../fixtures/computer.svg"));
+pub const COMPUTER_SVG_MD5_ETAG: &str = "\"12ed2469072ced7b2d0e3141f0ef01f5\"";
 
 pub const ENCRYPTED_COMPUTER_SVG_PATH: &str = "tests/fixtures/computer.svg.enc";
 pub static ENCRYPTED_COMPUTER_SVG_BYTES: Bytes =
@@ -67,6 +68,9 @@ pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGu
         .arg("proxy")
         .arg("--address=localhost:4444")
         .arg("--upstream-url=http://localhost:3333/jail/cell")
+        .arg("--aws-access-key=key")
+        .arg("--aws-secret-key=secret")
+        .arg("--aws-region=region")
         .env("DS_KEYRING", keyring)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
@@ -188,4 +192,15 @@ pub fn add_a_key(keyring_path: &str) -> assert_cmd::assert::Assert {
         .env("DS_SALT", SALT)
         .assert()
         .success()
+}
+
+pub fn compute_sha256(file_path: &str) -> String {
+    use data_encoding::HEXLOWER;
+    use sha2::{Digest, Sha256};
+    use std::{fs, io};
+
+    let mut file = fs::File::open(file_path).unwrap();
+    let mut hasher = Sha256::new();
+    let _n = io::copy(&mut file, &mut hasher).unwrap();
+    HEXLOWER.encode(&hasher.finalize()[..])
 }

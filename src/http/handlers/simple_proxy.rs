@@ -1,3 +1,8 @@
+use data_encoding::HEXLOWER;
+use sha2::{Digest, Sha256};
+
+use crate::http::utils::aws_helper::sign_request;
+
 use super::*;
 
 pub async fn simple_proxy(
@@ -18,7 +23,21 @@ pub async fn simple_proxy(
         proxied_req.headers_mut().remove(header);
     }
 
-    proxied_req
+    let req_to_send = if config.aws_access_key.is_some() {
+        let checksum = HEXLOWER.encode(&Sha256::digest(b""));
+
+        sign_request(
+            proxied_req,
+            &config.aws_access_key.clone().unwrap(),
+            &config.aws_secret_key.clone().unwrap(),
+            &config.aws_region.clone().unwrap(),
+            &checksum,
+        )
+    } else {
+        proxied_req
+    };
+
+    req_to_send
         .send_stream(payload)
         .await
         .map_err(|e| {

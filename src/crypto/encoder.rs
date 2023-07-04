@@ -2,8 +2,10 @@ use super::header::{Header, HEADER_SIZE};
 use actix_web::web::{Bytes, BytesMut};
 use core::pin::Pin;
 use core::task::{Context, Poll};
+use data_encoding::HEXLOWER;
 use futures_core::stream::Stream;
 use log::trace;
+use md5::{digest::DynDigest, Digest, Md5};
 use sodiumoxide::crypto::secretstream::xchacha20poly1305;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::Key;
 use sodiumoxide::crypto::secretstream::Tag;
@@ -16,6 +18,7 @@ pub struct Encoder<E> {
     chunk_size: usize,
     key: Key,
     key_id: u64,
+    md5_hasher: Box<dyn DynDigest>,
 }
 
 impl<E> Encoder<E> {
@@ -33,7 +36,12 @@ impl<E> Encoder<E> {
             chunk_size,
             key,
             key_id,
+            md5_hasher: Box::new(Md5::new()),
         }
+    }
+
+    pub fn input_md5(self) -> String {
+        HEXLOWER.encode(&self.md5_hasher.finalize()[..])
     }
 
     fn encrypt_buffer(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, E>>> {
@@ -105,6 +113,7 @@ impl<E> Stream for Encoder<E> {
             }
             Poll::Ready(Some(Ok(bytes))) => {
                 trace!("poll: bytes");
+                encoder.md5_hasher.update(&bytes);
                 encoder.buffer.extend_from_slice(&bytes);
                 encoder.encrypt_buffer(cx)
             }
