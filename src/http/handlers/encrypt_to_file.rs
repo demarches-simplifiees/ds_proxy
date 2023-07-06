@@ -1,6 +1,6 @@
+use tokio::{fs::OpenOptions, io::AsyncWriteExt};
+
 use super::*;
-use std::fs::File;
-use std::io::Write;
 
 pub async fn encrypt_to_file(
     req: HttpRequest,
@@ -16,18 +16,19 @@ pub async fn encrypt_to_file(
 
     let mut encrypted_stream = Encoder::new(key, id, config.chunk_size, Box::new(payload));
 
-    // File::create is blocking operation, use threadpool
-    let mut f = web::block(move || File::create(filepath))
+    let mut f = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(filepath)
         .await
-        .unwrap()
         .unwrap();
 
     while let Ok(Some(chunk)) = encrypted_stream.try_next().await {
-        f = web::block(move || f.write_all(&chunk).map(|_| f))
-            .await
-            .unwrap()
-            .unwrap();
+        f.write_all(&chunk).await.unwrap();
     }
+
+    f.sync_all().await.unwrap();
 
     HttpResponse::Ok()
         .insert_header((header::CONTENT_TYPE, "application/json"))
