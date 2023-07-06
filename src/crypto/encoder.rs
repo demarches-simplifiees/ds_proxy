@@ -75,11 +75,19 @@ impl<E> Encoder<E> {
                 Some(ref mut stream) => {
                     trace!("stream encoder present !");
                     if self.chunk_size <= self.buffer.len() {
-                        trace!("encoding a whole chunk");
-                        let encoded = stream
-                            .push(&self.buffer.split_to(self.chunk_size), None, Tag::Message)
-                            .unwrap();
-                        Poll::Ready(Some(Ok(Bytes::from(encoded))))
+                        let mut encoded_buff = BytesMut::with_capacity(self.buffer.len());
+
+                        while self.chunk_size <= self.buffer.len() {
+                            trace!("encoding a whole chunk");
+
+                            let encoded_message = stream
+                                .push(&self.buffer.split_to(self.chunk_size), None, Tag::Message)
+                                .unwrap();
+
+                            encoded_buff.extend_from_slice(&encoded_message);
+                        }
+
+                        Poll::Ready(Some(Ok(encoded_buff.freeze())))
                     } else {
                         trace!("the chunk is not complete");
                         if self.inner_ended {

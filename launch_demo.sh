@@ -13,7 +13,7 @@ echo 'building simple node server which mimics a backend storage'
 npm install --prefix tests/fixtures/server-static
 
 echo 'building keyring file'
-./target/debug/ds_proxy add-key --password-file <(echo -n "$PASSWORD") --keyring-file "$KEYRING_FILE" --salt "$SALT"
+./target/release/ds_proxy add-key --password-file <(echo -n "$PASSWORD") --keyring-file "$KEYRING_FILE" --salt "$SALT"
 
 if [ "$1" = "aws" ]; then
   echo 'launching ds_proxy in aws mode listenning on real s3 backend'
