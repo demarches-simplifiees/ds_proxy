@@ -4,6 +4,7 @@ use actix_web::HttpRequest;
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
+use std::time::Duration;
 use url::Url;
 
 // match nginx default (proxy_buffer_size in ngx_stream_proxy_module)
@@ -42,6 +43,7 @@ pub struct HttpConfig {
     pub aws_access_key: Option<String>,
     pub aws_secret_key: Option<String>,
     pub aws_region: Option<String>,
+    pub backend_connection_timeout: Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -149,6 +151,23 @@ impl Config {
             }
             .unwrap();
 
+            let backend_connection_timeout = match &args.flag_backend_connection_timeout {
+                Some(timeout_u64) => Duration::from_secs(*timeout_u64),
+                None => match env::var("BACKEND_CONNECTION_TIMEOUT") {
+                    Ok(timeout_string) => Duration::from_secs(
+                        timeout_string
+                            .parse()
+                            .expect("BACKEND_CONNECTION_TIMEOUT is not a u64"),
+                    ),
+                    _ => Duration::from_secs(1),
+                },
+            };
+
+            log::info!(
+                "backend_connection_timeout: {:?}",
+                backend_connection_timeout
+            );
+
             Config::Http(HttpConfig {
                 keyring,
                 chunk_size,
@@ -158,6 +177,7 @@ impl Config {
                 aws_access_key: args.flag_aws_access_key.clone(),
                 aws_secret_key: args.flag_aws_secret_key.clone(),
                 aws_region: args.flag_aws_region.clone(),
+                backend_connection_timeout,
             })
         }
     }
@@ -322,6 +342,7 @@ mod tests {
             aws_access_key: None,
             aws_secret_key: None,
             aws_region: None,
+            backend_connection_timeout: Duration::from_secs(1),
         }
     }
 }

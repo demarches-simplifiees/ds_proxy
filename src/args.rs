@@ -6,7 +6,7 @@ DS encryption proxy.
 Usage:
   ds_proxy encrypt <input-file> <output-file> [--password-file=<password-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--keyring-file=<keyring-file>]
   ds_proxy decrypt <input-file> <output-file> [--password-file=<password-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--keyring-file=<keyring-file>]
-  ds_proxy proxy [--address=<address>] [--password-file=<password-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--upstream-url=<upstream-url>] [--local-encryption-directory=<local-encryption-directory>] [--keyring-file=<keyring-file>] [--aws-access-key=<aws-access-key>] [--aws-secret-key=<aws-secret-key>] [--aws-region=<aws-region>]
+  ds_proxy proxy [--address=<address>] [--password-file=<password-file>] [--salt=<salt>] [--chunk-size=<chunk-size>] [--upstream-url=<upstream-url>] [--local-encryption-directory=<local-encryption-directory>] [--keyring-file=<keyring-file>] [--aws-access-key=<aws-access-key>] [--aws-secret-key=<aws-secret-key>] [--aws-region=<aws-region>] [--backend-connection-timeout=<backend-connection-timeout>]
   ds_proxy add-key [--password-file=<password-file>] [--salt=<salt>] [--keyring-file=<keyring-file>]
   ds_proxy (-h | --help)
   ds_proxy --version
@@ -30,6 +30,7 @@ pub struct Args {
     pub flag_aws_access_key: Option<String>,
     pub flag_aws_secret_key: Option<String>,
     pub flag_aws_region: Option<String>,
+    pub flag_backend_connection_timeout: Option<u64>,
     pub cmd_encrypt: bool,
     pub cmd_decrypt: bool,
     pub cmd_proxy: bool,
