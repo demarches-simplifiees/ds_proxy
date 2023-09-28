@@ -12,7 +12,6 @@ use actix_web::dev::Service;
 use futures::FutureExt;
 use std::time::Duration;
 
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[actix_web::main]
@@ -24,7 +23,7 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
             .app_data(Data::new(
                 awc::Client::builder()
                     .connector(
-                        awc::Connector::new().timeout(CONNECT_TIMEOUT), // max time to connect to remote host including dns name resolution
+                        awc::Connector::new().timeout(config.backend_connection_timeout), // max time to connect to remote host including dns name resolution
                     )
                     .timeout(RESPONSE_TIMEOUT) // the total time before a response must be received
                     .finish(),

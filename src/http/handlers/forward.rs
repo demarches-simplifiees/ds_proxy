@@ -71,7 +71,7 @@ pub async fn forward(
         let (output_sha256, length) = buffer.sha256_and_len();
         input_etag = Some(encrypted_stream.input_md5());
 
-        let stream_to_send = buffer.to_stream().await;
+        let stream_to_send = buffer.as_stream().await;
 
         sign_request(
             forwarded_req,

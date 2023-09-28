@@ -1,6 +1,5 @@
 use assert_fs::prelude::*;
 use ds_proxy::crypto::header::*;
-use serial_test::serial;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;

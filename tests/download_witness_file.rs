@@ -1,5 +1,3 @@
-use serial_test::serial;
-
 mod helpers;
 pub use helpers::*;
 

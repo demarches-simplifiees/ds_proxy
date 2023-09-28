@@ -134,7 +134,7 @@ impl<E> Stream for Decoder<E> {
     type Item = Result<Bytes, E>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let mut decoder = self.get_mut();
+        let decoder = self.get_mut();
 
         match Pin::new(decoder.inner.as_mut()).poll_next(cx) {
             Poll::Pending => {

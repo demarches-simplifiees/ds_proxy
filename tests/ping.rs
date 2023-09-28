@@ -1,4 +1,3 @@
-use serial_test::serial;
 use std::fs::File;
 use std::{thread, time};
 
