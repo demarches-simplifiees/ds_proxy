@@ -30,7 +30,7 @@ impl<E> Stream for PartialExtractor<E> {
     type Item = Result<Bytes, E>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let mut extractor = self.get_mut();
+        let extractor = self.get_mut();
 
         match Pin::new(extractor.inner.as_mut()).poll_next(cx) {
             Poll::Ready(Some(Ok(mut bytes))) => {

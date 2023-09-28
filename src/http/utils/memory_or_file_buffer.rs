@@ -61,7 +61,7 @@ impl MemoryOrFileBuffer {
         }
     }
 
-    pub async fn to_stream(
+    pub async fn as_stream(
         &mut self,
     ) -> Box<dyn Stream<Item = Result<bytes::Bytes, Error>> + Unpin> {
         match &mut self.file {

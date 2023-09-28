@@ -1,5 +1,4 @@
 use ds_proxy::crypto::header::*;
-use serial_test::serial;
 use sodiumoxide::crypto::secretstream::xchacha20poly1305::{ABYTES, HEADERBYTES};
 use std::fs::File;
 use std::io::Write;

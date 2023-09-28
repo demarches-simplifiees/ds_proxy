@@ -112,7 +112,7 @@ impl<E> Stream for Encoder<E> {
     type Item = Result<Bytes, E>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let mut encoder = self.get_mut();
+        let encoder = self.get_mut();
 
         match Pin::new(encoder.inner.as_mut()).poll_next(cx) {
             Poll::Pending => {

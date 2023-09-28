@@ -2,7 +2,6 @@ use std::convert::TryInto;
 
 use assert_fs::prelude::*;
 use ds_proxy::crypto::header;
-use serial_test::serial;
 
 mod helpers;
 pub use helpers::*;
