@@ -23,7 +23,7 @@ elif [ "$1" = "fake_aws" ]; then
   RUST_LOG=info ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" --aws-access-key $ACCESS_KEY --aws-secret-key $SECRET_KEY --aws-region "eu-west-1" > "$DS_PROXY_LOG" 2>&1 &
 else
   echo 'launching ds_proxy listenning on 4444 binded on node server'
-  RUST_LOG=info ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" > "$DS_PROXY_LOG" 2>&1 &
+  RUST_LOG=info,ds_proxy::http::handlers::fetch=trace,ds_proxy::http::handlers::forward=trace ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" > "$DS_PROXY_LOG" 2>&1 &
 fi
 
 echo 'launching fake backend storage with node listenning on 3333'

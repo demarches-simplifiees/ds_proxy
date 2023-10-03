@@ -17,8 +17,10 @@ pub async fn fetch(
         return not_found();
     }
 
+    let get_url = get_url.unwrap();
+
     let mut fetch_req = client
-        .request_from(get_url.unwrap(), req.head())
+        .request_from(get_url.clone(), req.head())
         .force_close();
 
     let raw_range = req
@@ -51,6 +53,8 @@ pub async fn fetch(
             _ => actix_web::error::ErrorBadGateway(e),
         }
     })?;
+
+    trace!("backend response for GET {:?} : {:?}", get_url, res);
 
     if res.status().is_client_error() || res.status().is_server_error() {
         error!("fetch status error {:?} {:?}", req, res);
