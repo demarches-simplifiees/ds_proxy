@@ -37,8 +37,10 @@ pub async fn forward(
         return not_found();
     }
 
+    let put_url = put_url.unwrap();
+
     let mut forwarded_req = client
-        .request_from(put_url.unwrap(), req.head())
+        .request_from(put_url.clone(), req.head())
         .force_close()
         .timeout(UPLOAD_TIMEOUT);
 
@@ -103,6 +105,8 @@ pub async fn forward(
         error!("forward fwk error {:?}, {:?}", e, req);
         actix_web::error::ErrorBadGateway(e)
     })?;
+
+    trace!("backend response for PUT {:?} : {:?}", put_url, res);
 
     if res.status().is_client_error() || res.status().is_server_error() {
         error!("forward status error {:?} {:?}", req, res);
