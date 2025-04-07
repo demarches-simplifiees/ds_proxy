@@ -29,6 +29,7 @@ tokio = { version = "*", features = ["full"] }
 tokio-util = { version = "*", features = ["full"] }
 chrono = "*"
 hex = "*"
+redis = "*"
 ring = "*"
 http = "*"
 sha256 = "*"
