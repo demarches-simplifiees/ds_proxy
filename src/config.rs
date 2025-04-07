@@ -44,6 +44,7 @@ pub struct HttpConfig {
     pub aws_secret_key: Option<String>,
     pub aws_region: Option<String>,
     pub backend_connection_timeout: Duration,
+    pub redis_url: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -163,6 +164,11 @@ impl Config {
                 },
             };
 
+            let redis_url = match &args.flag_redis_url {
+                Some(redis_url) => Some(redis_url.to_string()),
+                None => None,
+            };
+
             log::info!(
                 "backend_connection_timeout: {:?}",
                 backend_connection_timeout
@@ -178,6 +184,7 @@ impl Config {
                 aws_secret_key: args.flag_aws_secret_key.clone(),
                 aws_region: args.flag_aws_region.clone(),
                 backend_connection_timeout,
+                redis_url,
             })
         }
     }
@@ -343,6 +350,7 @@ mod tests {
             aws_secret_key: None,
             aws_region: None,
             backend_connection_timeout: Duration::from_secs(1),
+            redis_url: None,
         }
     }
 }
