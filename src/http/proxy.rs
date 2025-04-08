@@ -1,14 +1,15 @@
 use super::super::config::HttpConfig;
+use super::handlers::*;
+use super::middlewares::*;
+use crate::redis_utils::create_redis_pool;
+use actix_web::dev::Service;
 use actix_web::guard::{Get, Put};
 use actix_web::{
     middleware,
+    middleware::from_fn,
     web::{resource, scope, Data},
     App, HttpServer,
 };
-
-use super::handlers::*;
-use super::middlewares::*;
-use actix_web::dev::Service;
 use futures::FutureExt;
 use std::time::Duration;
 
@@ -17,9 +18,10 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 #[actix_web::main]
 pub async fn main(config: HttpConfig) -> std::io::Result<()> {
     let address = config.address;
+    let redis_pool = create_redis_pool(config.redis_url.clone()).await;
 
     HttpServer::new(move || {
-        App::new()
+        let mut app = App::new()
             .app_data(Data::new(
                 awc::Client::builder()
                     .connector(
@@ -34,7 +36,12 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
             .service(
                 scope("/upstream")
                     .service(resource("{name}*").guard(Get()).to(fetch))
-                    .service(resource("{name}*").guard(Put()).to(forward))
+                    .service(
+                        resource("{name}*")
+                            .guard(Put())
+                            .wrap(from_fn(ensure_write_once))
+                            .to(forward),
+                    )
                     .service(resource("{name}*").to(simple_proxy)),
             )
             .service(
@@ -46,7 +53,16 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
                             .wrap_fn(|req, srv| srv.call(req).map(erase_file))
                             .to(fetch_file),
                     ),
-            )
+            );
+
+        if let Some(ref redis_pool) = redis_pool {
+            log::info!("Redis pool available.");
+            app = app.app_data(Data::new(redis_pool.clone()));
+        } else {
+            log::info!("Redis pool not available.");
+        }
+
+        app
     })
     .keep_alive(actix_http::KeepAlive::Disabled)
     .bind_uds("/tmp/actix-uds.socket")?
