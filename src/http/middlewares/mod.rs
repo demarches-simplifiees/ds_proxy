@@ -13,8 +13,7 @@ use std::path::Path;
 
 const REDIS_KEY_EXPIRATION: u64 = 3600; // 1 hour
 
-
-fn hash_key(input: &str) -> String {
+pub fn hash_key(input: &str) -> String {
     format!("{:x}", Sha256::digest(input))
 }
 
@@ -22,7 +21,8 @@ pub async fn ensure_write_once(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, Error> {
-    let redis_key = hash_key(req.path());
+    let path = req.path();
+    let redis_key = hash_key(path);
 
     // pool not configured, proceed with request
     let redis_pool = match req.app_data::<web::Data<Pool>>() {

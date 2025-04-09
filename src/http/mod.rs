@@ -1,5 +1,5 @@
 mod handlers;
-mod middlewares;
+pub mod middlewares;
 mod proxy;
 mod utils;
 
