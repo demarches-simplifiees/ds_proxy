@@ -1,5 +1,5 @@
 use super::super::config::HttpConfig;
-use crate::redis_utils::{check_redis_key, get_redis_connection, set_redis_key_with_expiration};
+use crate::redis_service::RedisService;
 use actix_web::{
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
@@ -21,25 +21,16 @@ pub async fn ensure_write_once(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, Error> {
-    let path = req.path();
-    let redis_key = hash_key(path);
-
-    // pool not configured, proceed with request
-    let redis_pool = match req.app_data::<web::Data<Pool>>() {
-        Some(pool) => pool,
-        None => return next.call(req).await,
-    };
-
-    // connection not available, proceed with request
-    let mut conn = match get_redis_connection(redis_pool).await {
-        Some(conn) => conn,
-        None => return next.call(req).await,
-    };
+    let path = req.path().to_string();
+    let redis_service = RedisService::new(req.app_data::<web::Data<Pool>>().cloned(), path);
 
     // key was set before, early return and deny access because we only write once
-    match check_redis_key(&mut conn, &redis_key).await {
+    match redis_service.check_key().await {
         Ok(true) => {
-            log::warn!("Access denied: Redis key already exists: {}", redis_key);
+            log::warn!(
+                "Access denied: Redis key already exists: {}",
+                redis_service.path
+            );
             return Err(ErrorForbidden("Access denied"));
         }
         Ok(false) => {} // Key does not exist, proceed
@@ -50,12 +41,10 @@ pub async fn ensure_write_once(
     let result = next.call(req).await;
 
     // set key key
-    if let Err(err) =
-        set_redis_key_with_expiration(&mut conn, &redis_key, REDIS_KEY_EXPIRATION).await
-    {
+    if let Err(err) = redis_service.set_temp_key(REDIS_KEY_EXPIRATION).await {
         log::error!(
             "Failed to set Redis key with expiration: {}. Error: {}",
-            redis_key,
+            redis_service.path,
             err
         );
     }
