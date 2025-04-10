@@ -1,7 +1,7 @@
 use super::super::config::HttpConfig;
 use super::handlers::*;
 use super::middlewares::*;
-use crate::redis_utils::create_redis_pool;
+use crate::redis_utils::configure_redis_pool;
 use actix_web::dev::Service;
 use actix_web::guard::{Get, Put};
 use actix_web::{
@@ -18,7 +18,7 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 #[actix_web::main]
 pub async fn main(config: HttpConfig) -> std::io::Result<()> {
     let address = config.address;
-    let redis_pool = create_redis_pool(config.redis_url.clone()).await;
+    let redis_pool = configure_redis_pool(&config).await;
 
     HttpServer::new(move || {
         let mut app = App::new()

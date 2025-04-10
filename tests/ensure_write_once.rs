@@ -6,6 +6,7 @@ use actix_web::HttpResponse;
 use ds_proxy::http::middlewares::{ensure_write_once, hash_key};
 use ds_proxy::redis_utils::create_redis_pool;
 use std::env;
+use url::Url;
 
 pub async fn mock_service() -> HttpResponse {
     let mut response = HttpResponse::Ok();
@@ -21,8 +22,11 @@ mod tests {
 
     #[actix_web::test]
     async fn test_ensure_write_once() {
-        let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1".to_string());
-        let redis_pool = create_redis_pool(Some(redis_url.clone())).await;
+        let redis_url = env::var("REDIS_URL")
+            .ok()
+            .and_then(|url| Url::parse(&url).ok())
+            .unwrap_or_else(|| Url::parse("redis://127.0.0.1").unwrap());
+        let redis_pool = create_redis_pool(Some(redis_url)).await;
 
         // Prépare une application Actix Web avec le middleware
         let mut actix_app = App::new()

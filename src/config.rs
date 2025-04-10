@@ -44,7 +44,8 @@ pub struct HttpConfig {
     pub aws_secret_key: Option<String>,
     pub aws_region: Option<String>,
     pub backend_connection_timeout: Duration,
-    pub redis_url: Option<String>,
+    pub redis_url: Option<Url>,
+    pub write_once: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -165,8 +166,26 @@ impl Config {
             };
 
             let redis_url = match &args.flag_redis_url {
-                Some(redis_url) => Some(redis_url.to_string()),
-                None => None,
+                Some(redis_url) => Some(Url::parse(redis_url).expect("Invalid Redis URL")),
+                None => match env::var("REDIS_URL") {
+                    Ok(redis_url_string) => Some(
+                        Url::parse(&redis_url_string)
+                            .expect("Invalid Redis URL from environment variable"),
+                    ),
+                    _ => None,
+                },
+            };
+
+            let write_once = match &args.flag_write_once {
+                Some(write_once) => Some(*write_once),
+                None => match env::var("WRITE_ONCE") {
+                    Ok(write_once_string) => Some(
+                        write_once_string
+                            .parse()
+                            .expect("WRITE_ONCE is not a boolean"),
+                    ),
+                    _ => None,
+                },
             };
 
             log::info!(
@@ -185,6 +204,7 @@ impl Config {
                 aws_region: args.flag_aws_region.clone(),
                 backend_connection_timeout,
                 redis_url,
+                write_once,
             })
         }
     }
@@ -351,6 +371,7 @@ mod tests {
             aws_region: None,
             backend_connection_timeout: Duration::from_secs(1),
             redis_url: None,
+            write_once: None,
         }
     }
 }
