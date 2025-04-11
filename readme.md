@@ -67,7 +67,7 @@ En plus des différents crates utilisés référencés dans le Cargo.lock, la si
 ### Write Once
 
 Vous pouvez garantir le fait que le proxy acceptera de forwarder à l'object storage un fichier qu'une seule fois. Cette option évite des problèmes de sécurité liée au fait que les URLs vers les storage sont souvent exposées comme des URL temporaire peuvant ainsi être utilisées plusieurs fois.
-Pour ce faire il vous faudra avoir un redis de dispo et en exposer son env via l'option ```--redis_url=redis://127.0.0.1```
+Pour ce faire il vous faudra avoir un redis de dispo et en exposer son env via l'option ```--write-once --redis_url=redis://127.0.0.1```
 
 ## Comment contribuer ?
 
