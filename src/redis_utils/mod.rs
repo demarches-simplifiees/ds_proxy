@@ -1,5 +1,5 @@
 use crate::config::HttpConfig;
-use deadpool_redis::{Config as RedisConfig, Pool as RedisPool, Pool, Runtime};
+use deadpool_redis::{Config as RedisConfig, Pool as RedisPool, Runtime};
 use log::{info, warn};
 use url::Url;
 
