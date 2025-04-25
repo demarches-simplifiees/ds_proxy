@@ -7,28 +7,28 @@ const LOCK_DURATION: u64 = 3600; // 1 hour
 use sha2::{Digest, Sha256};
 
 // Service that implements the "write once" functionality
-// This service uses Redis to track resource paths that have been successfully
+// This service uses Redis to track resource uris that have been successfully
 // accessed, preventing multiple accesses to the same resource. This is especially
 // useful for temporary URLs that should only be valid for a single use.
 
 pub struct WriteOnceService {
     pool: Option<web::Data<Pool>>,
-    pub path: String,
+    pub uri: String,
 }
 
 impl WriteOnceService {
-    pub fn new(pool: Option<web::Data<Pool>>, path: String) -> Self {
-        WriteOnceService { pool, path }
+    pub fn new(pool: Option<web::Data<Pool>>, uri: String) -> Self {
+        WriteOnceService { pool, uri }
     }
 
-    pub fn hash_key(path: &str) -> String {
-        format!("{:x}", Sha256::digest(path.as_bytes()))
+    pub fn hash_key(uri: &str) -> String {
+        format!("{:x}", Sha256::digest(uri.as_bytes()))
     }
 
     pub async fn is_locked(&self) -> Result<bool, String> {
         self.get_redis_connection()
             .await?
-            .exists(Self::hash_key(&self.path))
+            .exists(Self::hash_key(&self.uri))
             .await
             .map_err(|e| e.to_string())
             .map(|exists: i32| exists > 0)
@@ -37,7 +37,7 @@ impl WriteOnceService {
     pub async fn mark_as_locked(&self) -> Result<(), String> {
         self.get_redis_connection()
             .await?
-            .set_ex(Self::hash_key(&self.path), true, LOCK_DURATION)
+            .set_ex(Self::hash_key(&self.uri), true, LOCK_DURATION)
             .await
             .map_err(|e| e.to_string())
     }

@@ -67,18 +67,34 @@ En plus des différents crates utilisés référencés dans le Cargo.lock, la si
 
 ### Write Once
 
-Vous pouvez garantir le fait que le proxy acceptera de forwarder à l'object storage un fichier qu'une seule fois. Cette option évite des problèmes de sécurité liée au fait que les URLs vers les storage sont souvent exposées comme des URL temporaire peuvant ainsi être utilisées plusieurs fois.
-Pour ce faire il vous faudra avoir un redis de dispo et en exposer son env via l'option ```--write-once --redis_url=redis://127.0.0.1```
+Vous pouvez garantir que le proxy acceptera de transférer à l'object storage un fichier une seule fois. Cette option permet d'éviter des problèmes de sécurité liés à l'exposition des URLs temporaires des stockages, qui peuvent être utilisées plusieurs fois si elles ne sont pas correctement protégées.
+
+Pour activer cette fonctionnalité, vous devez disposer d'une instance Redis accessible et fournir son URL via l'option suivante :
+```bash
+--write-once --redis_url=redis://127.0.0.1
+```
 
 **Important**
 
-La librairie utilisée pour le redis pool est deadpool-redis. Celle-ci [n'applique pas de timeout](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.PoolConfig.html#fields) par défault. Problème : **on souhaite ne pas bloquer le système même si redis est pas bien**. Vous pouvez personnaliser les options de timeout suivantes :
+La librairie utilisée pour gérer le pool Redis est `deadpool-redis`. Par défaut, cette librairie [n'applique pas de timeout](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.PoolConfig.html#fields), ce qui peut poser problème si Redis devient indisponible. Pour éviter de bloquer le système, vous pouvez configurer les options de timeout suivantes :
 
-* [wait](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.Timeouts.html#structfield.wait), par défaut à 5 secondes, personnalisable via l'arg `--redis_timeout_wait` ou via la var d'env `REDIS_TIMEOUT_WAIT`
-* [create](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.Timeouts.html#structfield.create), par défaut à 3 secondes, personnalisable via l'arg  `--redis_timeout_create` ou via la var d'env `REDIS_TIMEOUT_CREATE`
-* [recycle](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.Timeouts.html#structfield.recycle), par défaut à 1 seconde, personnalisable via l'arg `--redis_timeout_recycle` ou via la var d'env `REDIS_TIMEOUT_RECYCLE`
+- **wait** : Temps d'attente pour obtenir une connexion dans le pool. Par défaut à 5 secondes. Personnalisable via l'argument `--redis_timeout_wait` ou la variable d'environnement `REDIS_TIMEOUT_WAIT`.
+- **create** : Temps maximum pour créer une nouvelle connexion. Par défaut à 3 secondes. Personnalisable via l'argument `--redis_timeout_create` ou la variable d'environnement `REDIS_TIMEOUT_CREATE`.
+- **recycle** : Temps maximum pour recycler une connexion existante. Par défaut à 1 seconde. Personnalisable via l'argument `--redis_timeout_recycle` ou la variable d'environnement `REDIS_TIMEOUT_RECYCLE`.
 
-Le pool size est par défaut à 16, personnalisable soit via l'arg `--redis_pool_max_size`, ou via la var d'env `REDIS_POOL_MAX_SIZE`
+Exemple :
+```bash
+--redis_timeout_wait=10 --redis_timeout_create=5 --redis_timeout_recycle=2
+```
+
+Le **pool size** (taille du pool de connexions Redis) est fixé par défaut à 16. Vous pouvez le personnaliser via l'argument `--redis_pool_max_size` ou la variable d'environnement `REDIS_POOL_MAX_SIZE`.
+
+Exemple :
+```bash
+--redis_pool_max_size=32
+```
+
+**Remarque** : Assurez-vous que votre instance Redis est correctement configurée et surveillée pour garantir une haute disponibilité et éviter les interruptions de service.
 
 ## Comment contribuer ?
 

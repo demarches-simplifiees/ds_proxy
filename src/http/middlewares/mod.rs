@@ -14,16 +14,15 @@ pub async fn ensure_write_once(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, Error> {
-    let path = req.path().to_string();
-    let write_once_service =
-        WriteOnceService::new(req.app_data::<web::Data<Pool>>().cloned(), path);
+    let uri = req.uri().to_string();
+    let write_once_service = WriteOnceService::new(req.app_data::<web::Data<Pool>>().cloned(), uri);
 
     // key was set before, early return and deny access because we only write once
     match write_once_service.is_locked().await {
         Ok(true) => {
             log::warn!(
                 "Access denied: Redis key already exists: {}",
-                write_once_service.path
+                write_once_service.uri
             );
             return Err(ErrorForbidden("Access denied"));
         }
@@ -38,7 +37,7 @@ pub async fn ensure_write_once(
             if let Err(err) = write_once_service.mark_as_locked().await {
                 log::error!(
                     "Failed to mark as locked with expiration: {}. Error: {}",
-                    write_once_service.path,
+                    write_once_service.uri,
                     err
                 );
             }
