@@ -6,7 +6,6 @@ const LOCK_DURATION: u64 = 3600; // 1 hour
 
 use sha2::{Digest, Sha256};
 
-
 // Service that implements the "write once" functionality
 // This service uses Redis to track resource paths that have been successfully
 // accessed, preventing multiple accesses to the same resource. This is especially

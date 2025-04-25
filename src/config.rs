@@ -34,6 +34,15 @@ pub struct EncryptConfig {
 }
 
 #[derive(Debug, Clone)]
+pub struct RedisConfig {
+    pub redis_url: Option<Url>,
+    pub redis_timeout_wait: Option<Duration>,
+    pub redis_timeout_create: Option<Duration>,
+    pub redis_timeout_recycle: Option<Duration>,
+    pub redis_pool_max_size: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
 pub struct HttpConfig {
     pub upstream_base_url: Url,
     pub keyring: Keyring,
@@ -44,7 +53,6 @@ pub struct HttpConfig {
     pub aws_secret_key: Option<String>,
     pub aws_region: Option<String>,
     pub backend_connection_timeout: Duration,
-    pub redis_url: Option<Url>,
     pub write_once: Option<bool>,
 }
 
@@ -56,6 +64,65 @@ pub struct AddKeyConfig {
 }
 
 impl Config {
+    pub fn create_redis_config(args: &args::Args) -> RedisConfig {
+        RedisConfig {
+            redis_url: match &args.flag_redis_url {
+                Some(redis_url) => Some(Url::parse(redis_url).expect("Invalid Redis URL")),
+                None => match env::var("REDIS_URL") {
+                    Ok(redis_url_string) => Some(
+                        Url::parse(&redis_url_string)
+                            .expect("Invalid Redis URL from environment variable"),
+                    ),
+                    _ => None,
+                },
+            },
+            redis_timeout_wait: match &args.flag_redis_timeout_wait {
+                Some(timeout) => Some(Duration::from_secs(*timeout)),
+                None => match env::var("REDIS_TIMEOUT_WAIT") {
+                    Ok(timeout_string) => Some(Duration::from_secs(
+                        timeout_string
+                            .parse::<u64>()
+                            .expect("REDIS_TIMEOUT_WAIT is not a valid u64"),
+                    )),
+                    _ => None,
+                },
+            },
+            redis_timeout_create: match &args.flag_redis_timeout_create {
+                Some(timeout) => Some(Duration::from_secs(*timeout)),
+                None => match env::var("REDIS_TIMEOUT_CREATE") {
+                    Ok(timeout_string) => Some(Duration::from_secs(
+                        timeout_string
+                            .parse::<u64>()
+                            .expect("REDIS_TIMEOUT_CREATE is not a valid u64"),
+                    )),
+                    _ => None,
+                },
+            },
+            redis_timeout_recycle: match &args.flag_redis_timeout_recycle {
+                Some(timeout) => Some(Duration::from_secs(*timeout)),
+                None => match env::var("REDIS_TIMEOUT_RECYCLE") {
+                    Ok(timeout_string) => Some(Duration::from_secs(
+                        timeout_string
+                            .parse::<u64>()
+                            .expect("REDIS_TIMEOUT_RECYCLE is not a valid u64"),
+                    )),
+                    _ => None,
+                },
+            },
+            redis_pool_max_size: match &args.flag_redis_pool_max_size {
+                Some(max_size) => Some(*max_size),
+                None => match env::var("REDIS_POOL_MAX_SIZE") {
+                    Ok(max_size_string) => Some(
+                        max_size_string
+                            .parse::<usize>()
+                            .expect("REDIS_POOL_MAX_SIZE is not a valid usize"),
+                    ),
+                    _ => None,
+                },
+            },
+        }
+    }
+
     pub fn create_config(args: &args::Args) -> Config {
         let password = match &args.flag_password_file {
             Some(password_file) => read_file_content(password_file),
@@ -165,17 +232,6 @@ impl Config {
                 },
             };
 
-            let redis_url = match &args.flag_redis_url {
-                Some(redis_url) => Some(Url::parse(redis_url).expect("Invalid Redis URL")),
-                None => match env::var("REDIS_URL") {
-                    Ok(redis_url_string) => Some(
-                        Url::parse(&redis_url_string)
-                            .expect("Invalid Redis URL from environment variable"),
-                    ),
-                    _ => None,
-                },
-            };
-
             let write_once = match &args.flag_write_once {
                 Some(write_once) => Some(*write_once),
                 None => match env::var("WRITE_ONCE") {
@@ -203,7 +259,6 @@ impl Config {
                 aws_secret_key: args.flag_aws_secret_key.clone(),
                 aws_region: args.flag_aws_region.clone(),
                 backend_connection_timeout,
-                redis_url,
                 write_once,
             })
         }
@@ -370,7 +425,6 @@ mod tests {
             aws_secret_key: None,
             aws_region: None,
             backend_connection_timeout: Duration::from_secs(1),
-            redis_url: None,
             write_once: None,
         }
     }

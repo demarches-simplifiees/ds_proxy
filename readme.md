@@ -12,6 +12,7 @@ Fonctionnalités :
 - est performant
 - supporte de multiples clés de chiffrement pour se conformer à une politique de péremption de clés
 - possède une url de health check `/ping` qui renvoie une 404 si le fichier `maintenance` est présent à côté du binaire
+- garantit qu'un fichier est uploadé une fois
 
 ## Pour commencer
 
@@ -68,6 +69,16 @@ En plus des différents crates utilisés référencés dans le Cargo.lock, la si
 
 Vous pouvez garantir le fait que le proxy acceptera de forwarder à l'object storage un fichier qu'une seule fois. Cette option évite des problèmes de sécurité liée au fait que les URLs vers les storage sont souvent exposées comme des URL temporaire peuvant ainsi être utilisées plusieurs fois.
 Pour ce faire il vous faudra avoir un redis de dispo et en exposer son env via l'option ```--write-once --redis_url=redis://127.0.0.1```
+
+**Important**
+
+La librairie utilisée pour le redis pool est deadpool-redis. Celle-ci [n'applique pas de timeout](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.PoolConfig.html#fields) par défault. Problème : **on souhaite ne pas bloquer le système même si redis est pas bien**. Vous pouvez personnaliser les options de timeout suivantes :
+
+* [wait](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.Timeouts.html#structfield.wait), par défaut à 5 secondes, personnalisable via l'arg `--redis_timeout_wait` ou via la var d'env `REDIS_TIMEOUT_WAIT`
+* [create](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.Timeouts.html#structfield.create), par défaut à 3 secondes, personnalisable via l'arg  `--redis_timeout_create` ou via la var d'env `REDIS_TIMEOUT_CREATE`
+* [recycle](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.Timeouts.html#structfield.recycle), par défaut à 1 seconde, personnalisable via l'arg `--redis_timeout_recycle` ou via la var d'env `REDIS_TIMEOUT_RECYCLE`
+
+Le pool size est par défaut à 16, personnalisable soit via l'arg `--redis_pool_max_size`, ou via la var d'env `REDIS_POOL_MAX_SIZE`
 
 ## Comment contribuer ?
 

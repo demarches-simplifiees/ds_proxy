@@ -3,8 +3,10 @@ extern crate ds_proxy;
 use actix_web::guard::Get;
 use actix_web::web::resource;
 use actix_web::HttpResponse;
+use ds_proxy::config::RedisConfig;
 use ds_proxy::http::middlewares::ensure_write_once;
 use ds_proxy::redis_utils::create_redis_pool;
+
 use std::env;
 use url::Url;
 
@@ -30,6 +32,16 @@ fn redis_url() -> Url {
         })
 }
 
+fn redis_config() -> RedisConfig {
+    RedisConfig {
+        redis_url: Some(redis_url()),
+        redis_timeout_wait: Some(std::time::Duration::from_secs(5)),
+        redis_timeout_create: Some(std::time::Duration::from_secs(5)),
+        redis_timeout_recycle: Some(std::time::Duration::from_secs(5)),
+        redis_pool_max_size: Some(1),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -39,7 +51,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_ensure_write_once_with_success() {
-        let redis_pool = create_redis_pool(Some(redis_url())).await;
+        let redis_pool = create_redis_pool(&redis_config()).await;
 
         // Prépare une application Actix Web avec le middleware
         let mut actix_app = App::new().service(
@@ -54,7 +66,10 @@ mod tests {
             actix_app = actix_app.app_data(web::Data::new(redis_pool.clone()));
             // on clean la clé
             match redis_pool.get().await {
-                Ok(mut conn) => conn.del(WriteOnceService::hash_key("/test-success-path")).await.unwrap(),
+                Ok(mut conn) => conn
+                    .del(WriteOnceService::hash_key("/test-success-path"))
+                    .await
+                    .unwrap(),
                 Err(_err) => {}
             }
         }
@@ -83,7 +98,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_ensure_write_once_with_found() {
-        let redis_pool = create_redis_pool(Some(redis_url())).await;
+        let redis_pool = create_redis_pool(&redis_config()).await;
 
         // Prépare une application Actix Web avec le middleware
         let mut actix_app = App::new()

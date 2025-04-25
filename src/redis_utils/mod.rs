@@ -1,14 +1,16 @@
-use crate::config::HttpConfig;
-use deadpool_redis::{Config as RedisConfig, Pool as RedisPool, Runtime};
+use crate::config::{HttpConfig, RedisConfig};
+use deadpool::managed::{QueueMode, Timeouts};
+use deadpool_redis::{Config, Pool, PoolConfig, Runtime};
 use log::{info, warn};
-use url::Url;
 
-pub async fn configure_redis_pool(config: &HttpConfig) -> Option<RedisPool> {
-    if config.write_once.is_some() {
-        if let Some(ref redis_url) = config.redis_url {
+pub async fn configure_redis_pool(
+    http_config: &HttpConfig,
+    redis_config: &RedisConfig,
+) -> Option<Pool> {
+    if http_config.write_once.is_some() {
+        if let Some(ref redis_url) = redis_config.redis_url {
             log::info!("Redis URL provided: {:?}", redis_url);
-
-            match create_redis_pool(config.redis_url.clone()).await {
+            match create_redis_pool(redis_config).await {
                 Some(pool) => {
                     return Some(pool);
                 }
@@ -24,10 +26,31 @@ pub async fn configure_redis_pool(config: &HttpConfig) -> Option<RedisPool> {
     None
 }
 
-pub async fn create_redis_pool(url: Option<Url>) -> Option<RedisPool> {
-    match url {
+fn get_redis_pool_config(config: &RedisConfig) -> PoolConfig {
+    PoolConfig {
+        max_size: config.redis_pool_max_size.unwrap_or(16),
+        timeouts: Timeouts {
+            wait: config
+                .redis_timeout_wait
+                .or(Some(std::time::Duration::from_secs(5))),
+            create: config
+                .redis_timeout_create
+                .or(Some(std::time::Duration::from_secs(3))),
+            recycle: config
+                .redis_timeout_recycle
+                .or(Some(std::time::Duration::from_secs(1))),
+        },
+        queue_mode: QueueMode::Fifo, // default queue mode
+    }
+}
+
+pub async fn create_redis_pool(redis_config: &RedisConfig) -> Option<Pool> {
+    match redis_config.redis_url.as_ref() {
         Some(url) => {
-            let cfg = RedisConfig::from_url(url.to_string());
+            let pool_config = get_redis_pool_config(redis_config);
+
+            let mut cfg = Config::from_url(url.to_string());
+            cfg.pool = Some(pool_config);
 
             match cfg.create_pool(Some(Runtime::Tokio1)) {
                 Ok(redis_pool) => Some(redis_pool),

@@ -10,7 +10,6 @@ use actix_web::{
 use deadpool_redis::Pool;
 use std::path::Path;
 
-
 pub async fn ensure_write_once(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
