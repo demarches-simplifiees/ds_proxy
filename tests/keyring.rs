@@ -29,13 +29,13 @@ fn multiple_keys() {
         );
         ensure_is_absent(&upload_path);
 
-        let _proxy_and_node = ProxyAndNode::start_with_keyring_path(keyring_path);
+        let _proxy_node_and_redis = ProxyAndNode::start_with_keyring_path(keyring_path);
         curl_put(COMPUTER_SVG_PATH, &upload_url);
 
         assert_eq!(key_id(&upload_path), i);
     }
 
-    let _proxy_and_node = ProxyAndNode::start_with_keyring_path(keyring_path);
+    let _proxy_node_and_redis = ProxyAndNode::start_with_keyring_path(keyring_path);
 
     for i in 0..3 {
         let download_url = format!("localhost:4444/upstream/victory_{}", i);

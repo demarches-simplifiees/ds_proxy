@@ -25,7 +25,7 @@ fn upload_and_download() {
 
     ensure_is_absent(uploaded_path);
 
-    let _proxy_and_node = ProxyAndNode::start();
+    let _proxy_node_and_redis = ProxyAndNode::start();
 
     curl_put(COMPUTER_SVG_PATH, "localhost:4444/upstream/victory");
     assert_eq!(returned_header("etag"), COMPUTER_SVG_MD5_ETAG);

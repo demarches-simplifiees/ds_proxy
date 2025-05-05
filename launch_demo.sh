@@ -5,7 +5,7 @@ KEYRING_FILE=/tmp/keyring.toml
 
 DS_PROXY_LOG=/tmp/ds_proxy_log
 NODE_LOG=/tmp/node_log
-REDIS_PORT=1337
+REDIS_PORT=5555
 
 echo 'compiling ds_proxy'
 cargo build --release

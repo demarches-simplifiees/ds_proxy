@@ -9,7 +9,7 @@ pub use helpers::*;
 #[actix_rt::test]
 #[serial(servers)]
 async fn content_length_and_transfert_encoding() {
-    let _proxy_and_node = ProxyAndNode::start();
+    let _proxy_node_and_redis = ProxyAndNode::start();
 
     let tmp_dir = assert_fs::TempDir::new().unwrap();
 

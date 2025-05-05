@@ -6,9 +6,12 @@ use actix_web::HttpResponse;
 use ds_proxy::config::RedisConfig;
 use ds_proxy::http::middlewares::ensure_write_once;
 use ds_proxy::redis_utils::create_redis_pool;
-
 use std::env;
+use std::thread;
 use url::Url;
+
+mod helpers;
+pub use helpers::*;
 
 pub async fn mock_success() -> HttpResponse {
     let mut response = HttpResponse::Ok();
@@ -28,7 +31,7 @@ fn redis_url() -> Url {
         .ok()
         .and_then(|url| Url::parse(&url).ok())
         .unwrap_or_else(|| {
-            Url::parse("redis://127.0.0.1").expect("Failed to parse default Redis URL")
+            Url::parse("redis://127.0.0.1:5555").expect("Failed to parse default Redis URL")
         })
 }
 
@@ -42,8 +45,15 @@ fn redis_config() -> RedisConfig {
     }
 }
 
+fn launch_redis_with_delay() -> ChildGuard {
+    let redis = launch_redis(PrintServerLogs::No);
+    thread::sleep(std::time::Duration::from_secs(4));
+    redis
+}
+
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use actix_web::{middleware::from_fn, test, web, App};
     use ds_proxy::write_once_service::WriteOnceService;
@@ -51,9 +61,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_ensure_write_once_with_success() {
+        let _redis_process = launch_redis_with_delay();
         let redis_pool = create_redis_pool(&redis_config()).await;
-
-        // Prépare une application Actix Web avec le middleware
         let mut actix_app = App::new().service(
             resource("/test-success-path")
                 .guard(Get())
@@ -98,9 +107,8 @@ mod tests {
 
     #[actix_web::test]
     async fn test_ensure_write_once_with_found() {
+        let _redis_process = launch_redis_with_delay();
         let redis_pool = create_redis_pool(&redis_config()).await;
-
-        // Prépare une application Actix Web avec le middleware
         let mut actix_app = App::new()
             .service(
                 resource("/test-success-path")
