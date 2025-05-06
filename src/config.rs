@@ -53,7 +53,7 @@ pub struct HttpConfig {
     pub aws_secret_key: Option<String>,
     pub aws_region: Option<String>,
     pub backend_connection_timeout: Duration,
-    pub write_once: Option<bool>,
+    pub write_once: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -232,16 +232,16 @@ impl Config {
                 },
             };
 
-            let write_once = match &args.flag_write_once {
-                Some(write_once) => Some(*write_once),
-                None => match env::var("WRITE_ONCE") {
-                    Ok(write_once_string) => Some(
+            let write_once = if args.flag_write_once {
+                true
+            } else {
+                match env::var("WRITE_ONCE") {
+                    Ok(write_once_string) =>
                         write_once_string
                             .parse()
                             .expect("WRITE_ONCE is not a boolean"),
-                    ),
-                    _ => None,
-                },
+                    _ => false,
+                }
             };
 
             log::info!(
@@ -425,7 +425,7 @@ mod tests {
             aws_secret_key: None,
             aws_region: None,
             backend_connection_timeout: Duration::from_secs(1),
-            write_once: None,
+            write_once: false,
         }
     }
 }
