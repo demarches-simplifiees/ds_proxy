@@ -57,8 +57,7 @@ pub async fn main(config: HttpConfig, redis_config: RedisConfig) -> std::io::Res
             );
 
         if config.write_once {
-            let redis_pool =
-                configure_redis_pool(&config, &redis_config).expect("Failed to create Redis pool");
+            let redis_pool = configure_redis_pool(&redis_config);
 
             app = app.app_data(Data::new(WriteOnceService::new(redis_pool)))
         }

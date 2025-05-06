@@ -1,26 +1,21 @@
-use crate::config::{HttpConfig, RedisConfig};
+use crate::config::RedisConfig;
 use deadpool::managed::{QueueMode, Timeouts};
 use deadpool_redis::{Config, Pool, PoolConfig, Runtime};
 use log::{info, warn};
 
-pub fn configure_redis_pool(http_config: &HttpConfig, redis_config: &RedisConfig) -> Option<Pool> {
-    if http_config.write_once {
-        if let Some(ref redis_url) = redis_config.redis_url {
-            log::info!("Redis URL provided: {:?}", redis_url);
-            match create_redis_pool(redis_config) {
-                Some(pool) => {
-                    return Some(pool);
-                }
-                None => {
-                    panic!("An accessibl Redis URL is required when write-once is enabled.");
-                }
+pub fn configure_redis_pool(redis_config: &RedisConfig) -> Pool {
+    if let Some(ref redis_url) = redis_config.redis_url {
+        log::info!("Redis URL provided: {:?}", redis_url);
+        match create_redis_pool(redis_config) {
+            Some(pool) => {
+                return pool;
+            }
+            None => {
+                panic!("An accessibl Redis URL is required when write-once is enabled.");
             }
         }
-        panic!("Redis URL is required when write-once is enabled.");
-    } else {
-        log::info!("Write-once is not enabled, skipping Redis pool creation.");
     }
-    None
+    panic!("Redis URL is required when write-once is enabled.");
 }
 
 fn get_redis_pool_config(config: &RedisConfig) -> PoolConfig {
