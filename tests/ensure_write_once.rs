@@ -62,7 +62,7 @@ mod tests {
     #[actix_web::test]
     async fn test_ensure_write_once_with_success() {
         let _redis_process = launch_redis_with_delay();
-        let redis_pool = create_redis_pool(&redis_config()).await;
+        let redis_pool = create_redis_pool(&redis_config());
         let mut actix_app = App::new().service(
             resource("/test-success-path")
                 .guard(Get())
@@ -108,7 +108,7 @@ mod tests {
     #[actix_web::test]
     async fn test_ensure_write_once_with_found() {
         let _redis_process = launch_redis_with_delay();
-        let redis_pool = create_redis_pool(&redis_config()).await;
+        let redis_pool = create_redis_pool(&redis_config());
         let mut actix_app = App::new()
             .service(
                 resource("/test-success-path")

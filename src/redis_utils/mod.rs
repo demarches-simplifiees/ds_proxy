@@ -3,14 +3,14 @@ use deadpool::managed::{QueueMode, Timeouts};
 use deadpool_redis::{Config, Pool, PoolConfig, Runtime};
 use log::{info, warn};
 
-pub async fn configure_redis_pool(
+pub fn configure_redis_pool(
     http_config: &HttpConfig,
     redis_config: &RedisConfig,
 ) -> Option<Pool> {
     if http_config.write_once.is_some() {
         if let Some(ref redis_url) = redis_config.redis_url {
             log::info!("Redis URL provided: {:?}", redis_url);
-            match create_redis_pool(redis_config).await {
+            match create_redis_pool(redis_config) {
                 Some(pool) => {
                     return Some(pool);
                 }
@@ -44,7 +44,7 @@ fn get_redis_pool_config(config: &RedisConfig) -> PoolConfig {
     }
 }
 
-pub async fn create_redis_pool(redis_config: &RedisConfig) -> Option<Pool> {
+pub fn create_redis_pool(redis_config: &RedisConfig) -> Option<Pool> {
     match redis_config.redis_url.as_ref() {
         Some(url) => {
             let pool_config = get_redis_pool_config(redis_config);
