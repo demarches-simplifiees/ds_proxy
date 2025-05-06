@@ -5,10 +5,8 @@ use actix_web::web::resource;
 use actix_web::HttpResponse;
 use ds_proxy::config::RedisConfig;
 use ds_proxy::http::middlewares::ensure_write_once;
-use std::env;
 use std::thread;
 use url::Url;
-
 mod helpers;
 pub use helpers::*;
 
@@ -23,25 +21,6 @@ pub async fn mock_found() -> HttpResponse {
     response.insert_header(("Location", "http://example.com"));
 
     response.body("Redirecting...")
-}
-
-fn redis_url() -> Url {
-    env::var("REDIS_URL")
-        .ok()
-        .and_then(|url| Url::parse(&url).ok())
-        .unwrap_or_else(|| {
-            Url::parse("redis://127.0.0.1:5555").expect("Failed to parse default Redis URL")
-        })
-}
-
-fn redis_config() -> RedisConfig {
-    RedisConfig {
-        redis_url: redis_url(),
-        redis_timeout_wait: Some(std::time::Duration::from_secs(5)),
-        redis_timeout_create: Some(std::time::Duration::from_secs(5)),
-        redis_timeout_recycle: Some(std::time::Duration::from_secs(5)),
-        redis_pool_max_size: Some(1),
-    }
 }
 
 fn launch_redis_with_delay() -> ChildGuard {
@@ -61,7 +40,13 @@ mod tests {
     #[actix_web::test]
     async fn test_ensure_write_once_with_success() {
         let _redis_process = launch_redis_with_delay();
-        let redis_pool = configure_redis_pool(&redis_config());
+
+        let config = RedisConfig {
+            redis_url: Url::parse("redis://127.0.0.1:5555").unwrap(),
+            ..RedisConfig::default()
+        };
+        let redis_pool = configure_redis_pool(config);
+
         let mut actix_app = App::new().service(
             resource("/test-success-path")
                 .guard(Get())
@@ -79,7 +64,7 @@ mod tests {
                 .del(WriteOnceService::hash_key("/test-success-path"))
                 .await
                 .unwrap(),
-            Err(_err) => {}
+            Err(_err) => panic!("Failed to get Redis connection"),
         }
 
         let app = test::init_service(actix_app).await;
@@ -97,7 +82,7 @@ mod tests {
             .to_request();
         let resp2 = test::try_call_service(&app, req).await;
         match resp2 {
-            Ok(_) => panic!("Expected an error, but got a response. do you have a redis running on 127.0.0.1:6379 ?"),
+            Ok(resp) => panic!("Expected an error, but got a response, status: {}", resp.status()),
             Err(err) => {
                 assert_eq!(err.error_response().status(), 403);
             }
@@ -107,7 +92,11 @@ mod tests {
     #[actix_web::test]
     async fn test_ensure_write_once_with_found() {
         let _redis_process = launch_redis_with_delay();
-        let redis_pool = configure_redis_pool(&redis_config());
+        let config = RedisConfig {
+            redis_url: Url::parse("redis://127.0.0.1:5555").unwrap(),
+            ..RedisConfig::default()
+        };
+        let redis_pool = configure_redis_pool(config);
 
         // Prépare une application Actix Web avec le middleware
         let mut actix_app = App::new()

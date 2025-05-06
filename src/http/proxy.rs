@@ -1,4 +1,4 @@
-use super::super::config::{HttpConfig, RedisConfig};
+use super::super::config::HttpConfig;
 use super::handlers::*;
 use super::middlewares::*;
 use crate::redis_utils::configure_redis_pool;
@@ -17,7 +17,7 @@ use std::time::Duration;
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[actix_web::main]
-pub async fn main(config: HttpConfig, redis_config: RedisConfig) -> std::io::Result<()> {
+pub async fn main(config: HttpConfig) -> std::io::Result<()> {
     let address = config.address;
 
     HttpServer::new(move || {
@@ -57,7 +57,7 @@ pub async fn main(config: HttpConfig, redis_config: RedisConfig) -> std::io::Res
             );
 
         if config.write_once {
-            let redis_pool = configure_redis_pool(&redis_config);
+            let redis_pool = configure_redis_pool(config.redis_config.clone());
 
             app = app.app_data(Data::new(WriteOnceService::new(redis_pool)))
         }
