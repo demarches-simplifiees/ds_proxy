@@ -35,7 +35,7 @@ pub struct EncryptConfig {
 
 #[derive(Debug, Clone)]
 pub struct RedisConfig {
-    pub redis_url: Option<Url>,
+    pub redis_url: Url,
     pub redis_timeout_wait: Option<Duration>,
     pub redis_timeout_create: Option<Duration>,
     pub redis_timeout_recycle: Option<Duration>,
@@ -67,13 +67,11 @@ impl Config {
     pub fn create_redis_config(args: &args::Args) -> RedisConfig {
         RedisConfig {
             redis_url: match &args.flag_redis_url {
-                Some(redis_url) => Some(Url::parse(redis_url).expect("Invalid Redis URL")),
+                Some(redis_url) => Url::parse(redis_url).expect("Invalid Redis URL"),
                 None => match env::var("REDIS_URL") {
-                    Ok(redis_url_string) => Some(
-                        Url::parse(&redis_url_string)
-                            .expect("Invalid Redis URL from environment variable"),
-                    ),
-                    _ => None,
+                    Ok(redis_url_string) => Url::parse(&redis_url_string)
+                        .expect("Invalid Redis URL from environment variable"),
+                    _ => Url::parse("redis://127.0.0.1").unwrap(),
                 },
             },
             redis_timeout_wait: match &args.flag_redis_timeout_wait {

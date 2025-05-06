@@ -37,7 +37,7 @@ fn redis_url() -> Url {
 
 fn redis_config() -> RedisConfig {
     RedisConfig {
-        redis_url: Some(redis_url()),
+        redis_url: redis_url(),
         redis_timeout_wait: Some(std::time::Duration::from_secs(5)),
         redis_timeout_create: Some(std::time::Duration::from_secs(5)),
         redis_timeout_recycle: Some(std::time::Duration::from_secs(5)),
