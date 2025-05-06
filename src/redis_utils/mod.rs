@@ -1,16 +1,16 @@
 use crate::config::RedisConfig;
 use deadpool::managed::{QueueMode, Timeouts};
 use deadpool_redis::{Config, Pool, PoolConfig, Runtime};
-use log::warn;
 
 pub fn configure_redis_pool(redis_config: &RedisConfig) -> Pool {
     log::info!("Redis URL provided: {:?}", redis_config.redis_url);
-    match create_redis_pool(redis_config) {
-        Some(pool) => pool,
-        None => {
-            panic!("An accessibl Redis URL is required when write-once is enabled.");
-        }
-    }
+    let pool_config = get_redis_pool_config(redis_config);
+
+    let mut cfg = Config::from_url(redis_config.redis_url.clone());
+    cfg.pool = Some(pool_config);
+
+    cfg.create_pool(Some(Runtime::Tokio1))
+        .unwrap_or_else(|err| panic!("Failed to create Redis pool: {}", err))
 }
 
 fn get_redis_pool_config(config: &RedisConfig) -> PoolConfig {
@@ -28,20 +28,5 @@ fn get_redis_pool_config(config: &RedisConfig) -> PoolConfig {
                 .or(Some(std::time::Duration::from_secs(1))),
         },
         queue_mode: QueueMode::Fifo, // default queue mode
-    }
-}
-
-pub fn create_redis_pool(redis_config: &RedisConfig) -> Option<Pool> {
-    let pool_config = get_redis_pool_config(redis_config);
-
-    let mut cfg = Config::from_url(redis_config.redis_url.to_string());
-    cfg.pool = Some(pool_config);
-
-    match cfg.create_pool(Some(Runtime::Tokio1)) {
-        Ok(redis_pool) => Some(redis_pool),
-        Err(err) => {
-            warn!("Invalid Redis URL : {}", err);
-            None
-        }
     }
 }

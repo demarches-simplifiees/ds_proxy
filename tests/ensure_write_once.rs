@@ -5,7 +5,6 @@ use actix_web::web::resource;
 use actix_web::HttpResponse;
 use ds_proxy::config::RedisConfig;
 use ds_proxy::http::middlewares::ensure_write_once;
-use ds_proxy::redis_utils::create_redis_pool;
 use std::env;
 use std::thread;
 use url::Url;
@@ -56,13 +55,13 @@ mod tests {
 
     use super::*;
     use actix_web::{middleware::from_fn, test, web, App};
-    use ds_proxy::write_once_service::WriteOnceService;
+    use ds_proxy::{redis_utils::configure_redis_pool, write_once_service::WriteOnceService};
     use redis::AsyncCommands;
 
     #[actix_web::test]
     async fn test_ensure_write_once_with_success() {
         let _redis_process = launch_redis_with_delay();
-        let redis_pool = create_redis_pool(&redis_config());
+        let redis_pool = configure_redis_pool(&redis_config());
         let mut actix_app = App::new().service(
             resource("/test-success-path")
                 .guard(Get())
@@ -70,20 +69,17 @@ mod tests {
                 .to(mock_success),
         );
 
-        if let Some(ref redis_pool) = redis_pool {
-            log::info!("Redis pool available.");
+        log::info!("Redis pool available.");
 
-            actix_app =
-                actix_app.app_data(web::Data::new(WriteOnceService::new(redis_pool.clone())));
+        actix_app = actix_app.app_data(web::Data::new(WriteOnceService::new(redis_pool.clone())));
 
-            // on clean la clé
-            match redis_pool.get().await {
-                Ok(mut conn) => conn
-                    .del(WriteOnceService::hash_key("/test-success-path"))
-                    .await
-                    .unwrap(),
-                Err(_err) => {}
-            }
+        // on clean la clé
+        match redis_pool.get().await {
+            Ok(mut conn) => conn
+                .del(WriteOnceService::hash_key("/test-success-path"))
+                .await
+                .unwrap(),
+            Err(_err) => {}
         }
 
         let app = test::init_service(actix_app).await;
@@ -111,7 +107,9 @@ mod tests {
     #[actix_web::test]
     async fn test_ensure_write_once_with_found() {
         let _redis_process = launch_redis_with_delay();
-        let redis_pool = create_redis_pool(&redis_config());
+        let redis_pool = configure_redis_pool(&redis_config());
+
+        // Prépare une application Actix Web avec le middleware
         let mut actix_app = App::new()
             .service(
                 resource("/test-success-path")
@@ -125,11 +123,8 @@ mod tests {
                     .wrap(from_fn(ensure_write_once))
                     .to(mock_found),
             );
-        if let Some(ref redis_pool) = redis_pool {
-            log::info!("Redis pool available.");
-            actix_app =
-                actix_app.app_data(web::Data::new(WriteOnceService::new(redis_pool.clone())))
-        }
+
+        actix_app = actix_app.app_data(web::Data::new(WriteOnceService::new(redis_pool)));
 
         let app = test::init_service(actix_app).await;
 
