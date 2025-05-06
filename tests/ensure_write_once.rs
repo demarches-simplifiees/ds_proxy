@@ -72,7 +72,10 @@ mod tests {
 
         if let Some(ref redis_pool) = redis_pool {
             log::info!("Redis pool available.");
-            actix_app = actix_app.app_data(web::Data::new(redis_pool.clone()));
+
+            actix_app =
+                actix_app.app_data(web::Data::new(WriteOnceService::new(redis_pool.clone())));
+
             // on clean la clé
             match redis_pool.get().await {
                 Ok(mut conn) => conn
@@ -124,7 +127,8 @@ mod tests {
             );
         if let Some(ref redis_pool) = redis_pool {
             log::info!("Redis pool available.");
-            actix_app = actix_app.app_data(web::Data::new(redis_pool.clone()));
+            actix_app =
+                actix_app.app_data(web::Data::new(WriteOnceService::new(redis_pool.clone())))
         }
 
         let app = test::init_service(actix_app).await;

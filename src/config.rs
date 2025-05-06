@@ -236,10 +236,9 @@ impl Config {
                 true
             } else {
                 match env::var("WRITE_ONCE") {
-                    Ok(write_once_string) =>
-                        write_once_string
-                            .parse()
-                            .expect("WRITE_ONCE is not a boolean"),
+                    Ok(write_once_string) => write_once_string
+                        .parse()
+                        .expect("WRITE_ONCE is not a boolean"),
                     _ => false,
                 }
             };

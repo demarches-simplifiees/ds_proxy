@@ -2,6 +2,7 @@ use super::super::config::{HttpConfig, RedisConfig};
 use super::handlers::*;
 use super::middlewares::*;
 use crate::redis_utils::configure_redis_pool;
+use crate::write_once_service::WriteOnceService;
 use actix_web::dev::Service;
 use actix_web::guard::{Get, Put};
 use actix_web::{
@@ -18,7 +19,6 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 #[actix_web::main]
 pub async fn main(config: HttpConfig, redis_config: RedisConfig) -> std::io::Result<()> {
     let address = config.address;
-    let redis_pool = configure_redis_pool(&config, &redis_config).await;
 
     HttpServer::new(move || {
         let mut app = App::new()
@@ -33,17 +33,18 @@ pub async fn main(config: HttpConfig, redis_config: RedisConfig) -> std::io::Res
             .app_data(Data::new(config.clone()))
             .wrap(middleware::Logger::default())
             .service(resource("/ping").guard(Get()).to(ping))
-            .service(
-                scope("/upstream")
-                    .service(resource("{name}*").guard(Get()).to(fetch))
-                    .service(
-                        resource("{name}*")
-                            .guard(Put())
-                            .wrap(from_fn(ensure_write_once))
-                            .to(forward),
-                    )
-                    .service(resource("{name}*").to(simple_proxy)),
-            )
+            .service({
+                let scope = scope("/upstream").service(resource("{name}*").guard(Get()).to(fetch));
+
+                let upstream_put = resource("{name}*").guard(Put()).to(forward);
+
+                if config.write_once {
+                    scope.service(upstream_put.wrap(from_fn(ensure_write_once)))
+                } else {
+                    scope.service(upstream_put)
+                }
+                .service(resource("{name}*").to(simple_proxy))
+            })
             .service(
                 scope("/local")
                     .service(resource("encrypt/{name}").guard(Put()).to(encrypt_to_file))
@@ -55,11 +56,11 @@ pub async fn main(config: HttpConfig, redis_config: RedisConfig) -> std::io::Res
                     ),
             );
 
-        if let Some(ref redis_pool) = redis_pool {
-            log::info!("Redis pool available.");
-            app = app.app_data(Data::new(redis_pool.clone()));
-        } else {
-            log::info!("Redis pool not available.");
+        if config.write_once {
+            let redis_pool =
+                configure_redis_pool(&config, &redis_config).expect("Failed to create Redis pool");
+
+            app = app.app_data(Data::new(WriteOnceService::new(redis_pool)))
         }
 
         app

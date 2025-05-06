@@ -1,4 +1,3 @@
-use actix_web::web;
 use deadpool_redis::Pool;
 use redis::AsyncCommands;
 
@@ -11,46 +10,41 @@ use sha2::{Digest, Sha256};
 // accessed, preventing multiple accesses to the same resource. This is especially
 // useful for temporary URLs that should only be valid for a single use.
 
+#[derive(Clone)]
 pub struct WriteOnceService {
-    pool: Option<web::Data<Pool>>,
-    pub uri: String,
+    pool: Pool,
 }
 
 impl WriteOnceService {
-    pub fn new(pool: Option<web::Data<Pool>>, uri: String) -> Self {
-        WriteOnceService { pool, uri }
+    pub fn new(pool: Pool) -> Self {
+        WriteOnceService { pool }
     }
 
     pub fn hash_key(uri: &str) -> String {
         format!("{:x}", Sha256::digest(uri.as_bytes()))
     }
 
-    pub async fn is_locked(&self) -> Result<bool, String> {
+    pub async fn is_locked(&self, uri: &str) -> Result<bool, String> {
         self.get_redis_connection()
             .await?
-            .exists(Self::hash_key(&self.uri))
+            .exists(Self::hash_key(uri))
             .await
             .map_err(|e| e.to_string())
             .map(|exists: i32| exists > 0)
     }
 
-    pub async fn mark_as_locked(&self) -> Result<(), String> {
+    pub async fn mark_as_locked(&self, uri: &str) -> Result<(), String> {
         self.get_redis_connection()
             .await?
-            .set_ex(Self::hash_key(&self.uri), true, LOCK_DURATION)
+            .set_ex(Self::hash_key(uri), true, LOCK_DURATION)
             .await
             .map_err(|e| e.to_string())
     }
 
     async fn get_redis_connection(&self) -> Result<deadpool_redis::Connection, String> {
-        let redis_pool = match &self.pool {
-            Some(pool) => pool.clone(),
-            None => return Err("Redis pool is not initialized.".to_string()),
-        };
-        let conn = match redis_pool.get().await {
-            Ok(conn) => conn,
-            Err(e) => return Err(format!("Failed to get Redis connection: {}", e)),
-        };
-        Ok(conn)
+        self.pool
+            .get()
+            .await
+            .map_err(|e| format!("Failed to get Redis connection: {}", e))
     }
 }

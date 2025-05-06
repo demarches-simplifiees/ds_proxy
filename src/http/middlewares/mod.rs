@@ -7,23 +7,24 @@ use actix_web::{
     middleware::Next,
     web, Error,
 };
-use deadpool_redis::Pool;
 use std::path::Path;
 
 pub async fn ensure_write_once(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, Error> {
-    let uri = req.uri().to_string();
-    let write_once_service = WriteOnceService::new(req.app_data::<web::Data<Pool>>().cloned(), uri);
+    let uri_string = req.uri().to_string();
+    let uri: &str = uri_string.as_str();
+
+    let write_once_service = req
+        .app_data::<web::Data<WriteOnceService>>()
+        .unwrap()
+        .clone();
 
     // key was set before, early return and deny access because we only write once
-    match write_once_service.is_locked().await {
+    match write_once_service.is_locked(uri).await {
         Ok(true) => {
-            log::warn!(
-                "Access denied: Redis key already exists: {}",
-                write_once_service.uri
-            );
+            log::warn!("Access denied: Redis key already exists: {}", uri);
             return Err(ErrorForbidden("Access denied"));
         }
         Ok(false) => {} // Key does not exist, proceed
@@ -34,10 +35,10 @@ pub async fn ensure_write_once(
     let result = next.call(req).await;
     if let Ok(ref response) = result {
         if response.status().is_success() {
-            if let Err(err) = write_once_service.mark_as_locked().await {
+            if let Err(err) = write_once_service.mark_as_locked(uri).await {
                 log::error!(
                     "Failed to mark as locked with expiration: {}. Error: {}",
-                    write_once_service.uri,
+                    uri,
                     err
                 );
             }
