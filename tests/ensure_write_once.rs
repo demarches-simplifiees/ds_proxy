@@ -38,6 +38,7 @@ mod tests {
     use redis::AsyncCommands;
 
     #[actix_web::test]
+    #[serial(servers)]
     async fn test_ensure_write_once_with_success() {
         let _redis_process = launch_redis_with_delay();
 
@@ -90,6 +91,7 @@ mod tests {
     }
 
     #[actix_web::test]
+    #[serial(servers)]
     async fn test_ensure_write_once_with_found() {
         let _redis_process = launch_redis_with_delay();
         let config = RedisConfig {
