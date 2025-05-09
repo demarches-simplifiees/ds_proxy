@@ -43,7 +43,7 @@ mod tests {
         let _redis_process = launch_redis_with_delay();
 
         let config = RedisConfig {
-            redis_url: Url::parse("redis://127.0.0.1:5555").unwrap(),
+            url: Url::parse("redis://127.0.0.1:5555").unwrap(),
             ..RedisConfig::default()
         };
         let redis_pool = configure_redis_pool(config);
@@ -98,7 +98,7 @@ mod tests {
     async fn test_ensure_write_once_with_found() {
         let _redis_process = launch_redis_with_delay();
         let config = RedisConfig {
-            redis_url: Url::parse("redis://127.0.0.1:5555").unwrap(),
+            url: Url::parse("redis://127.0.0.1:5555").unwrap(),
             ..RedisConfig::default()
         };
         let redis_pool = configure_redis_pool(config);

@@ -8,14 +8,14 @@ use super::args;
 
 #[derive(Debug, Clone)]
 pub struct RedisConfig {
-    pub redis_url: Url,
+    pub url: Url,
     pub pool_config: PoolConfig,
 }
 
 impl Default for RedisConfig {
     fn default() -> Self {
         Self {
-            redis_url: Url::parse("redis://127.0.0.1").unwrap(),
+            url: Url::parse("redis://127.0.0.1").unwrap(),
             pool_config: PoolConfig {
                 timeouts: Timeouts {
                     wait: Some(Duration::from_secs(5)),
@@ -33,12 +33,12 @@ impl RedisConfig {
         let default_config = RedisConfig::default();
 
         RedisConfig {
-            redis_url: match &args.flag_redis_url {
+            url: match &args.flag_redis_url {
                 Some(redis_url) => Url::parse(redis_url).expect("Invalid Redis URL"),
                 None => match env::var("REDIS_URL") {
                     Ok(redis_url_string) => Url::parse(&redis_url_string)
                         .expect("Invalid Redis URL from environment variable"),
-                    _ => default_config.redis_url,
+                    _ => default_config.url,
                 },
             },
             pool_config: PoolConfig {
