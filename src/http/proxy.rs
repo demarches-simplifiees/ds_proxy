@@ -19,6 +19,11 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 #[actix_web::main]
 pub async fn main(config: HttpConfig) -> std::io::Result<()> {
     let address = config.address;
+    let redis_pool = if config.write_once {
+        Some(configure_redis_pool(config.redis_config.clone()).await)
+    } else {
+        None
+    };
 
     HttpServer::new(move || {
         let mut app = App::new()
@@ -57,9 +62,9 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
             );
 
         if config.write_once {
-            let redis_pool = configure_redis_pool(config.redis_config.clone());
-
-            app = app.app_data(Data::new(WriteOnceService::new(redis_pool)))
+            app = app.app_data(Data::new(WriteOnceService::new(
+                redis_pool.clone().unwrap(),
+            )));
         }
 
         app

@@ -46,7 +46,7 @@ mod tests {
             url: Url::parse("redis://127.0.0.1:5555").unwrap(),
             ..RedisConfig::default()
         };
-        let redis_pool = configure_redis_pool(config);
+        let redis_pool = configure_redis_pool(config).await;
 
         let mut actix_app = App::new().service(
             resource("/test-success-path")
@@ -101,7 +101,7 @@ mod tests {
             url: Url::parse("redis://127.0.0.1:5555").unwrap(),
             ..RedisConfig::default()
         };
-        let redis_pool = configure_redis_pool(config);
+        let redis_pool = configure_redis_pool(config).await;
 
         // Prépare une application Actix Web avec le middleware
         let mut actix_app = App::new()
