@@ -1,4 +1,4 @@
-use crate::config::RedisConfig;
+use crate::redis_config::RedisConfig;
 use deadpool_redis::{Config, Pool, Runtime};
 
 pub fn configure_redis_pool(redis_config: RedisConfig) -> Pool {
