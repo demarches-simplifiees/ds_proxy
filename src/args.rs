@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use url::Url;
 
 pub const USAGE: &str = "
 DS encryption proxy.
@@ -35,7 +36,7 @@ pub struct Args {
     pub cmd_decrypt: bool,
     pub cmd_proxy: bool,
     pub cmd_add_key: bool,
-    pub flag_redis_url: Option<String>,
+    pub flag_redis_url: Option<Url>,
     pub flag_write_once: bool,
     pub flag_redis_timeout_wait: Option<u64>,
     pub flag_redis_timeout_create: Option<u64>,

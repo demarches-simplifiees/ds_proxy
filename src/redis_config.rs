@@ -34,7 +34,7 @@ impl RedisConfig {
 
         RedisConfig {
             url: match &args.flag_redis_url {
-                Some(redis_url) => Url::parse(redis_url).expect("Invalid Redis URL"),
+                Some(redis_url) => redis_url.clone(),
                 None => match env::var("REDIS_URL") {
                     Ok(redis_url_string) => Url::parse(&redis_url_string)
                         .expect("Invalid Redis URL from environment variable"),
