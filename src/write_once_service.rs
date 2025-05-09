@@ -1,5 +1,5 @@
 use deadpool_redis::Pool;
-use redis::AsyncCommands;
+use redis::{cmd, AsyncCommands};
 
 const LOCK_DURATION: u64 = 3600; // 1 hour
 
@@ -23,20 +23,28 @@ impl WriteOnceService {
     pub fn hash_key(uri: &str) -> String {
         format!("{:x}", Sha256::digest(uri.as_bytes()))
     }
+    pub async fn lock(&self, uri: &str) -> Result<bool, String> {
+        let key = Self::hash_key(uri);
+        let mut conn = self.get_redis_connection().await?;
 
-    pub async fn is_locked(&self, uri: &str) -> Result<bool, String> {
-        self.get_redis_connection()
-            .await?
-            .exists(Self::hash_key(uri))
+        let result: Option<String> = cmd("SET")
+            .arg(&key)
+            .arg("true")
+            .arg("EX")
+            .arg(LOCK_DURATION)
+            .arg("NX")
+            .query_async(&mut conn)
             .await
-            .map_err(|e| e.to_string())
-            .map(|exists: i32| exists > 0)
+            .map_err(|e| e.to_string())?;
+
+        let already_exists = result.is_none(); // If None, key already exists
+        Ok(!already_exists)
     }
 
-    pub async fn mark_as_locked(&self, uri: &str) -> Result<(), String> {
+    pub async fn unlock(&self, uri: &str) -> Result<(), String> {
         self.get_redis_connection()
             .await?
-            .set_ex(Self::hash_key(uri), true, LOCK_DURATION)
+            .del(Self::hash_key(uri))
             .await
             .map_err(|e| e.to_string())
     }

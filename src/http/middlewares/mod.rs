@@ -22,20 +22,20 @@ pub async fn ensure_write_once(
         .clone();
 
     // key was set before, early return and deny access because we only write once
-    match write_once_service.is_locked(uri).await {
-        Ok(true) => {
+    match write_once_service.lock(uri).await {
+        Ok(true) => {}
+        Ok(false) => {
             log::warn!("Access denied: Redis key already exists: {}", uri);
             return Err(ErrorForbidden("Access denied"));
         }
-        Ok(false) => {} // Key does not exist, proceed
-        Err(_) => {}    // don't mind about redis errors
+        Err(_) => {} // don't mind about redis errors
     }
 
     // proceed with the request
     let result = next.call(req).await;
     if let Ok(ref response) = result {
-        if response.status().is_success() {
-            if let Err(err) = write_once_service.mark_as_locked(uri).await {
+        if !response.status().is_success() {
+            if let Err(err) = write_once_service.unlock(uri).await {
                 log::error!(
                     "Failed to mark as locked with expiration: {}. Error: {}",
                     uri,

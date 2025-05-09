@@ -83,7 +83,10 @@ mod tests {
             .to_request();
         let resp2 = test::try_call_service(&app, req).await;
         match resp2 {
-            Ok(resp) => panic!("Expected an error, but got a response, status: {}", resp.status()),
+            Ok(resp) => panic!(
+                "Expected an error, but got a response, status: {}",
+                resp.status()
+            ),
             Err(err) => {
                 assert_eq!(err.error_response().status(), 403);
             }
