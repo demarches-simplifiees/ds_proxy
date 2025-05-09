@@ -17,13 +17,12 @@ impl Default for RedisConfig {
         Self {
             redis_url: Url::parse("redis://127.0.0.1").unwrap(),
             pool_config: PoolConfig {
-                max_size: 16,
-                queue_mode: QueueMode::Fifo, // default queue mode
                 timeouts: Timeouts {
                     wait: Some(Duration::from_secs(5)),
                     create: Some(Duration::from_secs(3)),
                     recycle: Some(Duration::from_secs(1)),
                 },
+                ..PoolConfig::default()
             },
         }
     }
