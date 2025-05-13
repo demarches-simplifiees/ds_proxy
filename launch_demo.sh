@@ -5,6 +5,7 @@ KEYRING_FILE=/tmp/keyring.toml
 
 DS_PROXY_LOG=/tmp/ds_proxy_log
 NODE_LOG=/tmp/node_log
+REDIS_PORT=5555
 
 echo 'compiling ds_proxy'
 cargo build --release
@@ -22,8 +23,14 @@ elif [ "$1" = "fake_aws" ]; then
   echo 'launching ds_proxy in aws mode listenning on 4444 binded on node server'
   RUST_LOG=info ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" --aws-access-key $ACCESS_KEY --aws-secret-key $SECRET_KEY --aws-region "eu-west-1" > "$DS_PROXY_LOG" 2>&1 &
 else
-  echo 'launching ds_proxy listenning on 4444 binded on node server'
-  RUST_LOG=info,ds_proxy::http::handlers::fetch=trace,ds_proxy::http::handlers::forward=trace ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" > "$DS_PROXY_LOG" 2>&1 &
+  echo 'launching ds_proxy listenning on 4444 binded on node server, using redis to emulate write once'
+  if nc -z localhost $REDIS_PORT 2>/dev/null; then
+    echo 'redis is already running'
+  else
+    echo "launching redis server on port $REDIS_PORT"
+    redis-server --port $REDIS_PORT > /dev/null 2>&1 &
+  fi
+  RUST_LOG=info,ds_proxy::http::handlers::fetch=trace,ds_proxy::http::handlers::forward=trace ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" --write-once --redis-url "redis://127.0.0.1:$REDIS_PORT"> "$DS_PROXY_LOG" 2>&1 &
 fi
 
 echo 'launching fake backend storage with node listenning on 3333'

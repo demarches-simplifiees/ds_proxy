@@ -1,6 +1,6 @@
 use super::{args, keyring::Keyring, keyring_utils::load_keyring};
+use crate::redis_config::RedisConfig; // Import depuis le nouveau fichier
 use actix_web::HttpRequest;
-
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
@@ -44,6 +44,8 @@ pub struct HttpConfig {
     pub aws_secret_key: Option<String>,
     pub aws_region: Option<String>,
     pub backend_connection_timeout: Duration,
+    pub write_once: bool,
+    pub redis_config: RedisConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -163,6 +165,17 @@ impl Config {
                 },
             };
 
+            let write_once = if args.flag_write_once {
+                true
+            } else {
+                match env::var("WRITE_ONCE") {
+                    Ok(write_once_string) => write_once_string
+                        .parse()
+                        .expect("WRITE_ONCE is not a boolean"),
+                    _ => false,
+                }
+            };
+
             log::info!(
                 "backend_connection_timeout: {:?}",
                 backend_connection_timeout
@@ -178,6 +191,8 @@ impl Config {
                 aws_secret_key: args.flag_aws_secret_key.clone(),
                 aws_region: args.flag_aws_region.clone(),
                 backend_connection_timeout,
+                write_once,
+                redis_config: RedisConfig::create_redis_config(args),
             })
         }
     }
@@ -343,6 +358,8 @@ mod tests {
             aws_secret_key: None,
             aws_region: None,
             backend_connection_timeout: Duration::from_secs(1),
+            write_once: false,
+            redis_config: RedisConfig::default(),
         }
     }
 }

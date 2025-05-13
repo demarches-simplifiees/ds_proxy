@@ -11,7 +11,7 @@ fn local_encryption() {
 
     ensure_is_absent(uploaded_path.to_str().unwrap());
 
-    let _proxy_and_node = ProxyAndNode::start();
+    let _proxy_node_and_redis = ProxyAndNode::start();
 
     curl_put(
         COMPUTER_SVG_PATH,
@@ -32,7 +32,7 @@ fn local_encryption() {
 #[test]
 #[serial(servers)]
 fn fetch_missing_file() {
-    let _proxy_and_node = ProxyAndNode::start();
+    let _proxy_node_and_redis = ProxyAndNode::start();
     assert_eq!(
         curl_get_status("localhost:4444/local/fetch/missing_file"),
         "404"

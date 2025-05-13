@@ -1,6 +1,7 @@
 use crate::http::utils::sign::*;
 use actix_http::header::{HeaderName, HeaderValue};
 use awc::ClientRequest;
+use std::str::FromStr;
 
 pub fn sign_request(
     mut req: ClientRequest,
@@ -25,7 +26,9 @@ pub fn sign_request(
     let mut map = http::HeaderMap::new();
 
     for (header_name, header_value) in amz_headers {
-        map.insert::<http::HeaderName>(header_name.into(), header_value.into());
+        let header_name = http::HeaderName::from_str(header_name.as_str()).unwrap();
+        let header_value = http::HeaderValue::from_str(header_value.to_str().unwrap()).unwrap();
+        map.insert(header_name, header_value);
     }
     map.insert("x-amz-date", amz_date.parse().unwrap());
     map.insert("x-amz-content-sha256", checksum.parse().unwrap());

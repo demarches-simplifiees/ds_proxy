@@ -15,7 +15,7 @@ fn download_witness_file() {
 
     std::fs::copy(ENCRYPTED_COMPUTER_SVG_PATH, uploaded_path).expect("copy failed");
 
-    let _proxy_and_node = ProxyAndNode::start();
+    let _proxy_node_and_redis = ProxyAndNode::start();
 
     let curl_download = curl_get("localhost:4444/upstream/computer.svg.enc");
 

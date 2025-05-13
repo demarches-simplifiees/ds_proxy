@@ -33,6 +33,7 @@ pub static ENCRYPTED_COMPUTER_SVG_BYTES: Bytes =
 pub struct ProxyAndNode {
     proxy: ChildGuard,
     node: ChildGuard,
+    redis: ChildGuard,
 }
 
 impl ProxyAndNode {
@@ -51,8 +52,27 @@ impl ProxyAndNode {
     ) -> ProxyAndNode {
         let proxy = launch_proxy(log, keyring_path);
         let node = launch_node_with_latency(latency, log);
+        let redis = launch_redis(log);
         thread::sleep(time::Duration::from_secs(4));
-        ProxyAndNode { proxy, node }
+        ProxyAndNode { proxy, node, redis }
+    }
+}
+
+pub fn launch_redis(log: PrintServerLogs) -> ChildGuard {
+    let mut command = Command::new("redis-server");
+    command.arg("--port").arg("5555");
+
+    match log {
+        PrintServerLogs::Yes => {
+            command.env("RUST_LOG", "trace");
+        }
+        PrintServerLogs::No => (),
+    }
+    let child = command.spawn().expect("failed to execute redis-server");
+
+    ChildGuard {
+        child,
+        description: "redis",
     }
 }
 

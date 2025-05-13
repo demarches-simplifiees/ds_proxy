@@ -1,14 +1,16 @@
 use super::super::config::HttpConfig;
+use super::handlers::*;
+use super::middlewares::*;
+use crate::redis_utils::configure_redis_pool;
+use crate::write_once_service::WriteOnceService;
+use actix_web::dev::Service;
 use actix_web::guard::{Get, Put};
 use actix_web::{
     middleware,
+    middleware::from_fn,
     web::{resource, scope, Data},
     App, HttpServer,
 };
-
-use super::handlers::*;
-use super::middlewares::*;
-use actix_web::dev::Service;
 use futures::FutureExt;
 use std::time::Duration;
 
@@ -17,9 +19,14 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 #[actix_web::main]
 pub async fn main(config: HttpConfig) -> std::io::Result<()> {
     let address = config.address;
+    let redis_pool = if config.write_once {
+        Some(configure_redis_pool(config.redis_config.clone()).await)
+    } else {
+        None
+    };
 
     HttpServer::new(move || {
-        App::new()
+        let mut app = App::new()
             .app_data(Data::new(
                 awc::Client::builder()
                     .connector(
@@ -31,12 +38,18 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
             .app_data(Data::new(config.clone()))
             .wrap(middleware::Logger::default())
             .service(resource("/ping").guard(Get()).to(ping))
-            .service(
-                scope("/upstream")
-                    .service(resource("{name}*").guard(Get()).to(fetch))
-                    .service(resource("{name}*").guard(Put()).to(forward))
-                    .service(resource("{name}*").to(simple_proxy)),
-            )
+            .service({
+                let scope = scope("/upstream").service(resource("{name}*").guard(Get()).to(fetch));
+
+                let upstream_put = resource("{name}*").guard(Put()).to(forward);
+
+                if config.write_once {
+                    scope.service(upstream_put.wrap(from_fn(ensure_write_once)))
+                } else {
+                    scope.service(upstream_put)
+                }
+                .service(resource("{name}*").to(simple_proxy))
+            })
             .service(
                 scope("/local")
                     .service(resource("encrypt/{name}").guard(Put()).to(encrypt_to_file))
@@ -46,7 +59,15 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
                             .wrap_fn(|req, srv| srv.call(req).map(erase_file))
                             .to(fetch_file),
                     ),
-            )
+            );
+
+        if config.write_once {
+            app = app.app_data(Data::new(WriteOnceService::new(
+                redis_pool.clone().unwrap(),
+            )));
+        }
+
+        app
     })
     .keep_alive(actix_http::KeepAlive::Disabled)
     .bind_uds("/tmp/actix-uds.socket")?
