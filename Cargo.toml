@@ -29,7 +29,7 @@ tokio = { version = "*", features = ["full"] }
 tokio-util = { version = "*", features = ["full"] }
 chrono = "*"
 hex = "*"
-deadpool-redis = "*"
+deadpool-redis = { version = "*", features = ["tokio-native-tls-comp"] }
 ring = "*"
 http = "*"
 sha256 = "*"
