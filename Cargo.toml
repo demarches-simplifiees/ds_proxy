@@ -30,8 +30,6 @@ tokio-util = { version = "*", features = ["full"] }
 chrono = "*"
 hex = "*"
 deadpool-redis = "*"
-deadpool = "*"
-redis = "*"
 ring = "*"
 http = "*"
 sha256 = "*"

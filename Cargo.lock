@@ -689,7 +689,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c136f185b3ca9d1f4e4e19c11570e1002f4bfdd592d589053e225716d613851f"
 dependencies = [
  "deadpool",
- "redis 0.29.5",
+ "redis",
 ]
 
 [[package]]
@@ -814,7 +814,6 @@ dependencies = [
  "bytes",
  "chrono",
  "data-encoding",
- "deadpool",
  "deadpool-redis",
  "docopt",
  "env_logger",
@@ -827,7 +826,6 @@ dependencies = [
  "openssl",
  "proptest",
  "rand 0.9.1",
- "redis 0.31.0",
  "ring",
  "sentry",
  "sentry-actix",
@@ -2020,22 +2018,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "redis"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bc1ea653e0b2e097db3ebb5b7f678be339620b8041f66b30a308c1d45d36a7f"
-dependencies = [
- "combine",
- "itoa",
- "num-bigint",
- "percent-encoding",
- "ryu",
- "sha1_smol",
- "socket2",
- "url",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2479,12 +2461,6 @@ dependencies = [
  "cpufeatures",
  "digest",
 ]
-
-[[package]]
-name = "sha1_smol"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
 
 [[package]]
 name = "sha2"
