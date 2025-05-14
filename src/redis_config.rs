@@ -1,4 +1,3 @@
-use deadpool::managed::QueueMode;
 use deadpool_redis::{PoolConfig, Timeouts};
 use std::env;
 use std::time::Duration;
@@ -51,7 +50,7 @@ impl RedisConfig {
                         _ => default_config.pool_config.max_size,
                     },
                 },
-                queue_mode: QueueMode::Fifo, // default queue mode
+                queue_mode: default_config.pool_config.queue_mode,
                 timeouts: Timeouts {
                     wait: match &args.flag_redis_timeout_wait {
                         Some(timeout) => Some(Duration::from_secs(*timeout)),

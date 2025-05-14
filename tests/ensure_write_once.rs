@@ -34,8 +34,8 @@ mod tests {
 
     use super::*;
     use actix_web::{middleware::from_fn, test, web, App};
+    use deadpool_redis::redis::AsyncCommands;
     use ds_proxy::{redis_utils::configure_redis_pool, write_once_service::WriteOnceService};
-    use redis::AsyncCommands;
 
     #[actix_web::test]
     #[serial(servers)]

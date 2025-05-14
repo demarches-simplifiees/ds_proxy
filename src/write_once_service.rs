@@ -1,5 +1,4 @@
-use deadpool_redis::Pool;
-use redis::{cmd, AsyncCommands};
+use deadpool_redis::{redis::cmd, redis::AsyncCommands, Pool};
 
 const LOCK_DURATION: u64 = 3600; // 1 hour
 
