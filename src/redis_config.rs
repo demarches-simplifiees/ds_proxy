@@ -17,9 +17,9 @@ impl Default for RedisConfig {
             url: Url::parse("redis://127.0.0.1").unwrap(),
             pool_config: PoolConfig {
                 timeouts: Timeouts {
-                    wait: Some(Duration::from_secs(5)),
-                    create: Some(Duration::from_secs(3)),
-                    recycle: Some(Duration::from_secs(1)),
+                    wait: Some(Duration::from_millis(200)),
+                    create: Some(Duration::from_millis(200)),
+                    recycle: Some(Duration::from_millis(200)),
                 },
                 ..PoolConfig::default()
             },
@@ -53,9 +53,9 @@ impl RedisConfig {
                 queue_mode: default_config.pool_config.queue_mode,
                 timeouts: Timeouts {
                     wait: match &args.flag_redis_timeout_wait {
-                        Some(timeout) => Some(Duration::from_secs(*timeout)),
+                        Some(timeout) => Some(Duration::from_millis(*timeout)),
                         None => match env::var("REDIS_TIMEOUT_WAIT") {
-                            Ok(timeout_string) => Some(Duration::from_secs(
+                            Ok(timeout_string) => Some(Duration::from_millis(
                                 timeout_string
                                     .parse::<u64>()
                                     .expect("REDIS_TIMEOUT_WAIT is not a valid u64"),
@@ -64,9 +64,9 @@ impl RedisConfig {
                         },
                     },
                     create: match &args.flag_redis_timeout_create {
-                        Some(timeout) => Some(Duration::from_secs(*timeout)),
+                        Some(timeout) => Some(Duration::from_millis(*timeout)),
                         None => match env::var("REDIS_TIMEOUT_CREATE") {
-                            Ok(timeout_string) => Some(Duration::from_secs(
+                            Ok(timeout_string) => Some(Duration::from_millis(
                                 timeout_string
                                     .parse::<u64>()
                                     .expect("REDIS_TIMEOUT_CREATE is not a valid u64"),
@@ -75,9 +75,9 @@ impl RedisConfig {
                         },
                     },
                     recycle: match &args.flag_redis_timeout_recycle {
-                        Some(timeout) => Some(Duration::from_secs(*timeout)),
+                        Some(timeout) => Some(Duration::from_millis(*timeout)),
                         None => match env::var("REDIS_TIMEOUT_RECYCLE") {
-                            Ok(timeout_string) => Some(Duration::from_secs(
+                            Ok(timeout_string) => Some(Duration::from_millis(
                                 timeout_string
                                     .parse::<u64>()
                                     .expect("REDIS_TIMEOUT_RECYCLE is not a valid u64"),

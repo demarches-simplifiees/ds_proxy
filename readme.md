@@ -78,9 +78,9 @@ Pour activer cette fonctionnalité, vous devez disposer d'une instance Redis acc
 
 La librairie utilisée pour gérer le pool Redis est `deadpool-redis`. Par défaut, cette librairie [n'applique pas de timeout](https://docs.rs/deadpool-redis/latest/deadpool_redis/struct.PoolConfig.html#fields), ce qui peut poser problème si Redis devient indisponible. Pour éviter de bloquer le système, vous pouvez configurer les options de timeout suivantes :
 
-- **wait** : Temps d'attente pour obtenir une connexion dans le pool. Par défaut à 5 secondes. Personnalisable via l'argument `--redis_timeout_wait` ou la variable d'environnement `REDIS_TIMEOUT_WAIT`.
-- **create** : Temps maximum pour créer une nouvelle connexion. Par défaut à 3 secondes. Personnalisable via l'argument `--redis_timeout_create` ou la variable d'environnement `REDIS_TIMEOUT_CREATE`.
-- **recycle** : Temps maximum pour recycler une connexion existante. Par défaut à 1 seconde. Personnalisable via l'argument `--redis_timeout_recycle` ou la variable d'environnement `REDIS_TIMEOUT_RECYCLE`.
+- **wait** : Temps d'attente pour obtenir une connexion dans le pool. Par défaut à 200ms. Personnalisable en ms via l'argument `--redis_timeout_wait` ou la variable d'environnement `REDIS_TIMEOUT_WAIT`.
+- **create** : Temps maximum pour créer une nouvelle connexion. Par défaut à 200ms. Personnalisable en ms via l'argument `--redis_timeout_create` ou la variable d'environnement `REDIS_TIMEOUT_CREATE`.
+- **recycle** : Temps maximum pour recycler une connexion existante. Par défaut à 200ms. Personnalisable en ms via l'argument `--redis_timeout_recycle` ou la variable d'environnement `REDIS_TIMEOUT_RECYCLE`.
 
 Exemple :
 ```bash
