@@ -17,9 +17,9 @@ impl Default for RedisConfig {
             url: Url::parse("redis://127.0.0.1").unwrap(),
             pool_config: PoolConfig {
                 timeouts: Timeouts {
-                    wait: Some(Duration::from_secs(5)),
-                    create: Some(Duration::from_secs(3)),
-                    recycle: Some(Duration::from_secs(1)),
+                    wait: Some(Duration::from_millis(200)),
+                    create: Some(Duration::from_millis(200)),
+                    recycle: Some(Duration::from_millis(200)),
                 },
                 ..PoolConfig::default()
             },
