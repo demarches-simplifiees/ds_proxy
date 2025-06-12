@@ -16,6 +16,15 @@ pub async fn ensure_write_once(
     let uri_string = req.uri().to_string();
     let uri: &str = uri_string.as_str();
 
+    let user_facing_uri = req
+        .uri()
+        .query()
+        .is_some_and(|query| query.contains("temp_url_expires"));
+
+    if !user_facing_uri {
+        return next.call(req).await;
+    }
+
     let write_once_service = req
         .app_data::<web::Data<WriteOnceService>>()
         .unwrap()
