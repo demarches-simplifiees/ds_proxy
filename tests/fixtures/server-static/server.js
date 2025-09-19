@@ -11,7 +11,7 @@ let last_put_headers = {};
 app.put('*', function(req, res) {
   last_put_headers = req.headers;
 
-  const filePath = path.join(__dirname, 'uploads', req.url)
+  const filePath = path.join(__dirname, 'uploads', req.path);
   const fileDirectory = path.dirname(filePath);
 
   fs.mkdirSync(fileDirectory, { recursive: true })
