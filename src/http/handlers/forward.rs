@@ -3,7 +3,10 @@ use crate::http::utils::{aws_helper::sign_request, memory_or_file_buffer::Memory
 use super::*;
 use actix_web::body::SizedStream;
 use futures::StreamExt;
+use std::collections::HashMap;
 use std::time::Duration;
+use url::form_urlencoded;
+use url::Url;
 
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 
@@ -31,13 +34,15 @@ pub async fn forward(
     client: web::Data<Client>,
     config: web::Data<HttpConfig>,
 ) -> Result<HttpResponse, Error> {
-    let put_url = config.create_upstream_url(&req);
-
-    if put_url.is_none() {
+    let Some(mut put_url) = config.create_upstream_url(&req) else {
         return not_found();
-    }
+    };
 
-    let put_url = put_url.unwrap();
+    let mut aws_query_headers: HashMap<String, String> = HashMap::new();
+
+    if config.aws_access_key.is_some() {
+        (put_url, aws_query_headers) = move_aws_query_params_to_headers(&put_url);
+    }
 
     let mut forwarded_req = client
         .request_from(put_url.clone(), req.head())
@@ -49,6 +54,10 @@ pub async fn forward(
 
     for header in &FORWARD_REQUEST_HEADERS_TO_REMOVE {
         forwarded_req.headers_mut().remove(header);
+    }
+
+    for (key, value) in &aws_query_headers {
+        forwarded_req = forwarded_req.insert_header((key.as_str(), value.as_str()));
     }
 
     let (key_id, key) = config
@@ -127,4 +136,36 @@ pub async fn forward(
     }
 
     Ok(client_resp.body(res.body().await?))
+}
+
+fn move_aws_query_params_to_headers(url: &str) -> (String, HashMap<String, String>) {
+    let mut parsed_url = Url::parse(url).expect("Invalid URL");
+    let mut aws_headers = HashMap::new();
+
+    if let Some(query) = parsed_url.query() {
+        let params: Vec<(String, String)> = form_urlencoded::parse(query.as_bytes())
+            .into_owned()
+            .collect();
+
+        let (aws_params, other_params): (Vec<_>, Vec<_>) = params
+            .into_iter()
+            .partition(|(key, _)| key.to_lowercase().starts_with("x-amz-"));
+
+        for (key, value) in aws_params {
+            aws_headers.insert(key.to_lowercase(), value);
+        }
+
+        if other_params.is_empty() {
+            parsed_url.set_query(None);
+        } else {
+            let new_query = other_params
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("&");
+            parsed_url.set_query(Some(&new_query));
+        }
+    }
+
+    (parsed_url.to_string(), aws_headers)
 }
