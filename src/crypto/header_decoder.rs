@@ -15,7 +15,7 @@ pub struct HeaderDecoder<'a, E> {
 }
 
 impl<E> HeaderDecoder<'_, E> {
-    pub fn new(s: &mut Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>) -> HeaderDecoder<E> {
+    pub fn new(s: &mut Box<dyn Stream<Item = Result<Bytes, E>> + Unpin>) -> HeaderDecoder<'_, E> {
         HeaderDecoder {
             inner: Some(s),
             buffer: BytesMut::new(),
