@@ -38,10 +38,10 @@ pub async fn forward(
         return not_found();
     };
 
-    let mut aws_query_headers: HashMap<String, String> = HashMap::new();
+    let mut aws_query_params: HashMap<String, String> = HashMap::new();
 
     if config.aws_access_key.is_some() {
-        (put_url, aws_query_headers) = move_aws_query_params_to_headers(&put_url);
+        (put_url, aws_query_params) = remove_aws_query_params(&(Url::parse(&put_url).unwrap()));
     }
 
     let mut forwarded_req = client
@@ -56,7 +56,7 @@ pub async fn forward(
         forwarded_req.headers_mut().remove(header);
     }
 
-    for (key, value) in &aws_query_headers {
+    for (key, value) in &aws_query_params {
         forwarded_req = forwarded_req.insert_header((key.as_str(), value.as_str()));
     }
 
@@ -138,7 +138,7 @@ pub async fn forward(
     Ok(client_resp.body(res.body().await?))
 }
 
-fn move_aws_query_params_to_headers(url: &str) -> (String, HashMap<String, String>) {
+fn remove_aws_query_params(url: &str) -> (String, HashMap<String, String>) {
     let mut parsed_url = Url::parse(url).expect("Invalid URL");
     let mut aws_headers = HashMap::new();
 
