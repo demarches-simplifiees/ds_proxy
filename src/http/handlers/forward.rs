@@ -1,3 +1,5 @@
+use crate::http::utils::aws_helper::remove_aws_query_params;
+use crate::http::utils::verify_signature::is_signature_valid;
 use crate::http::utils::{aws_helper::sign_request, memory_or_file_buffer::MemoryOrFileBuffer};
 
 use super::*;
@@ -38,9 +40,34 @@ pub async fn forward(
     };
 
     let mut aws_query_params: HashMap<String, String> = HashMap::new();
-
     if config.aws_access_key.is_some() {
         (put_url, aws_query_params) = remove_aws_query_params(&(Url::parse(&put_url).unwrap()));
+    }
+
+    let aws_headers: HashMap<String, String> = req
+        .headers()
+        .iter()
+        .filter(|(key, _)| key.as_str().to_lowercase().starts_with("x-amz-"))
+        .map(|(key, value)| {
+            (
+                key.as_str().to_lowercase(),
+                value.to_str().unwrap_or("").to_string(),
+            )
+        })
+        .collect();
+
+    aws_query_params.extend(aws_headers);
+
+    if config.aws_access_key.is_some()
+        && !is_signature_valid(
+            &req,
+            &config.aws_access_key.clone().unwrap_or_default(),
+            &config.aws_secret_key.clone().unwrap_or_default(),
+            &config.aws_region.clone().unwrap_or_default(),
+        )
+    {
+        error!("Invalid presigned URL for request {:?}", req);
+        return Err(actix_web::error::ErrorForbidden("Invalid presigned URL"));
     }
 
     let mut forwarded_req = client
