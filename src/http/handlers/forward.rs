@@ -5,7 +5,6 @@ use actix_web::body::SizedStream;
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::time::Duration;
-use url::form_urlencoded;
 use url::Url;
 
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 60);
@@ -136,36 +135,4 @@ pub async fn forward(
     }
 
     Ok(client_resp.body(res.body().await?))
-}
-
-fn remove_aws_query_params(url: &str) -> (String, HashMap<String, String>) {
-    let mut parsed_url = Url::parse(url).expect("Invalid URL");
-    let mut aws_headers = HashMap::new();
-
-    if let Some(query) = parsed_url.query() {
-        let params: Vec<(String, String)> = form_urlencoded::parse(query.as_bytes())
-            .into_owned()
-            .collect();
-
-        let (aws_params, other_params): (Vec<_>, Vec<_>) = params
-            .into_iter()
-            .partition(|(key, _)| key.to_lowercase().starts_with("x-amz-"));
-
-        for (key, value) in aws_params {
-            aws_headers.insert(key.to_lowercase(), value);
-        }
-
-        if other_params.is_empty() {
-            parsed_url.set_query(None);
-        } else {
-            let new_query = other_params
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect::<Vec<_>>()
-                .join("&");
-            parsed_url.set_query(Some(&new_query));
-        }
-    }
-
-    (parsed_url.to_string(), aws_headers)
 }

@@ -1,7 +1,8 @@
 use crate::http::utils::sign::*;
 use actix_http::header::{HeaderName, HeaderValue};
 use awc::ClientRequest;
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
+use url::Url;
 
 pub fn sign_request(
     mut req: ClientRequest,
@@ -52,4 +53,49 @@ pub fn sign_request(
     }
 
     req.insert_header(("Authorization", authorization))
+}
+
+pub fn remove_aws_query_params(url: &Url) -> (String, HashMap<String, String>) {
+    let mut aws_params = HashMap::new();
+    let mut other_params = HashMap::new();
+
+    url.query_pairs().for_each(|(key, value)| {
+        if key.to_lowercase().starts_with("x-amz-") {
+            aws_params.insert(key.to_lowercase(), value.to_string());
+        } else {
+            other_params.insert(key.to_string(), value.to_string());
+        }
+    });
+
+    let mut parsed_url = url.clone();
+    parsed_url.set_query(None);
+
+    other_params.iter().for_each(|(k, v)| {
+        parsed_url.query_pairs_mut().append_pair(k, v);
+    });
+
+    (parsed_url.to_string(), aws_params)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_remove_aws_query_params() {
+        let url = Url::parse("https://example.com/path/to/resource?X-Amz-Algorithm=algo&X-Amz-Credential=credential&other_param=value").unwrap();
+        let (cleaned_url, aws_params) = remove_aws_query_params(&url);
+
+        assert_eq!(
+            cleaned_url,
+            "https://example.com/path/to/resource?other_param=value"
+        );
+
+        let expected_params = HashMap::from([
+            ("x-amz-algorithm".to_string(), "algo".to_string()),
+            ("x-amz-credential".to_string(), "credential".to_string()),
+        ]);
+
+        assert_eq!(aws_params, expected_params);
+    }
 }
