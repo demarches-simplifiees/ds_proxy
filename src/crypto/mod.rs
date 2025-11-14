@@ -50,7 +50,7 @@ pub fn decrypted_content_length(encrypted_length: usize, decipher: DecipherType)
 
             let nb_chunk = (encrypted_length - header_size - HEADERBYTES) / (ABYTES + chunk_size);
             let remainder_exists =
-                (encrypted_length - header_size - HEADERBYTES) % (ABYTES + chunk_size) != 0;
+                !(encrypted_length - header_size - HEADERBYTES).is_multiple_of(ABYTES + chunk_size);
 
             if remainder_exists {
                 encrypted_length - header_size - HEADERBYTES - (nb_chunk + 1) * ABYTES
