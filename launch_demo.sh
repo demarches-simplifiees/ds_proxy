@@ -18,7 +18,7 @@ echo 'building keyring file'
 
 if [ "$1" = "aws" ]; then
   echo 'launching ds_proxy in aws mode listenning on real s3 backend'
-  RUST_LOG=info ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "$UPSTREAM_URL" --aws-access-key "$AWS_ACCESS_KEY" --aws-secret-key "$AWS_SECRET_KEY" --aws-region "$AWS_REGION" > "$DS_PROXY_LOG" 2>&1 &
+  RUST_LOG=info ./target/release/ds_proxy proxy --address "0.0.0.0:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "$UPSTREAM_URL" --aws-access-key "$AWS_ACCESS_KEY" --aws-secret-key "$AWS_SECRET_KEY" --aws-region "$AWS_REGION" > "$DS_PROXY_LOG" 2>&1 &
 
 elif [ "$1" = "fake_aws" ]; then
   echo 'launching ds_proxy in aws mode listenning on 4444 binded on node server'
