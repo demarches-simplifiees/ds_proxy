@@ -22,40 +22,39 @@ pub fn is_signature_valid(
     )
     .into();
 
-    let mut url = request.full_url();
-    let http_method = request.method().as_str();
-    let headers = request.headers();
+    let mut params: HashMap<String, String> = request
+        .full_url()
+        .query_pairs()
+        .map(|(k, v)| (k.to_lowercase(), v.to_string()))
+        .collect();
 
-    let (_, mut aws_params) = remove_aws_query_params(&url);
+    request.headers().iter().for_each(|(k, v)| {
+        params.insert(
+            k.as_str().to_lowercase(),
+            v.to_str().unwrap_or("").to_string(),
+        );
+    });
 
-    let aws_headers = headers.iter()
-        .filter(|(key, _)| {
-            let key_lower = key.as_str().to_lowercase();
-            key_lower.starts_with("x-amz-") || key_lower == "authorization"
-        })
-        .map(|(key, value)| {
-            (
-                key.as_str().to_lowercase(),
-                value.to_str().unwrap_or("").to_string(),
-            )
-        });
+    let settings = if presigned_url(&params) {
+        let expires_in = params
+            .get("x-amz-expires")
+            .and_then(|s| s.parse::<u64>().ok())
+            .map(Duration::from_secs);
 
-    aws_params.extend(aws_headers);
+        let mut settings = SigningSettings::default();
+        settings.signature_location = SignatureLocation::QueryParams;
+        settings.expires_in = expires_in;
 
-    let url = clean_url(&full_url);
+        settings
+    } else {
+        let mut settings = SigningSettings::default();
+        settings.signature_location = SignatureLocation::Headers;
 
-    let mut settings = SigningSettings::default();
-    settings.expires_in = aws_req_params
-        .get("x-amz-expires")
-        .and_then(|s| s.parse::<u64>().ok())
-        .map(Duration::from_secs);
-    settings.signature_location = SignatureLocation::QueryParams;
+        settings
+    };
 
-    let time = parse_amz_date(
-        aws_req_params
-            .get("x-amz-date")
-            .expect("Missing x-amz-date"),
-    );
+    let amz_date = params.get("x-amz-date").expect("Missing x-amz-date");
+    let time = parse_amz_date(amz_date);
 
     let signing_params: SigningParams = v4::SigningParams::builder()
         .identity(&identity)
@@ -67,14 +66,14 @@ pub fn is_signature_valid(
         .unwrap()
         .into();
 
-    let signed_headers: Vec<(String, String)> = aws_req_params
-        .get("x-amz-signedheaders")
-        .map(|s| s.split(';'))
-        .into_iter()
-        .flatten()
-        .filter(|&h| h != "host")
-        .filter_map(|h| aws_req_params.get(h).map(|v| (h.to_string(), v.clone())))
-        .collect();
+    let signed = signed_headers(&params);
+    log::trace!("Signed headers: {:?}", signed);
+
+    let body = if let Some(sha) = params.get("x-amz-content-sha256") {
+        SignableBody::Precomputed(sha.to_string())
+    } else {
+        SignableBody::UnsignedPayload
+    };
 
     let mut url = request.full_url();
     url.set_query(None);
@@ -82,20 +81,16 @@ pub fn is_signature_valid(
     let url_string = url.to_string();
 
     let signable = SignableRequest::new(
-        http_method,
-        &url,
-        signed_headers.iter().map(|(k, v)| (k.as_str(), v.as_str())),
-        SignableBody::UnsignedPayload,
+        request.method().as_str(),
+        &url_string,
+        signed.iter().map(|(k, v)| (k.as_str(), v.as_str())),
+        body,
     )
     .unwrap();
 
-    let (_, expected_signature) = sign(signable, &params).unwrap().into_parts();
+    let (_, expected_signature) = sign(signable, &signing_params).unwrap().into_parts();
 
-    let signature = aws_req_params
-        .get("x-amz-signature")
-        .expect("Missing x-amz-signature");
-
-    signature == &expected_signature
+    expected_signature == extract_signature(&params)
 }
 
 fn parse_amz_date(date_str: &str) -> SystemTime {
@@ -104,11 +99,50 @@ fn parse_amz_date(date_str: &str) -> SystemTime {
     DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).into()
 }
 
-fn clean_url(full_url: &str) -> String {
-    let mut parsed = Url::parse(full_url).expect("Invalid URL");
-    parsed.set_query(None);
-    parsed.set_fragment(None);
-    parsed.to_string()
+fn presigned_url(aws_params: &HashMap<String, String>) -> bool {
+    aws_params.contains_key("x-amz-signature")
+}
+
+fn signed_headers(aws_params: &HashMap<String, String>) -> Vec<(String, String)> {
+    let header_list = if presigned_url(aws_params) {
+        aws_params
+            .get("x-amz-signedheaders")
+            .expect("Missing x-amz-signedheaders")
+            .as_str()
+    } else {
+        aws_params
+            .get("authorization")
+            .expect("Missing Authorization header")
+            .split(',')
+            .find(|part| part.trim().starts_with("SignedHeaders="))
+            .expect("Missing SignedHeaders in Authorization header")
+            .trim()
+            .trim_start_matches("SignedHeaders=")
+    };
+
+    header_list
+        .split(';')
+        .filter_map(|h| aws_params.get(h).map(|v| (h.to_string(), v.clone())))
+        .collect()
+}
+
+fn extract_signature(aws_params: &HashMap<String, String>) -> String {
+    if presigned_url(aws_params) {
+        aws_params
+            .get("x-amz-signature")
+            .expect("Missing x-amz-signature")
+            .to_string()
+    } else {
+        let authorization = aws_params
+            .get("authorization")
+            .expect("Missing Authorization header");
+        authorization
+            .split(',')
+            .map(|part| part.trim())
+            .find(|part| part.starts_with("Signature="))
+            .map(|sig| sig.trim_start_matches("Signature=").to_string())
+            .expect("Missing Signature in Authorization header")
+    }
 }
 
 #[cfg(test)]
@@ -128,6 +162,52 @@ mod tests {
             .uri(uri)
             .insert_header(("host", "localhost:4444"))
             .insert_header(("x-amz-acl", "private"))
+            .to_http_request();
+
+        let is_valid = is_signature_valid(&request, access_key, secret_key, aws_region);
+
+        assert!(is_valid);
+    }
+
+    #[test]
+    fn test_header_signature() {
+        let access_key = "an_access_key";
+        let secret_key = "a_secret_key";
+        let aws_region = "eu-west-1";
+
+        let uri = "/upstream/drive-media-storage/item/29f00a79-b2ff-49a4-b0d5-814863d21ea8/18-11-2025-a-18h35.ics";
+
+        let request = TestRequest::get()
+            .uri(uri)
+            .insert_header(("host", "937d7186e461.ngrok-free.app"))
+            .insert_header(("authorization", "AWS4-HMAC-SHA256 Credential=an_access_key/20251117/eu-west-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=e09656ef6781f03e8eacd0c5a98c18c4a884254982b8a0043201aa6838e8792c"))
+            .insert_header(("x-amz-content-sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+            .insert_header(("x-amz-date", "20251117T151958Z"))
+            .to_http_request();
+
+        let is_valid = is_signature_valid(&request, access_key, secret_key, aws_region);
+
+        assert!(is_valid);
+    }
+
+    #[test]
+    fn another_test_header_signature() {
+        let _ = env_logger::try_init();
+        let access_key = "an_access_key";
+        let secret_key = "a_secret_key";
+        let aws_region = "eu-west-1";
+
+        let uri =
+            "/upstream/drive-media-storage/item/969fd250-d647-48d7-a0b9-705f2cf4069c/test.txt";
+
+        let request = TestRequest::get()
+            .uri(uri)
+            .insert_header(("authorization", "AWS4-HMAC-SHA256 Credential=an_access_key/20251118/eu-west-1/s3/aws4_request, SignedHeaders=host;range;x-amz-checksum-mode;x-amz-content-sha256;x-amz-date, Signature=df8a2df04aea3cec93826f42a38e55a13f74b63680fada05d5203cb05df9fbef"))
+            .insert_header(("x-amz-content-sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+            .insert_header(("x-amz-checksum-mode", "ENABLED"))
+            .insert_header(("range", "bytes=0-2047"))
+            .insert_header(("x-amz-date", "20251118T135750Z"))
+            .insert_header(("host", "c0f16bdf2fc8.ngrok-free.app"))
             .to_http_request();
 
         let is_valid = is_signature_valid(&request, access_key, secret_key, aws_region);
