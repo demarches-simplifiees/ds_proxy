@@ -37,6 +37,8 @@ pub async fn simple_proxy(
         proxied_req
     };
 
+    log::info!("simple proxy forwarding request {:?}", req_to_send);
+
     req_to_send
         .send_stream(payload)
         .await
@@ -45,20 +47,21 @@ pub async fn simple_proxy(
             actix_web::error::ErrorBadGateway(e)
         })
         .map(|res| {
+            log::info!("simple proxy received response {:?}", res);
+
             if res.status().is_client_error() || res.status().is_server_error() {
                 error!("simple proxy status error {:?} {:?}", req, res);
             }
 
             let mut client_resp = HttpResponse::build(res.status());
 
-            for header in res
-                .headers()
-                .iter()
-                .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
+            for header in res.headers().iter()
+            // .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
             {
                 client_resp.append_header(header);
             }
 
-            client_resp.streaming(res)
+            // client_resp.streaming(res)
+            client_resp.finish()
         })
 }
