@@ -37,6 +37,9 @@ data-encoding = "*"
 openssl = "*"
 md-5 = "*"
 sha2 = "*"
+aws-config = { version = "*", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "*"
+aws-sigv4 = "*"
 
 [dev-dependencies]
 assert_cmd = "*"

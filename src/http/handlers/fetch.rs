@@ -1,5 +1,7 @@
 use super::*;
-use crate::http::utils::{aws_helper::sign_request, partial_extractor::*};
+use crate::http::utils::{
+    aws_helper::sign_request, partial_extractor::*, verify_signature::is_signature_valid,
+};
 use actix_files::HttpRange;
 use actix_web::web::Bytes;
 use data_encoding::HEXLOWER;
@@ -11,13 +13,9 @@ pub async fn fetch(
     client: web::Data<Client>,
     config: web::Data<HttpConfig>,
 ) -> Result<HttpResponse, Error> {
-    let get_url = config.create_upstream_url(&req);
-
-    if get_url.is_none() {
+    let Some(get_url) = config.create_upstream_url(&req) else {
         return not_found();
-    }
-
-    let get_url = get_url.unwrap();
+    };
 
     let mut fetch_req = client
         .request_from(get_url.clone(), req.head())
@@ -33,8 +31,17 @@ pub async fn fetch(
     }
 
     let req_to_send = if config.aws_access_key.is_some() {
-        let checksum = HEXLOWER.encode(&Sha256::digest(b""));
+        if !is_signature_valid(
+            &req,
+            &config.aws_access_key.clone().unwrap_or_default(),
+            &config.aws_secret_key.clone().unwrap_or_default(),
+            &config.aws_region.clone().unwrap_or_default(),
+        ) {
+            error!("Invalid presigned URL for request {:?}", req);
+            return Err(actix_web::error::ErrorForbidden("Invalid presigned URL"));
+        }
 
+        let checksum = HEXLOWER.encode(&Sha256::digest(b""));
         sign_request(
             fetch_req,
             &config.aws_access_key.clone().unwrap(),

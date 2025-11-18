@@ -1,3 +1,5 @@
+use crate::http::utils::aws_helper::remove_aws_query_params;
+use crate::http::utils::verify_signature::is_signature_valid;
 use crate::http::utils::{aws_helper::sign_request, memory_or_file_buffer::MemoryOrFileBuffer};
 
 use super::*;
@@ -5,7 +7,6 @@ use actix_web::body::SizedStream;
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::time::Duration;
-use url::form_urlencoded;
 use url::Url;
 
 const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 60);
@@ -38,10 +39,35 @@ pub async fn forward(
         return not_found();
     };
 
-    let mut aws_query_headers: HashMap<String, String> = HashMap::new();
-
+    let mut aws_query_params: HashMap<String, String> = HashMap::new();
     if config.aws_access_key.is_some() {
-        (put_url, aws_query_headers) = move_aws_query_params_to_headers(&put_url);
+        (put_url, aws_query_params) = remove_aws_query_params(&(Url::parse(&put_url).unwrap()));
+    }
+
+    let aws_headers: HashMap<String, String> = req
+        .headers()
+        .iter()
+        .filter(|(key, _)| key.as_str().to_lowercase().starts_with("x-amz-"))
+        .map(|(key, value)| {
+            (
+                key.as_str().to_lowercase(),
+                value.to_str().unwrap_or("").to_string(),
+            )
+        })
+        .collect();
+
+    aws_query_params.extend(aws_headers);
+
+    if config.aws_access_key.is_some()
+        && !is_signature_valid(
+            &req,
+            &config.aws_access_key.clone().unwrap_or_default(),
+            &config.aws_secret_key.clone().unwrap_or_default(),
+            &config.aws_region.clone().unwrap_or_default(),
+        )
+    {
+        error!("Invalid presigned URL for request {:?}", req);
+        return Err(actix_web::error::ErrorForbidden("Invalid presigned URL"));
     }
 
     let mut forwarded_req = client
@@ -56,7 +82,7 @@ pub async fn forward(
         forwarded_req.headers_mut().remove(header);
     }
 
-    for (key, value) in &aws_query_headers {
+    for (key, value) in &aws_query_params {
         forwarded_req = forwarded_req.insert_header((key.as_str(), value.as_str()));
     }
 
@@ -136,36 +162,4 @@ pub async fn forward(
     }
 
     Ok(client_resp.body(res.body().await?))
-}
-
-fn move_aws_query_params_to_headers(url: &str) -> (String, HashMap<String, String>) {
-    let mut parsed_url = Url::parse(url).expect("Invalid URL");
-    let mut aws_headers = HashMap::new();
-
-    if let Some(query) = parsed_url.query() {
-        let params: Vec<(String, String)> = form_urlencoded::parse(query.as_bytes())
-            .into_owned()
-            .collect();
-
-        let (aws_params, other_params): (Vec<_>, Vec<_>) = params
-            .into_iter()
-            .partition(|(key, _)| key.to_lowercase().starts_with("x-amz-"));
-
-        for (key, value) in aws_params {
-            aws_headers.insert(key.to_lowercase(), value);
-        }
-
-        if other_params.is_empty() {
-            parsed_url.set_query(None);
-        } else {
-            let new_query = other_params
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect::<Vec<_>>()
-                .join("&");
-            parsed_url.set_query(Some(&new_query));
-        }
-    }
-
-    (parsed_url.to_string(), aws_headers)
 }
