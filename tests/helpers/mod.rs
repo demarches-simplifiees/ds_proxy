@@ -1,3 +1,4 @@
+use assert_cmd::cargo;
 pub use serial_test::serial;
 
 use actix_web::web::{BufMut, Bytes, BytesMut};
@@ -83,7 +84,7 @@ pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGu
         DS_KEYRING
     };
 
-    let mut command = Command::cargo_bin("ds_proxy").unwrap();
+    let mut command = Command::new(cargo::cargo_bin!("ds_proxy"));
     command
         .arg("proxy")
         .arg("--address=localhost:4444")
@@ -162,8 +163,7 @@ pub fn decrypt(
     encrypted_path: &str,
     decrypted_path: &std::path::Path,
 ) -> assert_cmd::assert::Assert {
-    Command::cargo_bin("ds_proxy")
-        .unwrap()
+    Command::new(cargo::cargo_bin!("ds_proxy"))
         .arg("decrypt")
         .arg(encrypted_path)
         .arg(decrypted_path)
@@ -204,8 +204,7 @@ pub fn ensure_is_absent(file_path: &str) {
 }
 
 pub fn add_a_key(keyring_path: &str) -> assert_cmd::assert::Assert {
-    Command::cargo_bin("ds_proxy")
-        .unwrap()
+    Command::new(cargo::cargo_bin!("ds_proxy"))
         .arg("add-key")
         .env("DS_KEYRING", keyring_path)
         .env("DS_PASSWORD", PASSWORD)

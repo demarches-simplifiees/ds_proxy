@@ -1,3 +1,4 @@
+use assert_cmd::cargo;
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use assert_fs::TempDir;
@@ -17,7 +18,7 @@ fn encrypt_and_decrypt() {
     let encrypted_path = encrypted.path();
     let decrypted_path = decrypted.path();
 
-    let mut encrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
+    let mut encrypt_cmd = Command::new(cargo::cargo_bin!("ds_proxy"));
     encrypt_cmd
         .arg("encrypt")
         .arg(COMPUTER_SVG_PATH)
@@ -29,7 +30,7 @@ fn encrypt_and_decrypt() {
         .assert()
         .success();
 
-    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
+    let mut decrypt_cmd = Command::new(cargo::cargo_bin!("ds_proxy"));
     decrypt_cmd
         .arg("decrypt")
         .arg(encrypted_path)
@@ -52,7 +53,7 @@ fn decrypt_witness_file() {
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
-    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
+    let mut decrypt_cmd = Command::new(cargo::cargo_bin!("ds_proxy"));
     decrypt_cmd
         .arg("decrypt")
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
@@ -75,7 +76,7 @@ fn the_app_crashes_on_a_missing_password() {
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
-    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
+    let mut decrypt_cmd = Command::new(cargo::cargo_bin!("ds_proxy"));
     decrypt_cmd
         .arg("proxy")
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
@@ -95,7 +96,7 @@ fn the_app_crashes_with_an_invalid_password() {
     let decrypted = temp.child("computer.dec.svg");
     let decrypted_path = decrypted.path();
 
-    let mut decrypt_cmd = Command::cargo_bin("ds_proxy").unwrap();
+    let mut decrypt_cmd = Command::new(cargo::cargo_bin!("ds_proxy"));
     decrypt_cmd
         .arg("proxy")
         .arg(ENCRYPTED_COMPUTER_SVG_PATH)
