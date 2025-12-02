@@ -11,6 +11,7 @@ use url::Url;
 pub const DEFAULT_CHUNK_SIZE: usize = 16 * 1024;
 pub const DEFAULT_LOCAL_ENCRYPTION_DIRECTORY: &str = "ds_proxy/local_encryption/";
 
+#[allow(clippy::large_enum_variant)]
 pub enum Config {
     Decrypt(DecryptConfig),
     Encrypt(EncryptConfig),

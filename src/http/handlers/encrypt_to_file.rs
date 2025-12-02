@@ -20,6 +20,7 @@ pub async fn encrypt_to_file(
         .read(true)
         .write(true)
         .create(true)
+        .truncate(true)
         .open(filepath)
         .await
         .unwrap();
