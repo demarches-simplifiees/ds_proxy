@@ -11,7 +11,7 @@ echo 'compiling ds_proxy'
 cargo build --release
 
 echo 'building simple node server which mimics a backend storage'
-npm install --prefix tests/fixtures/server-static
+npm clean-install --ignore-scripts --prefix tests/fixtures/server-static
 
 echo 'building keyring file'
 ./target/release/ds_proxy add-key --password-file <(echo -n "$PASSWORD") --keyring-file "$KEYRING_FILE" --salt "$SALT"
