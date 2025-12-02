@@ -79,7 +79,7 @@ pub async fn forward(
             buffer.append(v).await;
         }
 
-        let (output_sha256, length) = buffer.sha256_and_len();
+        let (_output_sha256, length) = buffer.sha256_and_len();
         input_etag = Some(encrypted_stream.input_md5());
 
         let stream_to_send = buffer.as_stream().await;
@@ -89,7 +89,6 @@ pub async fn forward(
             &config.aws_access_key.clone().unwrap(),
             &config.aws_secret_key.clone().unwrap(),
             &config.aws_region.clone().unwrap(),
-            &output_sha256,
         )
         .send_body(SizedStream::new(length, stream_to_send))
         .await

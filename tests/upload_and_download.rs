@@ -37,7 +37,7 @@ fn upload_and_download() {
     assert_eq!(&uploaded_bytes[0..PREFIX_SIZE], PREFIX);
 
     assert_eq!(
-        format!("\"{}\"", compute_sha256(uploaded_path)),
+        "\"UNSIGNED-PAYLOAD\"",
         node_received_header("x-amz-content-sha256").unwrap()
     );
 

@@ -1,55 +1,188 @@
-use crate::http::utils::sign::*;
-use actix_http::header::{HeaderName, HeaderValue};
 use awc::ClientRequest;
-use std::str::FromStr;
+use aws_sdk_s3::config::Credentials;
+use aws_sigv4::{
+    http_request::{sign, PercentEncodingMode, SignableBody, SignableRequest, SigningSettings},
+    sign::v4::SigningParams,
+};
+use std::time::SystemTime;
+use url::Url;
+
+const TO_REMOVE: [&str; 18] = [
+    "awsaccesskeyid",
+    "signature",
+    "expires",
+    "authorization",
+    "x-amz-algorithm",
+    "x-amz-checksum-crc32",
+    "x-amz-checksum-crc32c",
+    "x-amz-checksum-crc64nvme",
+    "x-amz-checksum-mode",
+    "x-amz-checksum-sha1",
+    "x-amz-checksum-sha256",
+    "x-amz-credential",
+    "x-amz-date",
+    "x-amz-expires",
+    "x-amz-sdk-checksum-algorithm",
+    "x-amz-security-token",
+    "x-amz-signedheaders",
+    "x-amz-signature",
+];
 
 pub fn sign_request(
+    req: ClientRequest,
+    aws_access_key: &str,
+    aws_secret_key: &str,
+    aws_region: &str,
+) -> ClientRequest {
+    sign_request_with_time(
+        req,
+        aws_access_key,
+        aws_secret_key,
+        aws_region,
+        SystemTime::now(),
+    )
+}
+
+fn sign_request_with_time(
     mut req: ClientRequest,
     aws_access_key: &str,
     aws_secret_key: &str,
     aws_region: &str,
-    checksum: &str,
+    time: SystemTime,
 ) -> ClientRequest {
-    let datetime = chrono::Utc::now();
+    req = remove_interfering_aws_params(req);
 
-    let host = req.get_uri().host().unwrap();
-    let amz_date = datetime.format("%Y%m%dT%H%M%SZ").to_string();
-
-    let amz_headers: Vec<(&HeaderName, &HeaderValue)> = req
-        .headers()
-        .iter()
-        .filter(|(key, _)| key.to_string().starts_with("x-amz-"))
-        .collect();
-
-    log::info!("voila les amz: {:?}", amz_headers);
-
-    let mut map = http::HeaderMap::new();
-
-    for (header_name, header_value) in amz_headers {
-        let header_name = http::HeaderName::from_str(header_name.as_str()).unwrap();
-        let header_value = http::HeaderValue::from_str(header_value.to_str().unwrap()).unwrap();
-        map.insert(header_name, header_value);
+    for key in TO_REMOVE.iter() {
+        req.headers_mut().remove(*key);
     }
-    map.insert("x-amz-date", amz_date.parse().unwrap());
-    map.insert("x-amz-content-sha256", checksum.parse().unwrap());
-    map.insert("host", host.parse().unwrap());
 
-    let authorization = AwsSign::new(
-        req.get_method().as_str(),
-        &req.get_uri().to_string(),
-        &datetime,
-        &map,
-        aws_region,
+    let host = req
+        .get_uri()
+        .host()
+        .unwrap_or_default()
+        .to_string();
+
+    req = req
+        .insert_header(("x-amz-content-sha256", "UNSIGNED-PAYLOAD"))
+        .insert_header(("host", host));
+
+    let credentials = Credentials::new(
         aws_access_key,
         aws_secret_key,
-        "s3",
-        checksum,
+        None,
+        None,
+        "hardcoded-credentials",
     )
-    .sign();
+    .into();
 
-    for (key, value) in map {
-        req = req.insert_header((key.unwrap().to_string(), value.to_str().unwrap()));
+    let mut settings = SigningSettings::default();
+    settings.percent_encoding_mode = PercentEncodingMode::Single;
+
+    let signing_params = SigningParams::builder()
+        .identity(&credentials)
+        .region(aws_region)
+        .name("s3")
+        .time(time)
+        .settings(settings)
+        .build()
+        .unwrap()
+        .into();
+
+    let aws_headers = req
+        .headers()
+        .iter()
+        .filter(|(k, _)| k.as_str().to_lowercase().starts_with("x-amz"))
+        .map(|(k, v)| (k.as_str(), v.to_str().unwrap_or(""))); 
+
+    let signable_request = SignableRequest::new(
+        req.get_method().as_str(),
+        req.get_uri().to_string(),
+        aws_headers,
+        SignableBody::UnsignedPayload,
+    )
+    .unwrap();
+
+    let (signing_instructions, _signature) = sign(signable_request, &signing_params)
+        .unwrap()
+        .into_parts();
+
+    for (name, value) in signing_instructions.headers() {
+        req = req.insert_header((name, value));
     }
 
-    req.insert_header(("Authorization", authorization))
+    log::debug!("Signed request {:?}", req);
+
+    req
+}
+
+fn remove_interfering_aws_params(req: ClientRequest) -> ClientRequest {
+    let url = req.get_uri().to_string();
+    let url = Url::parse(&url).unwrap();
+    let mut cleaned_url = url.clone();
+    cleaned_url.set_query(None);
+
+    let kept_pairs = url
+        .query_pairs()
+        .filter(|(k, _)| !TO_REMOVE.contains(&k.as_ref().to_lowercase().as_str()));
+    for (k, v) in kept_pairs {
+        cleaned_url.query_pairs_mut().append_pair(&k, &v);
+    }
+
+    req.uri(cleaned_url.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{DateTime, NaiveDateTime, Utc};
+
+    #[test]
+    fn test_sign_request_removes_interfering_aws_params() {
+        env_logger::init();
+        let uri = "https://s3-eu-west-1.amazonaws.com/plop?q=p&X-Amz-Algorithm=AWS4-HMAC-SHA256&AWSAccessKeyId=an_access_key&Signature=5Vo1RnSRALE3f9K8CJFOIOBAPbQ%3D&x-amz-acl=private&Expires=1764714247";
+        let request = awc::Client::new()
+            .get(uri)
+            .insert_header(("X-Amz-Security-Token", "some_token"))
+            .insert_header(("host", "localhost"));
+
+        let signed = sign_request(
+            request,
+            "an_access_key",
+            "a_secret_key",
+            "eu-west-1",
+        );
+
+        assert_eq!(
+            signed.get_uri().to_string(),
+            "https://s3-eu-west-1.amazonaws.com/plop?q=p&x-amz-acl=private"
+        );
+        assert!(signed.headers().get("x-amz-security-token").is_none());
+        assert_eq!(signed.headers().get("host"), Some(&"s3-eu-west-1.amazonaws.com".parse().unwrap()));
+    }
+
+    #[test]
+    fn test_sign_request() {
+        let uri = "https://s3-eu-west-1.amazonaws.com/drive-media-storage/item/12c3368f-884b-4bee-9779-10412cf05586/une%20image.png";
+
+        let request = awc::Client::new().get(uri)
+            .insert_header(("header_which", "should_not_be_signed"));
+        let date_str = "20251201T145423Z";
+
+        let naive = NaiveDateTime::parse_from_str(date_str, "%Y%m%dT%H%M%SZ").unwrap();
+        let time_now: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).into();
+
+        let signed = sign_request_with_time(
+            request,
+            "an_access_key",
+            "a_secret_key",
+            "eu-west-1",
+            time_now,
+        );
+
+        assert_eq!(
+            signed.headers().get("x-amz-content-sha256").unwrap(),
+            "UNSIGNED-PAYLOAD"
+        );
+        assert_eq!(signed.headers().get("authorization").unwrap(), "AWS4-HMAC-SHA256 Credential=an_access_key/20251201/eu-west-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=7d6f290a9a6c9f298c13978e0521168756fe07e105de79238f24e40879e704f0");
+    }
 }
