@@ -143,4 +143,24 @@ mod tests {
         );
         assert_eq!(signed.headers().get("authorization").unwrap(), "AWS4-HMAC-SHA256 Credential=an_access_key/20251201/eu-west-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=7d6f290a9a6c9f298c13978e0521168756fe07e105de79238f24e40879e704f0");
     }
+
+    #[test]
+    fn test_sign_presigned_url() {
+        let uri = "https://s3-eu-west-1.amazonaws.com/drive-media-storage/plop?AWSAccessKeyId=an_access_key&Signature=5Vo1RnSRALE3f9K8CJFOIOBAPbQ%3D&x-amz-acl=private&Expires=1764714247";
+
+        let request = awc::Client::new()
+            .get(uri)
+            .insert_header(("host", "s3-eu-west-1.amazonaws.com"))
+            .insert_header(("content-type", "application/x-www-form-urlencoded"))
+            .insert_header(("user-agent", "curl/8.17.0"))
+            .insert_header(("accept", "*/*"));
+
+        let date_str = "20251201T145423Z";
+        let naive = NaiveDateTime::parse_from_str(date_str, "%Y%m%dT%H%M%SZ").unwrap();
+        let time_now: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).into();
+
+        let signed = sign_request_with_time(request, config(), time_now);
+
+        assert_eq!(signed.headers().get("authorization").unwrap(), "AWS4-HMAC-SHA256 Credential=an_access_key/20251201/eu-west-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=9d0c8b45db94e946687e2ff747c9e352e1468140a5bd6de9ee772f94317c7ec2");
+    }
 }
