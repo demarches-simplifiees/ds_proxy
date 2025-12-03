@@ -1,6 +1,8 @@
+use super::aws_config::AwsConfig;
 use super::{args, keyring::Keyring, keyring_utils::load_keyring};
-use crate::redis_config::RedisConfig; // Import depuis le nouveau fichier
+use crate::redis_config::RedisConfig;
 use actix_web::HttpRequest;
+use aws_sdk_s3::config::Credentials;
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
@@ -41,9 +43,7 @@ pub struct HttpConfig {
     pub chunk_size: usize,
     pub address: SocketAddr,
     pub local_encryption_directory: PathBuf,
-    pub aws_access_key: Option<String>,
-    pub aws_secret_key: Option<String>,
-    pub aws_region: Option<String>,
+    pub aws_config: Option<AwsConfig>,
     pub backend_connection_timeout: Duration,
     pub write_once: bool,
     pub redis_config: RedisConfig,
@@ -182,15 +182,33 @@ impl Config {
                 backend_connection_timeout
             );
 
+            let aws_config = if let (Some(aws_access_key), Some(aws_secret_key), Some(region)) = (
+                &args.flag_aws_access_key,
+                &args.flag_aws_secret_key,
+                &args.flag_aws_region,
+            ) {
+                let config = AwsConfig::new(
+                    Credentials::new(
+                        aws_access_key,
+                        aws_secret_key,
+                        None,
+                        None,
+                        "cli-credentials",
+                    ),
+                    region.to_string(),
+                );
+                Some(config)
+            } else {
+                None
+            };
+
             Config::Http(HttpConfig {
                 keyring,
                 chunk_size,
                 upstream_base_url,
                 address,
                 local_encryption_directory,
-                aws_access_key: args.flag_aws_access_key.clone(),
-                aws_secret_key: args.flag_aws_secret_key.clone(),
-                aws_region: args.flag_aws_region.clone(),
+                aws_config,
                 backend_connection_timeout,
                 write_once,
                 redis_config: RedisConfig::create_redis_config(args),
@@ -355,9 +373,7 @@ mod tests {
             upstream_base_url: normalize_and_parse_upstream_url(upstream_base_url.to_string()),
             address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
-            aws_access_key: None,
-            aws_secret_key: None,
-            aws_region: None,
+            aws_config: None,
             backend_connection_timeout: Duration::from_secs(1),
             write_once: false,
             redis_config: RedisConfig::default(),

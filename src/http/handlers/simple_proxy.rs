@@ -20,13 +20,8 @@ pub async fn simple_proxy(
         proxied_req.headers_mut().remove(header);
     }
 
-    let req_to_send = if config.aws_access_key.is_some() {
-        sign_request(
-            proxied_req,
-            &config.aws_access_key.clone().unwrap(),
-            &config.aws_secret_key.clone().unwrap(),
-            &config.aws_region.clone().unwrap(),
-        )
+    let req_to_send = if let Some(aws_config) = config.aws_config.clone() {
+        sign_request(proxied_req, aws_config)
     } else {
         proxied_req
     };

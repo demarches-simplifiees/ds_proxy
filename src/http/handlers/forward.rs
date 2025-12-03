@@ -40,7 +40,7 @@ pub async fn forward(
 
     let mut aws_query_headers: HashMap<String, String> = HashMap::new();
 
-    if config.aws_access_key.is_some() {
+    if config.aws_config.is_some() {
         (put_url, aws_query_headers) = move_aws_query_params_to_headers(&put_url);
     }
 
@@ -71,7 +71,7 @@ pub async fn forward(
 
     let mut input_etag: Option<String> = None;
 
-    let res_e = if config.aws_access_key.is_some() {
+    let res_e = if let Some(aws_config) = config.aws_config.clone() {
         let filepath = config.local_encryption_path_for(&req);
         let mut buffer = MemoryOrFileBuffer::new(filepath);
 
@@ -84,14 +84,9 @@ pub async fn forward(
 
         let stream_to_send = buffer.as_stream().await;
 
-        sign_request(
-            forwarded_req,
-            &config.aws_access_key.clone().unwrap(),
-            &config.aws_secret_key.clone().unwrap(),
-            &config.aws_region.clone().unwrap(),
-        )
-        .send_body(SizedStream::new(length, stream_to_send))
-        .await
+        sign_request(forwarded_req, aws_config)
+            .send_body(SizedStream::new(length, stream_to_send))
+            .await
     } else {
         let stream_to_send = encrypted_stream
             .map_err(move |e| {
