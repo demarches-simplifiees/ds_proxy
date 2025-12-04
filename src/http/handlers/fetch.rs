@@ -2,8 +2,6 @@ use super::*;
 use crate::http::utils::{aws_helper::sign_request, partial_extractor::*};
 use actix_files::HttpRange;
 use actix_web::web::Bytes;
-use data_encoding::HEXLOWER;
-use sha2::{Digest, Sha256};
 
 pub async fn fetch(
     req: HttpRequest,
@@ -32,16 +30,8 @@ pub async fn fetch(
         fetch_req.headers_mut().remove(header);
     }
 
-    let req_to_send = if config.aws_access_key.is_some() {
-        let checksum = HEXLOWER.encode(&Sha256::digest(b""));
-
-        sign_request(
-            fetch_req,
-            &config.aws_access_key.clone().unwrap(),
-            &config.aws_secret_key.clone().unwrap(),
-            &config.aws_region.clone().unwrap(),
-            &checksum,
-        )
+    let req_to_send = if let Some(aws_config) = config.aws_config.clone() {
+        sign_request(fetch_req, aws_config)
     } else {
         fetch_req
     };
