@@ -11,6 +11,10 @@ let last_put_headers = {};
 app.put('*', function(req, res) {
   last_put_headers = req.headers;
 
+  metadata = Object.fromEntries(
+    Object.entries(req.headers).filter(([key, value]) => key.startsWith('x-amz-meta-'))
+  );
+
   const filePath = path.join(__dirname, 'uploads', req.path);
   const fileDirectory = path.dirname(filePath);
 
@@ -18,6 +22,10 @@ app.put('*', function(req, res) {
 
   writeStream = fs.createWriteStream(filePath);
   req.pipe(writeStream);
+
+  if (Object.entries(metadata).length > 0) {
+    fs.writeFileSync(filePath + '.metadata', JSON.stringify(metadata, null, 2), 'utf8');
+  }
 
   // After all the data is saved, respond Ok
   req.on('end', function () {
@@ -69,11 +77,22 @@ const chunked_static = function (req, res, next) {
   }
 
   const path = req.path.substr(1);
-  const readStream = fs.createReadStream(__dirname + '/uploads/' + path, { highWaterMark: 1 * 1024});
+  const filePath = __dirname + '/uploads/' + path;
+  const readStream = fs.createReadStream(filePath, { highWaterMark: 1 * 1024});
+
   res.writeHead(200, {'Content-Type': 'text/plain'});
   readStream.pipe(res);
 }
 
+const add_metadata = function (res, path, stat) {
+  if (fs.existsSync(path + '.metadata')) {
+    const metadata = JSON.parse(fs.readFileSync(path + '.metadata', 'utf8'));
+    for (const [key, value] of Object.entries(metadata)) {
+      res.setHeader(key, value);
+    }
+  }
+}
+
 app.use(chunked_static);
-app.use(express.static(__dirname + '/uploads'));
+app.use(express.static(__dirname + '/uploads', { setHeaders: add_metadata }));
 app.listen(3333);

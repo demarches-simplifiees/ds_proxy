@@ -49,6 +49,17 @@ fn upload_and_download() {
     let decrypted_bytes = std::fs::read(decrypted_path).unwrap();
     assert_eq!(decrypted_bytes, COMPUTER_SVG_BYTES);
 
+    let curl_head = curl_head("localhost:4444/upstream/victory");
+    let text = String::from_utf8_lossy(&curl_head.stdout);
+    let text = text
+        .lines()
+        .find(|line| line.starts_with("content-length"))
+        .unwrap();
+    assert_eq!(
+        text,
+        format!("content-length: {}", COMPUTER_SVG_BYTES.len())
+    );
+
     let curl_download = curl_get("localhost:4444/upstream/victory");
     assert_eq!(curl_download.stdout, COMPUTER_SVG_BYTES);
 
