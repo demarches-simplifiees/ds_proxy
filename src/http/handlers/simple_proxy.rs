@@ -1,3 +1,5 @@
+use actix_http::Method;
+
 use crate::http::utils::aws_helper::sign_request;
 
 use super::*;
@@ -46,6 +48,14 @@ pub async fn simple_proxy(
                 .filter(|(h, _)| !FETCH_RESPONSE_HEADERS_TO_REMOVE.contains(h))
             {
                 client_resp.append_header(header);
+            }
+
+            if req.method() == Method::HEAD {
+                if let Some(content_length) =
+                    res.headers().get("x-amz-meta-original-content-length")
+                {
+                    client_resp.insert_header(("content-length", content_length.clone()));
+                }
             }
 
             client_resp.streaming(res)
