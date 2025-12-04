@@ -103,7 +103,6 @@ mod tests {
 
     #[test]
     fn test_sign_request_removes_interfering_aws_params() {
-        env_logger::init();
         let uri = "https://s3-eu-west-1.amazonaws.com/plop?q=p&X-Amz-Algorithm=AWS4-HMAC-SHA256&AWSAccessKeyId=an_access_key&Signature=5Vo1RnSRALE3f9K8CJFOIOBAPbQ%3D&x-amz-acl=private&Expires=1764714247";
         let request = awc::Client::new()
             .get(uri)
