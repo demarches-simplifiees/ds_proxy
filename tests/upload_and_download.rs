@@ -30,6 +30,10 @@ fn upload_and_download() {
     curl_put(COMPUTER_SVG_PATH, "localhost:4444/upstream/victory");
     assert_eq!(returned_header("etag"), COMPUTER_SVG_MD5_ETAG);
 
+    assert_eq!(
+        node_received_header("x-amz-meta-original-content-length"),
+        Some(format!("\"{}\"", COMPUTER_SVG_BYTES.len().to_string()))
+    );
     assert!(node_received_header("x-amz-date").is_some());
     assert!(node_received_header("authorization").is_some());
 
