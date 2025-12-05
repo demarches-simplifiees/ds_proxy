@@ -39,19 +39,20 @@ pub struct ProxyAndNode {
 
 impl ProxyAndNode {
     pub fn start() -> ProxyAndNode {
-        ProxyAndNode::start_with_options(None, PrintServerLogs::No, None)
+        ProxyAndNode::start_with_options(None, PrintServerLogs::No, None, false)
     }
 
     pub fn start_with_keyring_path(keyring_path: &str) -> ProxyAndNode {
-        ProxyAndNode::start_with_options(None, PrintServerLogs::No, Some(keyring_path))
+        ProxyAndNode::start_with_options(None, PrintServerLogs::No, Some(keyring_path), false)
     }
 
     pub fn start_with_options(
         latency: Option<Duration>,
         log: PrintServerLogs,
         keyring_path: Option<&str>,
+        enable_aws_signature_check: bool,
     ) -> ProxyAndNode {
-        let proxy = launch_proxy(log, keyring_path);
+        let proxy = launch_proxy(log, keyring_path, enable_aws_signature_check);
         let node = launch_node_with_latency(latency, log);
         let redis = launch_redis(log);
         thread::sleep(time::Duration::from_secs(4));
@@ -77,7 +78,11 @@ pub fn launch_redis(log: PrintServerLogs) -> ChildGuard {
     }
 }
 
-pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGuard {
+pub fn launch_proxy(
+    log: PrintServerLogs,
+    keyring_path: Option<&str>,
+    enable_aws_signature_check: bool,
+) -> ChildGuard {
     let keyring = if let Some(file) = keyring_path {
         file
     } else {
@@ -92,11 +97,14 @@ pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGu
         .arg("--aws-access-key=key")
         .arg("--aws-secret-key=secret")
         .arg("--aws-region=region")
-        .arg("--bypass-aws-signature-check")
         .env("DS_KEYRING", keyring)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)
         .env("DS_CHUNK_SIZE", CHUNK_SIZE.to_string());
+
+    if !enable_aws_signature_check {
+        command.arg("--bypass-aws-signature-check");
+    }
 
     match log {
         PrintServerLogs::Yes => {
