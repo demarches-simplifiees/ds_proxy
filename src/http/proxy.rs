@@ -39,7 +39,9 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .service(resource("/ping").guard(Get()).to(ping))
             .service({
-                let scope = scope("/upstream").service(resource("{name}*").guard(Get()).to(fetch));
+                let scope = scope("/upstream")
+                    .service(resource("").guard(Get()).to(fetch)) // for ex: used for listing bucket  (?list-type=2&encoding-type=url)
+                    .service(resource("{name}*").guard(Get()).to(fetch));
 
                 let upstream_put = resource("{name}*").guard(Put()).to(forward);
 
