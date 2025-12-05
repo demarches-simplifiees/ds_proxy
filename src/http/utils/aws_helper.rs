@@ -61,7 +61,7 @@ fn sign_request_with_time(
     )
     .unwrap();
 
-    let (signing_instructions, _signature) = aws_config.sign(time, signable_request).into_parts();
+    let (signing_instructions, _signature) = aws_config.sign(time, signable_request, None);
 
     for (name, value) in signing_instructions.headers() {
         req = req.insert_header((name, value));
