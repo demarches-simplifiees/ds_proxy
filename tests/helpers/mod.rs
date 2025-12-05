@@ -92,6 +92,7 @@ pub fn launch_proxy(log: PrintServerLogs, keyring_path: Option<&str>) -> ChildGu
         .arg("--aws-access-key=key")
         .arg("--aws-secret-key=secret")
         .arg("--aws-region=region")
+        .arg("--bypass-aws-signature-check")
         .env("DS_KEYRING", keyring)
         .env("DS_PASSWORD", PASSWORD)
         .env("DS_SALT", SALT)

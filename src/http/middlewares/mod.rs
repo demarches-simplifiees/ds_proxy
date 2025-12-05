@@ -67,13 +67,15 @@ pub async fn verify_aws_signature(
         return next.call(service_request).await;
     }
 
-    let config = service_request
-        .app_data::<web::Data<HttpConfig>>()
-        .unwrap();
+    let config = service_request.app_data::<web::Data<HttpConfig>>().unwrap();
 
     if let Some(config) = config.aws_config.clone() {
-        if !is_signature_valid(service_request.request(), config) {
-            log::warn!("Invalid AWS signature for request: {}", service_request.uri());
+        if !config.bypass_signature_check && !is_signature_valid(service_request.request(), config)
+        {
+            log::warn!(
+                "Invalid AWS signature for request: {}",
+                service_request.uri()
+            );
             return Err(ErrorUnauthorized("Invalid AWS signature"));
         }
     }

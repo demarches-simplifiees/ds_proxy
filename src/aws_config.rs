@@ -9,13 +9,15 @@ use aws_sigv4::sign::v4::SigningParams;
 
 #[derive(Debug, Clone)]
 pub struct AwsConfig {
+    pub bypass_signature_check: bool,
     credentials: Credentials,
     region: String,
 }
 
 impl AwsConfig {
-    pub fn new(credentials: Credentials, region: String) -> Self {
+    pub fn new(credentials: Credentials, region: String, bypass_signature_check: bool) -> Self {
         AwsConfig {
+            bypass_signature_check,
             credentials,
             region,
         }

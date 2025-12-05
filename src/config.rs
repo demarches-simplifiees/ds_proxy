@@ -196,6 +196,7 @@ impl Config {
                         "cli-credentials",
                     ),
                     region.to_string(),
+                    args.flag_bypass_aws_signature_check,
                 );
                 Some(config)
             } else {
