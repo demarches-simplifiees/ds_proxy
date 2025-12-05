@@ -1,9 +1,11 @@
 use super::super::config::HttpConfig;
+use super::utils::verify_signature::is_signature_valid;
 use crate::write_once_service::WriteOnceService;
+use actix_http::Method;
 use actix_web::{
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
-    error::ErrorForbidden,
+    error::{ErrorForbidden, ErrorUnauthorized},
     middleware::Next,
     web, Error,
 };
@@ -55,6 +57,28 @@ pub async fn ensure_write_once(
     }
 
     result
+}
+
+pub async fn verify_aws_signature(
+    service_request: ServiceRequest,
+    next: Next<impl MessageBody>,
+) -> Result<ServiceResponse<impl MessageBody>, Error> {
+    if service_request.method() == Method::OPTIONS {
+        return next.call(service_request).await;
+    }
+
+    let config = service_request
+        .app_data::<web::Data<HttpConfig>>()
+        .unwrap();
+
+    if let Some(config) = config.aws_config.clone() {
+        if !is_signature_valid(service_request.request(), config) {
+            log::warn!("Invalid AWS signature for request: {}", service_request.uri());
+            return Err(ErrorUnauthorized("Invalid AWS signature"));
+        }
+    }
+
+    next.call(service_request).await
 }
 
 pub fn erase_file(res: Result<ServiceResponse, Error>) -> Result<ServiceResponse, Error> {
