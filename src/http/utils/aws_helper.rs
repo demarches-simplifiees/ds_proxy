@@ -5,7 +5,7 @@ use url::Url;
 
 use crate::aws_config::AwsConfig;
 
-const TO_REMOVE: [&str; 18] = [
+const AWS_SIGNATURE_RELATED_KEYS: [&str; 18] = [
     "awsaccesskeyid",
     "signature",
     "expires",
@@ -35,9 +35,10 @@ fn sign_request_with_time(
     aws_config: AwsConfig,
     time: SystemTime,
 ) -> ClientRequest {
-    req = remove_interfering_aws_params(req);
+    let url = Url::parse(&req.get_uri().to_string()).unwrap();
+    req = req.uri(remove_aws_signature_params(url));
 
-    for key in TO_REMOVE.iter() {
+    for key in AWS_SIGNATURE_RELATED_KEYS.iter() {
         req.headers_mut().remove(*key);
     }
 
@@ -72,20 +73,18 @@ fn sign_request_with_time(
     req
 }
 
-fn remove_interfering_aws_params(req: ClientRequest) -> ClientRequest {
-    let url = req.get_uri().to_string();
-    let url = Url::parse(&url).unwrap();
+pub fn remove_aws_signature_params(url: Url) -> String {
     let mut cleaned_url = url.clone();
     cleaned_url.set_query(None);
 
     let kept_pairs = url
         .query_pairs()
-        .filter(|(k, _)| !TO_REMOVE.contains(&k.as_ref().to_lowercase().as_str()));
+        .filter(|(k, _)| !AWS_SIGNATURE_RELATED_KEYS.contains(&k.as_ref().to_lowercase().as_str()));
     for (k, v) in kept_pairs {
         cleaned_url.query_pairs_mut().append_pair(&k, &v);
     }
 
-    req.uri(cleaned_url.to_string())
+    cleaned_url.to_string()
 }
 
 #[cfg(test)]
