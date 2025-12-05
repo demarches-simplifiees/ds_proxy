@@ -13,7 +13,13 @@ pub fn is_signature_valid(request: &HttpRequest, aws_config: AwsConfig) -> bool 
 
     let all_params = extract_query_and_header_params(request);
 
-    let provided_signature = extract_signature(&all_params);
+    let provided_signature = match extract_signature(&all_params) {
+        Some(sig) => sig,
+        None => {
+            log::warn!("No signature found in request");
+            return false;
+        }
+    };
     let expires_in = extract_expires_in(&all_params);
     let aws_date = extract_aws_date(&all_params);
     let signed_pairs = extract_signed_pairs(&all_params);
@@ -106,22 +112,17 @@ fn extract_signed_pairs(all_params: &HashMap<String, String>) -> Vec<(String, St
         .collect()
 }
 
-fn extract_signature(aws_params: &HashMap<String, String>) -> String {
+fn extract_signature(aws_params: &HashMap<String, String>) -> Option<String> {
     if presigned_url(aws_params) {
-        aws_params
-            .get("x-amz-signature")
-            .expect("Missing x-amz-signature")
-            .to_string()
+        aws_params.get("x-amz-signature").map(|s| s.to_string())
     } else {
-        let authorization = aws_params
-            .get("authorization")
-            .expect("Missing Authorization header");
+        let authorization = aws_params.get("authorization")?;
+
         authorization
             .split(',')
             .map(|part| part.trim())
             .find(|part| part.starts_with("Signature="))
             .map(|sig| sig.trim_start_matches("Signature=").to_string())
-            .expect("Missing Signature in Authorization header")
     }
 }
 
