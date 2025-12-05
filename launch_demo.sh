@@ -1,4 +1,14 @@
 #! /bin/bash
+
+# source .env file if present
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
+: "${DS_PROXY_ADDRESS:=127.0.0.1:4444}"
+
 PASSWORD='a good password'
 SALT='12345678901234567890123456789012'
 KEYRING_FILE=/tmp/keyring.toml
@@ -18,11 +28,11 @@ echo 'building keyring file'
 
 if [ "$1" = "aws" ]; then
   echo 'launching ds_proxy in aws mode listenning on real s3 backend'
-  RUST_LOG=debug ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "$UPSTREAM_URL" --aws-access-key "$AWS_ACCESS_KEY" --aws-secret-key "$AWS_SECRET_KEY" --aws-region "$AWS_REGION" > "$DS_PROXY_LOG" 2>&1 &
+  RUST_LOG=debug ./target/release/ds_proxy proxy --address "$DS_PROXY_ADDRESS" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "$UPSTREAM_URL" --aws-access-key "$AWS_ACCESS_KEY" --aws-secret-key "$AWS_SECRET_KEY" --aws-region "$AWS_REGION" > "$DS_PROXY_LOG" 2>&1 &
 
 elif [ "$1" = "fake_aws" ]; then
   echo 'launching ds_proxy in aws mode listenning on 4444 binded on node server'
-  RUST_LOG=info ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" --aws-access-key "$AWS_ACCESS_KEY" --aws-secret-key "$AWS_SECRET_KEY" --aws-region "eu-west-1" > "$DS_PROXY_LOG" 2>&1 &
+  RUST_LOG=info ./target/release/ds_proxy proxy --address "$DS_PROXY_ADDRESS" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" --aws-access-key "$AWS_ACCESS_KEY" --aws-secret-key "$AWS_SECRET_KEY" --aws-region "eu-west-1" > "$DS_PROXY_LOG" 2>&1 &
 
 else
   echo 'launching ds_proxy listenning on 4444 binded on node server, using redis to emulate write once'
@@ -32,7 +42,7 @@ else
     echo "launching redis server on port $REDIS_PORT"
     redis-server --port $REDIS_PORT > /dev/null 2>&1 &
   fi
-  RUST_LOG=info,actix-rt=trace,ds_proxy::http::handlers::fetch=trace,ds_proxy::http::handlers::forward=trace ./target/release/ds_proxy proxy --address "127.0.0.1:4444" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" --write-once --redis-url "redis://127.0.0.1:$REDIS_PORT"> "$DS_PROXY_LOG" 2>&1 &
+  RUST_LOG=info,actix-rt=trace,ds_proxy::http::handlers::fetch=trace,ds_proxy::http::handlers::forward=trace ./target/release/ds_proxy proxy --address "$DS_PROXY_ADDRESS" --password-file <(echo -n "$PASSWORD") --salt "$SALT" --keyring-file "$KEYRING_FILE" --upstream-url "http://localhost:3333" --write-once --redis-url "redis://127.0.0.1:$REDIS_PORT"> "$DS_PROXY_LOG" 2>&1 &
 fi
 
 echo 'launching fake backend storage with node listenning on 3333'
