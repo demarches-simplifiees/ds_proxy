@@ -74,6 +74,15 @@ pub fn curl_get(url: &str) -> Output {
         .expect("failed to perform download")
 }
 
+pub fn curl_head(url: &str) -> Output {
+    Command::new("curl")
+        .arg("-I")
+        .arg("-XHEAD")
+        .arg(url)
+        .output()
+        .expect("failed to perform download")
+}
+
 pub fn curl_range_get(url: &str, range_start: usize, range_end: usize) -> Output {
     let range_arg = format!("Range: bytes={}-{}", range_start, range_end);
 
