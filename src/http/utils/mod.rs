@@ -3,6 +3,7 @@ use actix_web::http::{header, header::HeaderMap};
 pub mod aws_helper;
 pub mod memory_or_file_buffer;
 pub mod partial_extractor;
+pub mod verify_signature;
 
 pub fn content_length(headers: &HeaderMap) -> Option<usize> {
     headers

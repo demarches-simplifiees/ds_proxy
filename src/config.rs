@@ -196,6 +196,7 @@ impl Config {
                         "cli-credentials",
                     ),
                     region.to_string(),
+                    args.flag_bypass_aws_signature_check,
                 );
                 Some(config)
             } else {
@@ -231,6 +232,10 @@ fn normalize_and_parse_upstream_url(mut url: String) -> Url {
 
 impl HttpConfig {
     pub fn create_upstream_url(&self, req: &HttpRequest) -> Option<String> {
+        if req.match_info().get("name").is_none() {
+            return Some(self.upstream_base_url.to_string());
+        }
+
         // Warning: join process '../'
         // "https://a.com/jail/".join('../escape') => "https://a.com/escape"
         let mut url = self
@@ -361,6 +366,15 @@ mod tests {
         assert_eq!(
             config.create_upstream_url(&file_with_query_string),
             Some("https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2".to_string())
+        );
+
+        let file = TestRequest::default()
+            .uri("https://proxy.com")
+            .to_http_request();
+
+        assert_eq!(
+            config.create_upstream_url(&file),
+            Some("https://upstream.com/".to_string())
         );
     }
 
