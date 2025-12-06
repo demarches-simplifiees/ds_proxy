@@ -3,12 +3,20 @@ use aws_sigv4::http_request::SignableBody;
 use aws_sigv4::http_request::SignableRequest;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use crate::aws_config::AwsConfig;
 use crate::http::utils::aws_helper::remove_aws_signature_params;
 
 pub fn is_signature_valid(request: &HttpRequest, aws_config: AwsConfig) -> bool {
+    is_signature_valid_with_date(request, aws_config, Utc::now())
+}
+
+fn is_signature_valid_with_date(
+    request: &HttpRequest,
+    aws_config: AwsConfig,
+    now: DateTime<Utc>,
+) -> bool {
     log::info!("Verifying signature for request: {:?}", &request);
 
     let all_params = extract_query_and_header_params(request);
@@ -23,6 +31,11 @@ pub fn is_signature_valid(request: &HttpRequest, aws_config: AwsConfig) -> bool 
     let expires_in = extract_expires_in(&all_params);
     let aws_date = extract_aws_date(&all_params);
     let signed_pairs = extract_signed_pairs(&all_params);
+
+    if !aws_date_is_valid(now, aws_date, expires_in) {
+        log::warn!("AWS date is invalid or too far in the past/future");
+        return false;
+    }
 
     let body = if let Some(sha) = all_params.get("x-amz-content-sha256") {
         SignableBody::Precomputed(sha.to_string())
@@ -46,7 +59,7 @@ pub fn is_signature_valid(request: &HttpRequest, aws_config: AwsConfig) -> bool 
     )
     .unwrap();
 
-    let (_, expected_signature) = aws_config.sign(aws_date, signable, expires_in);
+    let (_, expected_signature) = aws_config.sign(aws_date.into(), signable, expires_in);
 
     log::debug!("Expected signature: {}", expected_signature);
     log::debug!("Provided signature: {}", provided_signature);
@@ -54,11 +67,28 @@ pub fn is_signature_valid(request: &HttpRequest, aws_config: AwsConfig) -> bool 
     expected_signature == provided_signature
 }
 
-fn extract_aws_date(all_params: &HashMap<String, String>) -> SystemTime {
+fn aws_date_is_valid(
+    now: DateTime<Utc>,
+    aws_date: DateTime<Utc>,
+    expires_in: Option<Duration>,
+) -> bool {
+    if aws_date + expires_in.unwrap_or_default() < now - Duration::from_mins(15) {
+        return false;
+    }
+
+    if aws_date > now + Duration::from_mins(15) {
+        return false;
+    }
+
+    true
+}
+
+fn extract_aws_date(all_params: &HashMap<String, String>) -> DateTime<Utc> {
     let amz_date = all_params.get("x-amz-date").expect("Missing x-amz-date");
+    //  it must be in the ISO 8601 basic YYYYMMDD'T'HHMMSS'Z' format. Z stands for UTC time.
     let naive = NaiveDateTime::parse_from_str(amz_date, "%Y%m%dT%H%M%SZ")
         .expect("Invalid x-amz-date format");
-    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).into()
+    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
 }
 
 fn extract_expires_in(all_params: &HashMap<String, String>) -> Option<Duration> {
@@ -132,6 +162,32 @@ mod tests {
     use actix_web::test::TestRequest;
     use aws_sdk_s3::config::Credentials;
 
+    fn to_utc_datetime(s: &str) -> DateTime<Utc> {
+        let naive = NaiveDateTime::parse_from_str(s, "%Y%m%dT%H%M%SZ").unwrap();
+        DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
+    }
+
+    #[test]
+    fn date_inside_a_15min_window_is_valid() {
+        let now = Utc::now();
+
+        let aws_date = now + chrono::Duration::minutes(10);
+        assert!(aws_date_is_valid(now, aws_date, None));
+
+        let aws_date = now - chrono::Duration::minutes(10);
+        assert!(aws_date_is_valid(now, aws_date, None));
+
+        let aws_date = now + chrono::Duration::minutes(16);
+        assert!(!aws_date_is_valid(now, aws_date, None));
+
+        let aws_date = now - chrono::Duration::minutes(16);
+        assert!(!aws_date_is_valid(now, aws_date, None));
+
+        let aws_date = now - chrono::Duration::minutes(16);
+        let expires_in = Some(Duration::from_mins(2));
+        assert!(aws_date_is_valid(now, aws_date, expires_in));
+    }
+
     fn config() -> AwsConfig {
         AwsConfig::new(
             Credentials::new("an_access_key", "a_secret_key", None, None, "test"),
@@ -151,9 +207,9 @@ mod tests {
             .insert_header(("x-amz-acl", "private"))
             .to_http_request();
 
-        let is_valid = is_signature_valid(&request, config());
+        let now = to_utc_datetime("20251113T155445Z");
 
-        assert!(is_valid);
+        assert!(is_signature_valid_with_date(&request, config(), now));
     }
 
     #[test]
@@ -168,9 +224,8 @@ mod tests {
             .insert_header(("authorization", "AWS4-HMAC-SHA256 Credential=an_access_key/20251130/eu-west-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=a493bc79221f7402ed31bc65a23f1c4b4398e9c97d234d0c298f9822496b6a20"))
             .to_http_request();
 
-        let is_valid = is_signature_valid(&request, config());
-
-        assert!(is_valid);
+        let now = to_utc_datetime("20251130T111327Z");
+        assert!(is_signature_valid_with_date(&request, config(), now));
     }
 
     #[test]
@@ -185,9 +240,9 @@ mod tests {
             .insert_header(("x-amz-date", "20251117T151958Z"))
             .to_http_request();
 
-        let is_valid = is_signature_valid(&request, config());
+        let now = to_utc_datetime("20251117T151958Z");
 
-        assert!(is_valid);
+        assert!(is_signature_valid_with_date(&request, config(), now));
     }
 
     #[test]
@@ -205,9 +260,9 @@ mod tests {
             .insert_header(("host", "c0f16bdf2fc8.ngrok-free.app"))
             .to_http_request();
 
-        let is_valid = is_signature_valid(&request, config());
+        let now = to_utc_datetime("20251118T135750Z");
 
-        assert!(is_valid);
+        assert!(is_signature_valid_with_date(&request, config(), now));
     }
 
     #[test]
@@ -224,9 +279,9 @@ mod tests {
             .insert_header(("host", "localhost:4444"))
             .to_http_request();
 
-        let is_valid = is_signature_valid(&request, config());
+        let now = to_utc_datetime("20251201T073220Z");
 
-        assert!(is_valid);
+        assert!(is_signature_valid_with_date(&request, config(), now));
     }
 
     #[test]
@@ -243,8 +298,8 @@ mod tests {
             .insert_header(("host", "localhost:4444"))
             .to_http_request();
 
-        let is_valid = is_signature_valid(&request, config());
+        let now = to_utc_datetime("20251201T073226Z");
 
-        assert!(is_valid);
+        assert!(is_signature_valid_with_date(&request, config(), now));
     }
 }
