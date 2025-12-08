@@ -8,11 +8,11 @@ Il permet de se prémunir d'accès non autorisé aux espaces de stockages mutual
 Fonctionnalités :
 - chiffre et déchiffre de manière transparente pour le client des fichiers en http en les stockants sur l'object storage
 - chiffre et stocke en local de gros fichier (`/local/`) depuis un envoi http
-- chiffrer et déchiffrer des fichiers sur le système de fichier
+- chiffre et déchiffre des fichiers sur le système de fichier
 - est performant
 - supporte de multiples clés de chiffrement pour se conformer à une politique de péremption de clés
 - possède une url de health check `/ping` qui renvoie une 404 si le fichier `maintenance` est présent à côté du binaire
-- garantit qu'un fichier est uploadé une fois
+- peut garantir qu'un fichier est uploadé une fois
 
 ## Pour commencer
 
@@ -58,10 +58,6 @@ rm -f password_file
 DS Proxy utilise actuellement l'algorithme de chiffrement [xchacha20poly1305](https://doc.libsodium.org/secret-key_cryptography/aead/chacha20-poly1305/xchacha20-poly1305_construction) proposé par la librairie [sodium](https://doc.libsodium.org/) dont l'interface est portée en rust par [sodiumoxide](https://github.com/sodiumoxide/sodiumoxide).
 
 Les clés de chiffrement sont stockées sur un fichier `keyring.toml`. Ce fichier est lui-même chiffré à l'aide d'un mot de passe maître et d'un sel.
-
-## Dépendances
-
-En plus des différents crates utilisés référencés dans le Cargo.lock, la signature aws est calculée à l'aide d'une implémentation proposée par https://github.com/psnszsn/aws-sign-v4.
 
 ## Option
 
