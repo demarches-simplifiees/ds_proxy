@@ -42,7 +42,13 @@ fn sign_request_with_time(
         req.headers_mut().remove(*key);
     }
 
-    let host = req.get_uri().host().unwrap_or_default().to_string();
+    let uri = req.get_uri();
+    let mut host = uri.host().unwrap_or_default().to_string();
+    let port = uri.port();
+    
+    if !port.is_none() {
+        host = format!("{}:{}", host, port.unwrap().as_str());
+    }
 
     req = req
         .insert_header(("x-amz-content-sha256", "UNSIGNED-PAYLOAD"))
@@ -119,6 +125,27 @@ mod tests {
         assert_eq!(
             signed.headers().get("host"),
             Some(&"s3-eu-west-1.amazonaws.com".parse().unwrap())
+        );
+    }
+
+    #[test]
+    fn test_sign_request_with_port() {
+        let uri = "https://s3-eu-west-1.amazonaws.com:1234/plop?q=p&X-Amz-Algorithm=AWS4-HMAC-SHA256&AWSAccessKeyId=an_access_key&Signature=5Vo1RnSRALE3f9K8CJFOIOBAPbQ%3D&x-amz-acl=private&Expires=1764714247";
+        let request = awc::Client::new()
+            .get(uri)
+            .insert_header(("X-Amz-Security-Token", "some_token"))
+            .insert_header(("host", "s3-eu-west-1.amazonaws.com:1234"));
+
+        let signed = sign_request(request, config());
+
+        assert_eq!(
+            signed.get_uri().to_string(),
+            "https://s3-eu-west-1.amazonaws.com:1234/plop?q=p&x-amz-acl=private"
+        );
+        assert!(signed.headers().get("x-amz-security-token").is_none());
+        assert_eq!(
+            signed.headers().get("host"),
+            Some(&"s3-eu-west-1.amazonaws.com:1234".parse().unwrap())
         );
     }
 
