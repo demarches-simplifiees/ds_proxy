@@ -5,7 +5,7 @@ use actix_web::HttpRequest;
 use aws_sdk_s3::config::Credentials;
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use url::Url;
 
@@ -254,11 +254,14 @@ impl HttpConfig {
         Some(url.to_string())
     }
 
-    pub fn local_encryption_path_for(&self, req: &HttpRequest) -> PathBuf {
+    pub fn local_encryption_path_for(&self, req: &HttpRequest) -> Option<PathBuf> {
         let name = req.match_info().get("name").unwrap();
+        let safe_name = Path::new(name).file_name()?;
+
         let mut filepath = self.local_encryption_directory.clone();
-        filepath.push(name);
-        filepath
+        filepath.push(safe_name);
+
+        Some(filepath)
     }
 
     fn is_traversal_attack(&self, url: &Url) -> bool {
@@ -296,6 +299,39 @@ mod tests {
 
     use super::*;
     use actix_web::test::TestRequest;
+
+    #[test]
+    fn local_encryption_path_for() {
+        let config = default_config("https://upstream.com/");
+
+        let test_path = |name: &str, expected: Option<&str>| {
+            let req = TestRequest::default()
+                .param("name", name.to_string())
+                .to_http_request();
+
+            assert_eq!(
+                config
+                    .local_encryption_path_for(&req)
+                    .map(|x| x.to_str().unwrap().to_string()),
+                expected.map(|x| x.to_string())
+            );
+        };
+
+        test_path("a_file", Some("ds_proxy/local_encryption/a_file"));
+
+        test_path("../a_file", Some("ds_proxy/local_encryption/a_file"));
+
+        test_path(
+            "dir/subdir/a_file.txt",
+            Some("ds_proxy/local_encryption/a_file.txt"),
+        );
+
+        test_path("..", None);
+
+        test_path("/", None);
+
+        test_path("", None);
+    }
 
     #[test]
     fn test_normalize_and_parse_upstream_url() {

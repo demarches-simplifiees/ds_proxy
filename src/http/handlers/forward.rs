@@ -70,7 +70,7 @@ pub async fn forward(
     let mut input_etag: Option<String> = None;
 
     let res_e = if let Some(aws_config) = config.aws_config.clone() {
-        let filepath = config.local_encryption_path_for(&req);
+        let filepath = config.local_encryption_path_for(&req).unwrap();
         let mut buffer = MemoryOrFileBuffer::new(filepath);
 
         while let Ok(Some(v)) = encrypted_stream.try_next().await {
