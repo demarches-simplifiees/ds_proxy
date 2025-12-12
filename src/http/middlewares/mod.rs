@@ -90,7 +90,8 @@ pub fn erase_file(res: Result<ServiceResponse, Error>) -> Result<ServiceResponse
     let filepath = request
         .app_data::<web::Data<HttpConfig>>()
         .unwrap()
-        .local_encryption_path_for(request);
+        .local_encryption_path_for(request)
+        .unwrap();
 
     if Path::new(&filepath).exists() {
         std::fs::remove_file(filepath).unwrap();

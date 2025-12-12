@@ -7,7 +7,7 @@ pub async fn encrypt_to_file(
     config: web::Data<HttpConfig>,
     payload: web::Payload,
 ) -> HttpResponse {
-    let filepath = config.local_encryption_path_for(&req);
+    let filepath = config.local_encryption_path_for(&req).unwrap();
 
     let (id, key) = config
         .keyring
@@ -15,6 +15,8 @@ pub async fn encrypt_to_file(
         .expect("no key avalaible for encryption");
 
     let mut encrypted_stream = Encoder::new(key, id, config.chunk_size, Box::new(payload));
+
+    log::info!("Encrypting to file: {}", filepath.display());
 
     let mut f = OpenOptions::new()
         .read(true)
