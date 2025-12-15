@@ -27,7 +27,7 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
     };
 
     HttpServer::new(move || {
-        let mut awc_connector = awc::Connector::new().timeout(config.backend_connection_timeout);  // max time to connect to remote host including dns name resolution
+        let mut awc_connector = awc::Connector::new().timeout(config.backend_connection_timeout); // max time to connect to remote host including dns name resolution
         if !config.verify_ssl_certificate {
             let mut ssl_builder = SslConnector::builder(SslMethod::tls()).unwrap();
             ssl_builder.set_verify(SslVerifyMode::NONE);
