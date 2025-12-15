@@ -47,6 +47,7 @@ pub struct HttpConfig {
     pub backend_connection_timeout: Duration,
     pub write_once: bool,
     pub redis_config: RedisConfig,
+    pub verify_ssl_certificate: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +178,18 @@ impl Config {
                 }
             };
 
+            let verify_ssl_certificate = match &args.flag_verify_ssl_certificate {
+                Some(verify_ssl_certificate) => verify_ssl_certificate.parse().unwrap(),
+                None => match env::var("VERIFY_SSL_CERTIFICATE") {
+                    Ok(verify_ssl_certificate_string) => verify_ssl_certificate_string
+                        .parse()
+                        .expect("VERIFY_SSL_CERTIFICATE is not a boolean"),
+                    _ => true,
+                },
+            };
+
+            log::info!("verify_ssl_certificate: {:?}", verify_ssl_certificate);
+
             log::info!(
                 "backend_connection_timeout: {:?}",
                 backend_connection_timeout
@@ -213,6 +226,7 @@ impl Config {
                 backend_connection_timeout,
                 write_once,
                 redis_config: RedisConfig::create_redis_config(args),
+                verify_ssl_certificate,
             })
         }
     }
@@ -427,6 +441,7 @@ mod tests {
             backend_connection_timeout: Duration::from_secs(1),
             write_once: false,
             redis_config: RedisConfig::default(),
+            verify_ssl_certificate: true,
         }
     }
 }
