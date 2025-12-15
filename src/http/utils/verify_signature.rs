@@ -1,4 +1,5 @@
 use actix_web::HttpRequest;
+use aws_sigv4::http_request::PercentEncodingMode;
 use aws_sigv4::http_request::SignableBody;
 use aws_sigv4::http_request::SignableRequest;
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -59,7 +60,12 @@ fn is_signature_valid_with_date(
     )
     .unwrap();
 
-    let (_, expected_signature) = aws_config.sign(aws_date.into(), signable, expires_in);
+    let (_, expected_signature) = aws_config.sign(
+        aws_date.into(),
+        signable,
+        expires_in,
+        PercentEncodingMode::Single,
+    );
 
     log::debug!("Expected signature: {}", expected_signature);
     log::debug!("Provided signature: {}", provided_signature);

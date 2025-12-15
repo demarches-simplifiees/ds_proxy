@@ -1,5 +1,5 @@
 use awc::ClientRequest;
-use aws_sigv4::http_request::{SignableBody, SignableRequest};
+use aws_sigv4::http_request::{PercentEncodingMode, SignableBody, SignableRequest};
 use std::time::SystemTime;
 use url::Url;
 
@@ -68,7 +68,8 @@ fn sign_request_with_time(
     )
     .unwrap();
 
-    let (signing_instructions, _signature) = aws_config.sign(time, signable_request, None);
+    let (signing_instructions, _signature) =
+        aws_config.sign(time, signable_request, None, PercentEncodingMode::Double);
 
     for (name, value) in signing_instructions.headers() {
         req = req.insert_header((name, value));
@@ -167,7 +168,7 @@ mod tests {
             signed.headers().get("x-amz-content-sha256").unwrap(),
             "UNSIGNED-PAYLOAD"
         );
-        assert_eq!(signed.headers().get("authorization").unwrap(), "AWS4-HMAC-SHA256 Credential=an_access_key/20251201/eu-west-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=7d6f290a9a6c9f298c13978e0521168756fe07e105de79238f24e40879e704f0");
+        assert_eq!(signed.headers().get("authorization").unwrap(), "AWS4-HMAC-SHA256 Credential=an_access_key/20251201/eu-west-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=c6ec0e43837a112bc9f46b906db58c3e3162a4a3f382fe4585a89c89d59fd896");
     }
 
     #[test]
