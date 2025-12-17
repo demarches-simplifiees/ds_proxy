@@ -250,12 +250,16 @@ impl HttpConfig {
             return Some(self.upstream_base_url.to_string());
         }
 
+        // we does not use `get("name")` as it decodes percent-encoded characters
+        // but `join` does not re-encode all of them (`'` for example)
+        let upstream_path = req.uri().path().strip_prefix("/upstream/").unwrap();
+        log::debug!("Creating upstream url for : {}", upstream_path);
+
         // Warning: join process '../'
         // "https://a.com/jail/".join('../escape') => "https://a.com/escape"
-        let mut url = self
-            .upstream_base_url
-            .join(&req.match_info()["name"])
-            .unwrap();
+        let mut url = self.upstream_base_url.join(upstream_path).unwrap();
+
+        log::debug!("Created upstream url: {}", url);
 
         if self.is_traversal_attack(&url) {
             return None;
@@ -364,8 +368,8 @@ mod tests {
         let jailed_config = default_config(jailed_base);
 
         let file = TestRequest::default()
-            .uri("https://proxy.com/file")
-            .param("name", "file") // hack to force parsing
+            .uri("https://proxy.com/upstream/file")
+            .param("name", "file")
             .to_http_request();
 
         assert_eq!(
@@ -379,8 +383,8 @@ mod tests {
         );
 
         let sub_dir_file = TestRequest::default()
-            .uri("https://proxy.com/sub/dir/file")
-            .param("name", "sub/dir/file") // hack to force parsing
+            .uri("https://proxy.com/upstream/sub/dir/file")
+            .param("name", "sub/dir/file")
             .to_http_request();
 
         assert_eq!(
@@ -394,8 +398,8 @@ mod tests {
         );
 
         let path_traversal_file = TestRequest::default()
-            .uri("https://proxy.com/../escape")
-            .param("name", "../escape") // hack to force parsing
+            .uri("https://proxy.com/upstream/../escape")
+            .param("name", "../escape")
             .to_http_request();
 
         assert_eq!(
@@ -409,8 +413,8 @@ mod tests {
         );
 
         let file_with_query_string = TestRequest::default()
-            .uri("https://proxy.com/bucket/file.zip?p1=ok1&p2=ok2")
-            .param("name", "bucket/file.zip") // hack to force parsing
+            .uri("https://proxy.com/upstream/bucket/file.zip?p1=ok1&p2=ok2")
+            .param("name", "bucket/file.zip")
             .to_http_request();
 
         assert_eq!(
@@ -419,12 +423,22 @@ mod tests {
         );
 
         let file = TestRequest::default()
-            .uri("https://proxy.com")
+            .uri("https://proxy.com/upstream")
             .to_http_request();
 
         assert_eq!(
             config.create_upstream_url(&file),
             Some("https://upstream.com/".to_string())
+        );
+
+        let testing_encoding = TestRequest::default()
+            .uri("https://proxy.com/upstream/plop%20plop%27plop.png")
+            .param("name", "plop plop'plop.png")
+            .to_http_request();
+
+        assert_eq!(
+            config.create_upstream_url(&testing_encoding),
+            Some("https://upstream.com/plop%20plop%27plop.png".to_string())
         );
     }
 
