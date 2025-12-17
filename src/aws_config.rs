@@ -28,10 +28,9 @@ impl AwsConfig {
         time: SystemTime,
         request: SignableRequest<'a>,
         expires_in: Option<Duration>,
-        encoding_mode: PercentEncodingMode,
     ) -> (SigningInstructions, String) {
         let mut settings = SigningSettings::default();
-        settings.percent_encoding_mode = encoding_mode;
+        settings.percent_encoding_mode = PercentEncodingMode::Single;
         settings.expires_in = expires_in;
 
         if expires_in.is_some() {
