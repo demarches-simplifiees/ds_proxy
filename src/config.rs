@@ -46,7 +46,8 @@ pub struct HttpConfig {
     // and the Host header still reference upstream_base_url
     pub connect_base_url: Option<Url>,
     pub keyring: Keyring,
-    pub address: SocketAddr,
+    pub address: Option<SocketAddr>,
+    pub socket_path: Option<PathBuf>,
     pub local_encryption_directory: PathBuf,
     pub s3_config: Option<S3Config>,
     pub backend_connection_timeout: Duration,
@@ -149,20 +150,25 @@ impl Config {
                 );
             }
 
-            let address = match &args.flag_address {
-                Some(address) => match address.to_socket_addrs() {
-                    Ok(mut sockets) => Some(sockets.next().unwrap()),
-                    _ => panic!("Unable to parse the address"),
-                },
-                None => match (env::var("DS_ADDRESS")
-                    .expect("Missing address, use DS_ADDRESS env or --address cli argument"))
-                .to_socket_addrs()
+            let address =
+                optional_string_from(&args.flag_address, "DS_ADDRESS").map(|address| match address
+                    .to_socket_addrs()
                 {
-                    Ok(mut sockets) => Some(sockets.next().unwrap()),
+                    Ok(mut sockets) => sockets.next().expect("Unable to parse the address"),
                     _ => panic!("Unable to parse the address"),
-                },
+                });
+
+            let socket_path =
+                optional_string_from(&args.flag_socket_path, "DS_SOCKET_PATH").map(PathBuf::from);
+            if let Some(path) = &socket_path {
+                log::info!("listening on unix socket: {:?}", path);
             }
-            .unwrap();
+
+            if address.is_none() && socket_path.is_none() {
+                panic!(
+                    "Missing listener, use --address/DS_ADDRESS and/or --socket-path/DS_SOCKET_PATH"
+                );
+            }
 
             let backend_connection_timeout = match &args.flag_backend_connection_timeout {
                 Some(timeout_u64) => Duration::from_secs(*timeout_u64),
@@ -216,6 +222,7 @@ impl Config {
                 upstream_base_url,
                 connect_base_url,
                 address,
+                socket_path,
                 local_encryption_directory,
                 s3_config,
                 backend_connection_timeout,
@@ -500,7 +507,8 @@ mod tests {
             keyring,
             upstream_base_url: normalize_and_parse_upstream_url(upstream_base_url.to_string()),
             connect_base_url: None,
-            address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
+            address: Some("127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap()),
+            socket_path: None,
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
             s3_config: None,
             backend_connection_timeout: Duration::from_secs(1),

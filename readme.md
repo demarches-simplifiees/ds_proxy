@@ -71,6 +71,28 @@ l'hôte et le port de la cible de connexion sont utilisés ; le chemin et la que
 string viennent de l'upstream. Équivalent via variable d'environnement :
 `DS_CONNECT_URL`.
 
+#### Adresse TCP (`--address`)
+
+ds_proxy peut optionnellement écouter sur une adresse TCP :
+
+```
+--address 0.0.0.0:4444
+```
+
+Équivalent via variable d'environnement: `DS_ADDRESS`
+
+#### Socket Unix (`--socket-path`)
+
+ds_proxy peut optionnellement écouter sur une socket Unix :
+
+```
+--socket-path /run/ds_proxy/ds_proxy.socket
+```
+
+Équivalent via variable d'environnement: `DS_SOCKET_PATH`
+
+La socket est créée avec les permissions `0660`. Pour autoriser un appelant, ajoutez-le au groupe principal de l'utilisateur qui lance ds_proxy — par exemple pour nginx : `usermod -aG ds_proxy www-data`.
+
 ### Garder le mot de passe en mémoire
 
 Pour éviter que le mot de passe ne reste sur le disque et en suivant https://www.netmeister.org/blog/passing-passwords.html, nous utilisons `mkfifo` pour créer un named pipe qui nous permet de le transmettre en restant en mémoire.

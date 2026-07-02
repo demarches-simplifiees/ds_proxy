@@ -104,7 +104,7 @@ pub fn curl_socket_get(url: &str) -> Output {
     Command::new("curl")
         .arg("-XGET")
         .arg("--unix-socket")
-        .arg("/tmp/actix-uds.socket")
+        .arg(super::UNIX_SOCKET_PATH)
         .arg(url)
         .output()
         .expect("failed to perform download")

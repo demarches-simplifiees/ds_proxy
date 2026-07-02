@@ -7,7 +7,7 @@ DS encryption proxy.
 Usage:
   ds_proxy encrypt <input-file> <output-file> [--password-file=<password-file>] [--keyring-file=<keyring-file>]
   ds_proxy decrypt <input-file> <output-file> [--password-file=<password-file>] [--keyring-file=<keyring-file>]
-  ds_proxy proxy [--address=<address>] [--bypass-ssl-certificate-check] [--password-file=<password-file>] [--upstream-url=<upstream-url>] [--connect-url=<connect-url>] [--local-encryption-directory=<local-encryption-directory>] [--write-once] [--keyring-file=<keyring-file>] [--s3-access-key=<s3-access-key>] [--s3-secret-key=<s3-secret-key>] [--s3-region=<s3-region>] [--bypass-s3-signature-check] [--backend-connection-timeout=<backend-connection-timeout>] [--redis-url=<redis-url>] [--redis-timeout-wait=<redis-timeout-wait>] [--redis-timeout-create=<redis-timeout-create>] [--redis-timeout-recycle=<redis-timeout-recycle>] [--redis-pool-max-size=<redis-pool-max-size>]
+  ds_proxy proxy [--address=<address>] [--socket-path=<socket-path>] [--bypass-ssl-certificate-check] [--password-file=<password-file>] [--upstream-url=<upstream-url>] [--connect-url=<connect-url>] [--local-encryption-directory=<local-encryption-directory>] [--write-once] [--keyring-file=<keyring-file>] [--s3-access-key=<s3-access-key>] [--s3-secret-key=<s3-secret-key>] [--s3-region=<s3-region>] [--bypass-s3-signature-check] [--backend-connection-timeout=<backend-connection-timeout>] [--redis-url=<redis-url>] [--redis-timeout-wait=<redis-timeout-wait>] [--redis-timeout-create=<redis-timeout-create>] [--redis-timeout-recycle=<redis-timeout-recycle>] [--redis-pool-max-size=<redis-pool-max-size>]
   ds_proxy init-keyring [--keyring-file=<keyring-file>]
   ds_proxy add-key [--password-file=<password-file>] [--keyring-file=<keyring-file>]
   ds_proxy rotate-password [--password-file=<password-file>] [--keyring-file=<keyring-file>]
@@ -22,6 +22,7 @@ Options:
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct Args {
     pub flag_address: Option<String>,
+    pub flag_socket_path: Option<String>,
     pub arg_input_file: Option<String>,
     pub flag_keyring_file: Option<String>,
     pub arg_output_file: Option<String>,
