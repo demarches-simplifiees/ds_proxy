@@ -30,7 +30,7 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
         None
     };
 
-    let server = HttpServer::new(move || {
+    let mut server = HttpServer::new(move || {
         let mut awc_connector = awc::Connector::new().timeout(config.backend_connection_timeout); // max time to connect to remote host including dns name resolution
         if config.bypass_ssl_certificate_check {
             let mut ssl_builder = SslConnector::builder(SslMethod::tls()).unwrap();
@@ -83,26 +83,28 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
 
         app
     })
-    .keep_alive(actix_http::KeepAlive::Disabled)
-    .bind(address)?;
+    .keep_alive(actix_http::KeepAlive::Disabled);
 
-    let server = match socket_path {
-        Some(path) => {
-            let server = server.bind_uds(&path).map_err(|e| {
-                std::io::Error::new(e.kind(), format!("cannot bind unix socket {:?}: {}", path, e))
-            })?;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(SOCKET_MODE)).map_err(
-                |e| {
-                    std::io::Error::new(
-                        e.kind(),
-                        format!("cannot set permissions on unix socket {:?}: {}", path, e),
-                    )
-                },
-            )?;
-            server
-        }
-        None => server,
-    };
+    if let Some(address) = address {
+        server = server.bind(address)?;
+    }
+
+    if let Some(path) = socket_path {
+        server = server.bind_uds(&path).map_err(|e| {
+            std::io::Error::new(
+                e.kind(),
+                format!("cannot bind unix socket {:?}: {}", path, e),
+            )
+        })?;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(SOCKET_MODE)).map_err(
+            |e| {
+                std::io::Error::new(
+                    e.kind(),
+                    format!("cannot set permissions on unix socket {:?}: {}", path, e),
+                )
+            },
+        )?;
+    }
 
     server.run().await
 }

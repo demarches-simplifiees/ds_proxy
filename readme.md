@@ -71,6 +71,16 @@ l'hôte et le port de la cible de connexion sont utilisés ; le chemin et la que
 string viennent de l'upstream. Équivalent via variable d'environnement :
 `DS_CONNECT_URL`.
 
+#### Adresse TCP (`--address`)
+
+ds_proxy peut optionnellement écouter sur une adresse TCP :
+
+```
+--address 0.0.0.0:4444
+```
+
+Équivalent via variable d'environnement: `DS_ADDRESS`
+
 #### Socket Unix (`--socket-path`)
 
 ds_proxy peut optionnellement écouter sur une socket Unix :
