@@ -13,20 +13,24 @@ use actix_web::{
 };
 use futures::FutureExt;
 use openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
+use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
 
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 
+const SOCKET_MODE: u32 = 0o660;
+
 #[actix_web::main]
 pub async fn main(config: HttpConfig) -> std::io::Result<()> {
     let address = config.address;
+    let socket_path = config.socket_path.clone();
     let redis_pool = if config.write_once {
         Some(configure_redis_pool(config.redis_config.clone()).await)
     } else {
         None
     };
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         let mut awc_connector = awc::Connector::new().timeout(config.backend_connection_timeout); // max time to connect to remote host including dns name resolution
         if config.bypass_ssl_certificate_check {
             let mut ssl_builder = SslConnector::builder(SslMethod::tls()).unwrap();
@@ -80,8 +84,25 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
         app
     })
     .keep_alive(actix_http::KeepAlive::Disabled)
-    .bind_uds("/tmp/actix-uds.socket")?
-    .bind(address)?
-    .run()
-    .await
+    .bind(address)?;
+
+    let server = match socket_path {
+        Some(path) => {
+            let server = server.bind_uds(&path).map_err(|e| {
+                std::io::Error::new(e.kind(), format!("cannot bind unix socket {:?}: {}", path, e))
+            })?;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(SOCKET_MODE)).map_err(
+                |e| {
+                    std::io::Error::new(
+                        e.kind(),
+                        format!("cannot set permissions on unix socket {:?}: {}", path, e),
+                    )
+                },
+            )?;
+            server
+        }
+        None => server,
+    };
+
+    server.run().await
 }

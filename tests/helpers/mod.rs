@@ -18,6 +18,7 @@ pub use curl::*;
 
 pub const PASSWORD: &str = "plop";
 pub const DS_KEYRING: &str = "tests/fixtures/keyring.toml";
+pub const UNIX_SOCKET_PATH: &str = "/tmp/actix-uds.socket";
 
 pub const COMPUTER_SVG_PATH: &str = "tests/fixtures/computer.svg";
 pub static COMPUTER_SVG_BYTES: Bytes =
@@ -107,6 +108,7 @@ pub fn launch_proxy(
     command
         .arg("proxy")
         .arg("--address=localhost:4444")
+        .arg(format!("--socket-path={}", UNIX_SOCKET_PATH))
         .arg("--upstream-url=http://localhost:3333/jail/cell")
         .arg("--s3-access-key=key")
         .arg("--s3-secret-key=secret")
@@ -137,6 +139,7 @@ pub fn launch_proxy_with_connect_url(upstream_url: &str, connect_url: &str) -> C
     command
         .arg("proxy")
         .arg("--address=localhost:4444")
+        .arg(format!("--socket-path={}", UNIX_SOCKET_PATH))
         .arg(format!("--upstream-url={}", upstream_url))
         .arg(format!("--connect-url={}", connect_url))
         .arg("--s3-access-key=key")

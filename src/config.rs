@@ -47,6 +47,7 @@ pub struct HttpConfig {
     pub connect_base_url: Option<Url>,
     pub keyring: Keyring,
     pub address: SocketAddr,
+    pub socket_path: Option<PathBuf>,
     pub local_encryption_directory: PathBuf,
     pub s3_config: Option<S3Config>,
     pub backend_connection_timeout: Duration,
@@ -164,6 +165,12 @@ impl Config {
             }
             .unwrap();
 
+            let socket_path =
+                optional_string_from(&args.flag_socket_path, "DS_SOCKET_PATH").map(PathBuf::from);
+            if let Some(path) = &socket_path {
+                log::info!("listening on unix socket: {:?}", path);
+            }
+
             let backend_connection_timeout = match &args.flag_backend_connection_timeout {
                 Some(timeout_u64) => Duration::from_secs(*timeout_u64),
                 None => match env::var("BACKEND_CONNECTION_TIMEOUT") {
@@ -216,6 +223,7 @@ impl Config {
                 upstream_base_url,
                 connect_base_url,
                 address,
+                socket_path,
                 local_encryption_directory,
                 s3_config,
                 backend_connection_timeout,
@@ -501,6 +509,7 @@ mod tests {
             upstream_base_url: normalize_and_parse_upstream_url(upstream_base_url.to_string()),
             connect_base_url: None,
             address: "127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap(),
+            socket_path: None,
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
             s3_config: None,
             backend_connection_timeout: Duration::from_secs(1),
