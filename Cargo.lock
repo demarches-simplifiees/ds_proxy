@@ -1140,7 +1140,6 @@ dependencies = [
  "docopt",
  "env_logger",
  "futures",
- "futures-core",
  "hex",
  "libsodium-rs",
  "log",

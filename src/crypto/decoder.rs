@@ -3,7 +3,7 @@ use super::decipher_type::DecipherType;
 use actix_web::web::{Bytes, BytesMut};
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use futures_core::stream::Stream;
+use futures::stream::Stream;
 use libsodium_rs::crypto_secretstream::{xchacha20poly1305, Key, PullState};
 use log::{error, trace};
 use std::convert::TryInto;
