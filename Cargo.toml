@@ -16,7 +16,6 @@ actix-web = { version="*", features = ["openssl"] }
 awc = { version = "*", features = ["openssl"] }
 actix-http = "*"
 actix-files = "*"
-bytes = "*"
 docopt = "*"
 serde = { version = "*", features = ["derive"] }
 serde_with = { version = "*", features = ["base64"] }
@@ -24,18 +23,12 @@ toml = "*"
 log = "*"
 env_logger = "*"
 sentry = "*"
-sentry-actix = "*"
 url = "*"
 base64 = "*"
-serde_json = "*"
 tokio = { version = "*", features = ["full"] }
-tokio-util = { version = "*", features = ["full"] }
 chrono = "*"
 hex = "*"
 deadpool-redis = { version = "*", features = ["tokio-native-tls-comp"] }
-ring = "*"
-http = "*"
-sha256 = "*"
 data-encoding = "*"
 openssl = "*"
 md-5 = "*"
@@ -48,7 +41,6 @@ assert_cmd = "*"
 assert_fs = "*"
 actix-rt = "*"
 proptest = "*"
-rand = "*"
 serial_test = "*"
 serde_json = "*"
 uuid = { version = "*", features = ["v4"] }
