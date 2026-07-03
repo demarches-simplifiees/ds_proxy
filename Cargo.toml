@@ -40,8 +40,7 @@ data-encoding = "*"
 openssl = "*"
 md-5 = "*"
 sha2 = "*"
-aws-config = { version = "*", features = ["behavior-version-latest"] }
-aws-sdk-s3 = "*"
+aws-credential-types = "*"
 aws-sigv4 = "*"
 
 [dev-dependencies]

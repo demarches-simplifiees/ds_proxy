@@ -3,7 +3,7 @@ use super::{args, keyring::Keyring, keyring_utils::load_keyring};
 use crate::redis_config::RedisConfig;
 use actix_web::HttpRequest;
 use awc::ClientRequest;
-use aws_sdk_s3::config::Credentials;
+use aws_credential_types::Credentials;
 use std::env;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};

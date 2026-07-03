@@ -96,7 +96,7 @@ pub fn remove_s3_signature_params(url: Url) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use aws_sdk_s3::config::Credentials;
+    use aws_credential_types::Credentials;
     use chrono::{DateTime, NaiveDateTime, Utc};
 
     fn config() -> S3Config {

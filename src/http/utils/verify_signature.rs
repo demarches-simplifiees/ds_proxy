@@ -160,7 +160,7 @@ fn extract_signature(s3_params: &HashMap<String, String>) -> Option<String> {
 mod tests {
     use super::*;
     use actix_web::test::TestRequest;
-    use aws_sdk_s3::config::Credentials;
+    use aws_credential_types::Credentials;
 
     fn to_utc_datetime(s: &str) -> DateTime<Utc> {
         let naive = NaiveDateTime::parse_from_str(s, "%Y%m%dT%H%M%SZ").unwrap();
