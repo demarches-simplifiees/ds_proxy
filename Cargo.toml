@@ -29,7 +29,6 @@ tokio = { version = "*", features = ["full"] }
 chrono = "*"
 hex = "*"
 deadpool-redis = { version = "*", features = ["tokio-native-tls-comp"] }
-data-encoding = "*"
 openssl = "*"
 md-5 = "*"
 sha2 = "*"
