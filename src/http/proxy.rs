@@ -83,7 +83,7 @@ pub async fn main(config: HttpConfig) -> std::io::Result<()> {
 
         app
     })
-    .keep_alive(actix_http::KeepAlive::Disabled);
+    .keep_alive(actix_web::http::KeepAlive::Disabled);
 
     if let Some(address) = address {
         server = server.bind(address)?;

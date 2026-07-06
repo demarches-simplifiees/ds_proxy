@@ -13,19 +13,18 @@ libsodium-rs = "*"
 futures = "*"
 actix-web = { version="*", features = ["openssl"] }
 awc = { version = "*", features = ["openssl"] }
-actix-http = "*"
 actix-files = "*"
 docopt = "*"
 serde = { version = "*", features = ["derive"] }
 serde_with = { version = "*", features = ["base64"] }
 toml = "*"
 log = "*"
-env_logger = "*"
-sentry = "*"
+env_logger = { version = "*", default-features = false, features = ["auto-color", "humantime"] }
+sentry = { version = "*", default-features = false, features = ["backtrace", "contexts", "debug-images", "panic", "release-health", "ureq", "native-tls"] }
 url = "*"
 base64 = "*"
-tokio = { version = "*", features = ["full"] }
-chrono = "*"
+tokio = { version = "*", features = ["fs", "io-util"] }
+chrono = { version = "*", default-features = false, features = ["now"] }
 hex = "*"
 deadpool-redis = { version = "*", features = ["tokio-native-tls-comp"] }
 openssl = "*"

@@ -1,4 +1,4 @@
-use actix_http::Method;
+use actix_web::http::Method;
 
 use crate::http::utils::flavor::{route, Flavor};
 use crate::http::utils::s3_helper::sign_request;

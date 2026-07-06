@@ -2,7 +2,7 @@ use super::super::config::HttpConfig;
 use super::utils::flavor::{detect_flavor, Flavor};
 use super::utils::verify_signature::is_signature_valid;
 use crate::write_once_service::WriteOnceService;
-use actix_http::Method;
+use actix_web::http::Method;
 use actix_web::{
     body::MessageBody,
     dev::{ServiceRequest, ServiceResponse},
