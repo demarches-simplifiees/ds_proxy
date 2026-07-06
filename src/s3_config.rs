@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use aws_sdk_s3::config::Credentials;
+use aws_credential_types::Credentials;
 use aws_sigv4::http_request::{
     sign, PercentEncodingMode, SignableRequest, SignatureLocation, SigningInstructions,
     SigningSettings,

@@ -3,7 +3,6 @@ use crate::http::utils::s3_helper::sign_request;
 
 use super::*;
 use actix_web::body::SizedStream;
-use data_encoding::HEXLOWER;
 use futures::StreamExt;
 use md5::{digest::DynDigest, Digest, Md5};
 use std::cell::RefCell;
@@ -120,7 +119,7 @@ pub async fn forward(
     let etag = {
         let hasher_guard = md5_hasher.borrow();
         let hash_result = hasher_guard.clone().finalize();
-        HEXLOWER.encode(&hash_result[..])
+        hex::encode(&hash_result[..])
     };
 
     client_resp.insert_header(("etag", format!("\"{}\"", etag)));

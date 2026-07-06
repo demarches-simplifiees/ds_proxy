@@ -1,7 +1,7 @@
 use actix_web::web::{Buf, Bytes};
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use futures_core::Stream;
+use futures::stream::Stream;
 use log::trace;
 
 pub struct PartialExtractor<E> {
