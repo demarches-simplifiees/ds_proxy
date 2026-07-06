@@ -53,7 +53,36 @@ Environment=RUST_LOG="actix_web=info"
 ...
 ```
 
-#### Cible de connexion (`--connect-url`)
+#### Backends S3, Swift, ou les deux
+
+Le proxy choisit l'upstream selon des flags dédiés :
+
+- `--upstream-url` : défaut partagé, utilisé pour toute flavor non surchargée.
+- `--s3-upstream-url` : upstream du trafic S3 (surcharge `--upstream-url`).
+- `--swift-upstream-url` : upstream du trafic Swift (surcharge `--upstream-url`).
+
+Équivalents en variables d'environnement : `DS_UPSTREAM_URL`,
+`DS_S3_UPSTREAM_URL`, `DS_SWIFT_UPSTREAM_URL`.
+
+Trois modes en découlent :
+
+- **S3 seul** : `--upstream-url` (ou `--s3-upstream-url`) + les credentials
+  `--s3-access-key`, `--s3-secret-key`, `--s3-region`. Le proxy vérifie la
+  signature entrante (sauf `--bypass-s3-signature-check`) et re-signe en sortie.
+- **Swift seul** : `--upstream-url` (ou `--swift-upstream-url`) sans credentials
+  S3. Les requêtes sont relayées telles quelles ; l'authentification
+  (`X-Auth-Token`, TempURL…) est déléguée à l'upstream Swift.
+- **Dual** : `--swift-upstream-url` **et** `--s3-upstream-url` + credentials s3. Le
+  proxy détecte pour chaque requête si elle est signée S3
+  (`Authorization: AWS4-HMAC-SHA256` ou query `X-Amz-Signature`) ; le cas
+  échéant elle part vers l'upstream S3 (re-signée), sinon elle est traitée comme
+  Swift et relayée vers l'upstream Swift.
+
+Un `--swift-upstream-url` fourni sans credentials S3 dégrade en mode Swift seul.
+Une configuration S3 partielle (un seul des trois credentials) est refusée au
+démarrage.
+
+#### Cible de connexion (`--s3-connect-url`)
 
 Par défaut, ds_proxy ouvre la connexion vers `--upstream-url` (qui sert aussi
 au calcul de la signature S3 et au header `Host`). Sur une machine sans accès
@@ -62,14 +91,14 @@ internet ni résolution DNS, on peut router le flux à travers un intermédiaire
 C'est la même idée que le `--connect-to` de curl :
 
 ```
---upstream-url 'https://s3.cloud.ovh.net' --connect-url 'http://192.168.1.2:3456'
+--upstream_url 'https://s3.cloud.ovh.net' --s3-connect-url 'http://192.168.1.2:3456'
 ```
 
 Dans ce cas la connexion TCP est faite vers `192.168.1.2:3456`, mais la
 signature et le `Host` restent `s3.cloud.ovh.net`. Seuls le schéma,
 l'hôte et le port de la cible de connexion sont utilisés ; le chemin et la query
 string viennent de l'upstream. Équivalent via variable d'environnement :
-`DS_CONNECT_URL`.
+`DS_S3_CONNECT_URL`.
 
 #### Adresse TCP (`--address`)
 

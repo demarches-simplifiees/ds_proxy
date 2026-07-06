@@ -40,11 +40,15 @@ pub struct EncryptConfig {
 
 #[derive(Debug, Clone)]
 pub struct HttpConfig {
-    pub upstream_base_url: Url,
-    // Optional connect target: when set, the actual TCP connection is made to
-    // this scheme/host/port instead of upstream_base_url, while the S3 signature
-    // and the Host header still reference upstream_base_url
-    pub connect_base_url: Option<Url>,
+    // Resolved upstream per flavor. In single mode exactly one is Some and every
+    // request uses it; in dual mode both are Some and requests are routed by
+    // their detected flavor.
+    pub s3_upstream_base_url: Option<Url>,
+    pub swift_upstream_base_url: Option<Url>,
+    // True only when both an S3 upstream and an explicit Swift upstream are
+    // configured together with S3 credentials: requests are then dispatched per
+    // their detected flavor. Otherwise the proxy serves a single backend.
+    pub dual: bool,
     pub keyring: Keyring,
     pub address: Option<SocketAddr>,
     pub socket_path: Option<PathBuf>,
@@ -137,17 +141,27 @@ impl Config {
                 )
             });
 
-            let raw_upstream_base_url = string_from(&args.flag_upstream_url, "DS_UPSTREAM_URL");
-            let upstream_base_url = normalize_and_parse_upstream_url(raw_upstream_base_url);
+            // --upstream-url is the shared default; a flavor-specific flag
+            // overrides it for that flavor.
+            let raw_upstream = optional_string_from(&args.flag_upstream_url, "DS_UPSTREAM_URL");
+            let raw_s3_upstream =
+                optional_string_from(&args.flag_s3_upstream_url, "DS_S3_UPSTREAM_URL");
+            let raw_swift_upstream =
+                optional_string_from(&args.flag_swift_upstream_url, "DS_SWIFT_UPSTREAM_URL");
 
-            let connect_base_url = optional_string_from(&args.flag_connect_url, "DS_CONNECT_URL")
-                .map(|raw| Url::parse(&raw).expect("DS_CONNECT_URL is not a valid URL"));
-            if let Some(connect) = &connect_base_url {
-                log::info!(
-                    "connect_base_url: {} (upstream: {})",
-                    connect,
-                    upstream_base_url
-                );
+            let s3_upstream_base_url = raw_s3_upstream
+                .or_else(|| raw_upstream.clone())
+                .map(normalize_and_parse_upstream_url);
+            let swift_upstream_base_url = raw_swift_upstream
+                .clone()
+                .or_else(|| raw_upstream.clone())
+                .map(normalize_and_parse_upstream_url);
+
+            let s3_connect_base_url =
+                optional_string_from(&args.flag_s3_connect_url, "DS_S3_CONNECT_URL")
+                    .map(|raw| Url::parse(&raw).expect("DS_S3_CONNECT_URL is not a valid URL"));
+            if let Some(connect) = &s3_connect_base_url {
+                log::info!("s3_connect_base_url: {}", connect);
             }
 
             let address =
@@ -197,30 +211,82 @@ impl Config {
                 bypass_ssl_certificate_check
             );
 
-            let s3_config = if let (Some(s3_access_key), Some(s3_secret_key), Some(region)) = (
+            let s3_config = match (
                 &args.flag_s3_access_key,
                 &args.flag_s3_secret_key,
                 &args.flag_s3_region,
             ) {
-                let bypass_signature_check = bool_from(
-                    args.flag_bypass_s3_signature_check,
-                    "BYPASS_S3_SIGNATURE_CHECK",
-                );
+                (Some(s3_access_key), Some(s3_secret_key), Some(region)) => {
+                    let bypass_signature_check = bool_from(
+                        args.flag_bypass_s3_signature_check,
+                        "BYPASS_S3_SIGNATURE_CHECK",
+                    );
 
-                let config = S3Config::new(
-                    Credentials::new(s3_access_key, s3_secret_key, None, None, "cli-credentials"),
-                    region.to_string(),
-                    bypass_signature_check,
-                );
-                Some(config)
-            } else {
-                None
+                    Some(S3Config::new(
+                        Credentials::new(
+                            s3_access_key,
+                            s3_secret_key,
+                            None,
+                            None,
+                            "cli-credentials",
+                        ),
+                        region.to_string(),
+                        bypass_signature_check,
+                        s3_connect_base_url,
+                    ))
+                }
+                (None, None, None) => {
+                    if s3_connect_base_url.is_some() {
+                        log::warn!("s3_connect_url is set but no S3 credentials: ignoring it");
+                    }
+                    None
+                }
+                _ => panic!(
+                    "Incomplete S3 configuration: --s3-access-key, --s3-secret-key and \
+                     --s3-region must be provided together"
+                ),
             };
+
+            // Dual mode requires an explicit Swift upstream *and* the ability to
+            // sign S3 traffic. An explicit Swift upstream without credentials
+            // degrades to Swift-only.
+            let dual = raw_swift_upstream.is_some() && s3_config.is_some();
+            if raw_swift_upstream.is_some() && s3_config.is_none() {
+                log::warn!(
+                    "--swift-upstream-url set without S3 credentials: running in Swift-only \
+                     mode (no S3 traffic)"
+                );
+            }
+
+            if s3_config.is_some() && s3_upstream_base_url.is_none() {
+                panic!(
+                    "S3 credentials provided but no S3 upstream: set --upstream-url \
+                     or --s3-upstream-url"
+                );
+            }
+            if s3_config.is_none() && swift_upstream_base_url.is_none() {
+                panic!(
+                    "No upstream configured: set --upstream-url, --s3-upstream-url \
+                     or --swift-upstream-url"
+                );
+            }
+
+            log::info!(
+                "mode: {}",
+                if dual {
+                    "dual S3+Swift"
+                } else if s3_config.is_some() {
+                    "S3"
+                } else {
+                    "Swift"
+                }
+            );
 
             Config::Http(HttpConfig {
                 keyring,
-                upstream_base_url,
-                connect_base_url,
+                s3_upstream_base_url,
+                swift_upstream_base_url,
+                dual,
                 address,
                 socket_path,
                 local_encryption_directory,
@@ -272,7 +338,9 @@ fn normalize_and_parse_upstream_url(mut url: String) -> Url {
 }
 
 impl HttpConfig {
-    pub fn create_upstream_url(&self, req: &HttpRequest) -> String {
+    // Build the upstream URL for a request, given the already-resolved upstream
+    // base (see http::utils::flavor::route). The base always ends with '/'.
+    pub fn create_upstream_url(&self, req: &HttpRequest, base: &Url) -> String {
         let raw_path = req.uri().path();
         // Strip the /upstream/ prefix to get the raw tail, preserving original encoding
         let tail = raw_path
@@ -280,7 +348,7 @@ impl HttpConfig {
             .or_else(|| raw_path.strip_prefix("/upstream"))
             .unwrap_or("");
 
-        let base = self.upstream_base_url.as_str(); // always ends with '/'
+        let base = base.as_str(); // always ends with '/'
         let url = if req.query_string().is_empty() {
             format!("{}{}", base, tail)
         } else {
@@ -295,13 +363,18 @@ impl HttpConfig {
     // Points an already-signed request at the connect target, if one is
     // configured. Only the dialed scheme/host/port change; the signature and the
     // Host header stay on the upstream.
-    pub fn apply_connect_url(&self, req: ClientRequest) -> ClientRequest {
+    pub fn apply_s3_connect_url(&self, req: ClientRequest) -> ClientRequest {
         let connection_url = self.connection_url(&req.get_uri().to_string());
         req.uri(connection_url)
     }
 
     fn connection_url(&self, upstream_url: &str) -> String {
-        match &self.connect_base_url {
+        let connect = self
+            .s3_config
+            .as_ref()
+            .and_then(|c| c.connect_base_url.as_ref());
+
+        match connect {
             None => upstream_url.to_string(),
             Some(connect) => {
                 let mut url = Url::parse(upstream_url).expect("upstream url should be valid");
@@ -393,12 +466,9 @@ mod tests {
         let req = TestRequest::default()
             .uri("/upstream/file")
             .to_http_request();
+        assert_eq!(upstream_url(&config, &req), "https://upstream.com/file");
         assert_eq!(
-            config.create_upstream_url(&req),
-            "https://upstream.com/file"
-        );
-        assert_eq!(
-            jailed_config.create_upstream_url(&req),
+            upstream_url(&jailed_config, &req),
             "https://upstream.com/jail/cell/file"
         );
 
@@ -407,11 +477,11 @@ mod tests {
             .uri("/upstream/sub/dir/file")
             .to_http_request();
         assert_eq!(
-            config.create_upstream_url(&req),
+            upstream_url(&config, &req),
             "https://upstream.com/sub/dir/file"
         );
         assert_eq!(
-            jailed_config.create_upstream_url(&req),
+            upstream_url(&jailed_config, &req),
             "https://upstream.com/jail/cell/sub/dir/file"
         );
 
@@ -420,20 +490,20 @@ mod tests {
             .uri("/upstream/bucket/file.zip?p1=ok1&p2=ok2")
             .to_http_request();
         assert_eq!(
-            config.create_upstream_url(&req),
+            upstream_url(&config, &req),
             "https://upstream.com/bucket/file.zip?p1=ok1&p2=ok2"
         );
 
         // No name — returns base URL
         let req = TestRequest::default().uri("/upstream").to_http_request();
-        assert_eq!(config.create_upstream_url(&req), "https://upstream.com/");
+        assert_eq!(upstream_url(&config, &req), "https://upstream.com/");
 
         // Encoding preserved transparently (no decode → re-encode cycle)
         let req = TestRequest::default()
             .uri("/upstream/plop%20plop%27plop.png")
             .to_http_request();
         assert_eq!(
-            config.create_upstream_url(&req),
+            upstream_url(&config, &req),
             "https://upstream.com/plop%20plop%27plop.png"
         );
 
@@ -442,11 +512,11 @@ mod tests {
             .uri("/upstream/../escape")
             .to_http_request();
         assert_eq!(
-            config.create_upstream_url(&req),
+            upstream_url(&config, &req),
             "https://upstream.com/../escape"
         );
         assert_eq!(
-            jailed_config.create_upstream_url(&req),
+            upstream_url(&jailed_config, &req),
             "https://upstream.com/jail/cell/../escape"
         );
     }
@@ -468,7 +538,7 @@ mod tests {
             .uri("/upstream///evil.com:8080/secret")
             .to_http_request();
 
-        let url = config.create_upstream_url(&req);
+        let url = upstream_url(&config, &req);
         assert!(
             url.starts_with("https://upstream.com/"),
             "host must always be upstream.com, got: {}",
@@ -485,7 +555,7 @@ mod tests {
 
         // With a connect target, only scheme/host/port are swapped; path and query stay.
         let mut connected = default_config("https://s3.sbg.io.cloud.ovh.net/");
-        connected.connect_base_url = Some(Url::parse("http://192.168.33.70:8006").unwrap());
+        connected.s3_config = Some(s3_config_with_connect("http://192.168.33.70:8006"));
         assert_eq!(
             connected.connection_url(upstream),
             "http://192.168.33.70:8006/bucket/file?x=1"
@@ -493,11 +563,26 @@ mod tests {
 
         // A connect target without explicit port falls back to the scheme default.
         let mut connected_default_port = default_config("https://s3.sbg.io.cloud.ovh.net/");
-        connected_default_port.connect_base_url = Some(Url::parse("http://192.168.33.70").unwrap());
+        connected_default_port.s3_config = Some(s3_config_with_connect("http://192.168.33.70"));
         assert_eq!(
             connected_default_port.connection_url(upstream),
             "http://192.168.33.70/bucket/file?x=1"
         );
+    }
+
+    fn s3_config_with_connect(connect: &str) -> S3Config {
+        S3Config::new(
+            Credentials::new("key", "secret", None, None, "test"),
+            "region".to_string(),
+            true,
+            Some(Url::parse(connect).unwrap()),
+        )
+    }
+
+    // Builds the upstream url using the config's S3 upstream as the base, the
+    // way a routed S3 request would.
+    fn upstream_url(config: &HttpConfig, req: &HttpRequest) -> String {
+        config.create_upstream_url(req, config.s3_upstream_base_url.as_ref().unwrap())
     }
 
     fn default_config(upstream_base_url: &str) -> HttpConfig {
@@ -505,8 +590,11 @@ mod tests {
 
         HttpConfig {
             keyring,
-            upstream_base_url: normalize_and_parse_upstream_url(upstream_base_url.to_string()),
-            connect_base_url: None,
+            s3_upstream_base_url: Some(normalize_and_parse_upstream_url(
+                upstream_base_url.to_string(),
+            )),
+            swift_upstream_base_url: None,
+            dual: false,
             address: Some("127.0.0.1:1234".to_socket_addrs().unwrap().next().unwrap()),
             socket_path: None,
             local_encryption_directory: PathBuf::from(DEFAULT_LOCAL_ENCRYPTION_DIRECTORY),
