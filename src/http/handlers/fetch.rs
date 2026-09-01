@@ -5,6 +5,7 @@ use crate::http::utils::{
     s3_helper::sign_request,
 };
 use actix_files::HttpRange;
+use actix_web::http::StatusCode;
 use actix_web::web::Bytes;
 
 pub async fn fetch(
@@ -50,7 +51,9 @@ pub async fn fetch(
         error!("fetch status error {:?} {:?}", req, res);
     }
 
-    let mut client_resp = HttpResponse::build(res.status());
+    let upstream_status = res.status();
+
+    let mut client_resp = HttpResponse::build(upstream_status);
 
     for header in res
         .headers()
@@ -76,10 +79,13 @@ pub async fn fetch(
 
         let range = raw_range.map(|r| HttpRange::parse(r, length.try_into().unwrap()));
 
-        match range {
-            Some(Ok(v)) => {
-                let r = v.first().unwrap();
+        let served_range = match (upstream_status, range) {
+            (StatusCode::OK, Some(Ok(v))) => v.first().copied().filter(|r| r.length > 0),
+            _ => None,
+        };
 
+        match served_range {
+            Some(r) => {
                 let range_start = r.start.try_into().unwrap();
                 let range_end = (r.start + r.length - 1).try_into().unwrap();
 
@@ -90,9 +96,12 @@ pub async fn fetch(
                     format!("bytes {}-{}/{}", range_start, range_end, length),
                 ));
 
+                // What we hand back is a slice, and only a 206 says so
+                client_resp.status(StatusCode::PARTIAL_CONTENT);
+
                 Ok(client_resp.no_chunking(r.length).streaming(pe))
             }
-            _ => Ok(client_resp.no_chunking(length as u64).streaming(decoder)),
+            None => Ok(client_resp.no_chunking(length as u64).streaming(decoder)),
         }
     } else {
         Ok(client_resp.streaming(decoder))

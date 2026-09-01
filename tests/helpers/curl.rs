@@ -179,3 +179,22 @@ where
     let file = std::fs::File::open(filename).unwrap();
     std::io::BufReader::new(file).lines()
 }
+
+// Response headers, lowercased, for a GET carrying the given raw Range value.
+pub fn curl_range_headers(url: &str, range: &str) -> String {
+    let response = Command::new("curl")
+        .arg("-XGET")
+        .arg(url)
+        .arg("-H")
+        .arg(format!("Range: {}", range))
+        .arg("--dump-header")
+        .arg("-")
+        .arg("-o")
+        .arg("/dev/null")
+        .arg("-s")
+        .output()
+        .expect("failed to perform download")
+        .stdout;
+
+    String::from_utf8_lossy(&response).to_lowercase()
+}
